@@ -1,0 +1,433 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  BROKER
+  ADMIN
+}
+
+enum ListingStatus {
+  ACTIVE
+  UNDER_CONTRACT
+  SOLD
+  OFF_MARKET
+}
+
+enum OwnerInvolvement {
+  OWNER_OPERATED
+  ABSENTEE
+}
+
+enum Borough {
+  MANHATTAN
+  BROOKLYN
+  QUEENS
+  BRONX
+  STATEN_ISLAND
+}
+
+enum InquiryType {
+  ANONYMOUS_FORM
+  MESSAGE_THREAD
+}
+
+enum ReportType {
+  LISTING
+  REVIEW
+  DEAL
+  USER
+}
+
+enum ReportReason {
+  INACCURATE
+  SUSPICIOUS
+  DUPLICATE
+  SPAM
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+enum CheckFrequency {
+  DAILY
+  WEEKLY
+}
+
+enum EmailFrequency {
+  IMMEDIATELY
+  DAILY_DIGEST
+  WEEKLY_DIGEST
+}
+
+// ─── Models ──────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  emailVerified  DateTime?
+  hashedPassword String?
+  name           String
+  displayName    String?
+  bio            String?   @db.Text
+  avatarUrl      String?
+  phone          String?
+  website        String?
+  role           UserRole  @default(USER)
+  ownedBusiness  String?
+  buyBox         Json?
+
+  // Broker-specific
+  brokerageName    String?
+  brokerageWebsite String?
+  brokeragePhone   String?
+  instagramUrl     String?
+  linkedinUrl      String?
+  twitterUrl       String?
+  facebookUrl      String?
+  tiktokUrl        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  listings          BusinessListing[]
+  coListings        BusinessListing[]  @relation("CoBrokers")
+  receivedInquiries Inquiry[]          @relation("ReceivedInquiries")
+  sentInquiries     Inquiry[]          @relation("SentInquiries")
+  savedListings     SavedListing[]
+  collections       Collection[]
+  receivedReviews   Review[]           @relation("ReceivedReviews")
+  givenReviews      Review[]           @relation("GivenReviews")
+  savedSearches     SavedSearch[]
+  messages          Message[]
+  reports           Report[]
+  statusLogs        ListingStatusLog[]
+
+  @@index([role])
+  @@index([email])
+}
+
+model BusinessListing {
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  status         ListingStatus @default(ACTIVE)
+  isGhostListing Boolean       @default(false)
+  shareToken     String?       @unique
+
+  // Basic Info
+  title       String
+  description String @db.Text
+  category    String
+
+  // Financials
+  askingPrice           Decimal  @db.Decimal(12, 2)
+  annualRevenue         Decimal? @db.Decimal(12, 2)
+  cashFlowSDE           Decimal? @db.Decimal(12, 2)
+  netIncome             Decimal? @db.Decimal(12, 2)
+  profitMargin          Decimal? @db.Decimal(5, 2)
+  askingMultiple        Decimal? @db.Decimal(5, 2)
+  monthlyRent           Decimal? @db.Decimal(10, 2)
+  rentEscalation        String?
+  annualPayroll         Decimal? @db.Decimal(12, 2)
+  totalExpenses         Decimal? @db.Decimal(12, 2)
+  inventoryValue        Decimal? @db.Decimal(10, 2)
+  inventoryIncluded     Boolean?
+  ffeValue              Decimal? @db.Decimal(10, 2)
+  ffeIncluded           Boolean?
+  sellerFinancing       Boolean  @default(false)
+  sbaFinancingAvailable Boolean  @default(false)
+
+  // Business Details
+  yearEstablished       Int?
+  numberOfEmployees     Int?
+  employeesWillingToStay Boolean?
+  ownerInvolvement      OwnerInvolvement?
+  ownerHoursPerWeek     Int?
+  squareFootage         Int?
+  leaseTerms            String?
+  leaseRenewalOption    Boolean?
+  reasonForSelling      String?
+  licensesPermits       String?
+  trainingSupport       String?
+
+  // Location
+  address      String
+  hideAddress  Boolean @default(false)
+  neighborhood String
+  borough      Borough
+  city         String  @default("New York")
+  state        String  @default("NY")
+  zipCode      String
+  latitude     Decimal @db.Decimal(10, 7)
+  longitude    Decimal @db.Decimal(10, 7)
+
+  // Privacy & Display
+  showPhoneNumber Boolean @default(true)
+
+  // Metrics
+  viewCount    Int @default(0)
+  saveCount    Int @default(0)
+  shareCount   Int @default(0)
+
+  // Listing Management
+  lastStatusConfirmation DateTime?
+  statusConfirmationDue  DateTime?
+
+  // Sold listing data
+  soldPrice Decimal?  @db.Decimal(12, 2)
+  soldDate  DateTime?
+
+  // Relations
+  listedBy   User   @relation(fields: [listedById], references: [id])
+  listedById String
+  coBrokers  User[] @relation("CoBrokers")
+
+  photos    Photo[]
+  inquiries Inquiry[]
+
+  savedByUsers  SavedListing[]
+  collections   Collection[]   @relation("CollectionListings")
+  statusLogs    ListingStatusLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([borough])
+  @@index([neighborhood])
+  @@index([askingPrice])
+  @@index([createdAt])
+  @@index([listedById])
+  @@index([slug])
+  @@index([status, category, borough])
+}
+
+model Photo {
+  id        String @id @default(uuid())
+  url       String
+  order     Int
+  listingId String
+
+  listing BusinessListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+}
+
+model Inquiry {
+  id   String      @id @default(uuid())
+  type InquiryType
+
+  // For anonymous inquiries
+  senderName  String?
+  senderEmail String?
+  senderPhone String?
+  message     String @db.Text
+
+  // Relations
+  listingId  String
+  listing    BusinessListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderId   String?
+  sender     User?           @relation("SentInquiries", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User            @relation("ReceivedInquiries", fields: [receiverId], references: [id])
+  isRead     Boolean         @default(false)
+
+  // Thread messages
+  messages Message[]
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([isRead])
+}
+
+model Message {
+  id        String @id @default(uuid())
+  content   String @db.Text
+  inquiryId String
+  senderId  String
+  isRead    Boolean @default(false)
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([inquiryId])
+  @@index([senderId])
+}
+
+model SavedListing {
+  id        String @id @default(uuid())
+  userId    String
+  listingId String
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing BusinessListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+}
+
+model Collection {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  userId      String
+
+  // Broker-specific: assign to a client
+  clientName  String?
+  clientEmail String?
+  clientPhone String?
+  clientBuyBox Json?
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listings BusinessListing[] @relation("CollectionListings")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SavedSearch {
+  id     String  @id @default(uuid())
+  userId String
+  name   String?
+
+  // Search criteria
+  criteria Json
+
+  // Notification settings
+  checkFrequency CheckFrequency @default(DAILY)
+  emailFrequency EmailFrequency @default(DAILY_DIGEST)
+  isActive       Boolean        @default(true)
+
+  lastCheckedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model Review {
+  id           String  @id @default(uuid())
+  rating       Int
+  text         String  @db.Text
+  reviewerId   String
+  brokerId     String
+  isReported   Boolean @default(false)
+  reportReason String?
+
+  reviewer User @relation("GivenReviews", fields: [reviewerId], references: [id])
+  broker   User @relation("ReceivedReviews", fields: [brokerId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([brokerId])
+  @@index([reviewerId])
+}
+
+model Report {
+  id       String       @id @default(uuid())
+  type     ReportType
+  reason   ReportReason
+  details  String?      @db.Text
+
+  reporterId String
+  reporter   User   @relation(fields: [reporterId], references: [id])
+
+  // Polymorphic target
+  listingId String?
+  reviewId  String?
+  userId    String?
+
+  status     ReportStatus @default(PENDING)
+  adminNotes String?      @db.Text
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+  @@index([reporterId])
+  @@index([type])
+}
+
+model ListingStatusLog {
+  id              String @id @default(uuid())
+  listingId       String
+  confirmedById   String
+  previousStatus  String
+  confirmedStatus String
+
+  listing     BusinessListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  confirmedBy User            @relation(fields: [confirmedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}

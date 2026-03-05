@@ -2,6 +2,8 @@
 
 import { useState, useCallback, type FormEvent } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Eye,
   Heart,
@@ -548,8 +550,11 @@ export function ListingContactSidebar({
   listing,
   isSaved: initialIsSaved = false,
 }: ListingContactSidebarProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
   const [isSaved, setIsSaved] = useState(initialIsSaved);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMessaging, setIsMessaging] = useState(false);
 
   // ---- Save / Unsave ----
   const handleToggleSave = useCallback(async () => {
@@ -599,18 +604,55 @@ export function ListingContactSidebar({
     }
   }, [listing.slug]);
 
-  // ---- Message Seller (placeholder) ----
-  const handleMessageSeller = useCallback(() => {
-    toast.info("Login required to send messages", {
-      description: "Create an account or sign in to message the seller directly.",
-      action: {
-        label: "Sign in",
-        onClick: () => {
-          window.location.href = "/login";
+  // ---- Message Seller ----
+  const handleMessageSeller = useCallback(async () => {
+    if (!session?.user?.id) {
+      toast.info("Login required to send messages", {
+        description: "Create an account or sign in to message the seller directly.",
+        action: {
+          label: "Sign in",
+          onClick: () => {
+            router.push(`/login?callbackUrl=/listings/${listing.slug}`);
+          },
         },
-      },
-    });
-  }, []);
+      });
+      return;
+    }
+
+    // Can't message yourself
+    if (session.user.id === listing.listedBy.id) {
+      toast.error("You cannot message your own listing");
+      return;
+    }
+
+    setIsMessaging(true);
+
+    try {
+      const res = await fetch("/api/inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId: listing.id,
+          message: `Hi, I'm interested in "${listing.title}". I'd like to learn more.`,
+          type: "MESSAGE_THREAD",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to start conversation");
+      }
+
+      toast.success("Message sent! Redirecting to your inbox...");
+      router.push("/inquiries");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
+    } finally {
+      setIsMessaging(false);
+    }
+  }, [session, listing.id, listing.title, listing.slug, listing.listedBy.id, router]);
 
   // ---- Ghost listing share link ----
   const ghostShareUrl =
@@ -705,9 +747,19 @@ export function ListingContactSidebar({
               className="w-full"
               size="lg"
               onClick={handleMessageSeller}
+              disabled={isMessaging}
             >
-              <MessageSquare className="size-4" />
-              Message Seller
+              {isMessaging ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="size-4" />
+                  Message Seller
+                </>
+              )}
             </Button>
           </div>
 

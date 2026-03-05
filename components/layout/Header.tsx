@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
   Menu,
@@ -33,6 +33,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
@@ -48,6 +49,29 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const user = session?.user;
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread count
+  const fetchUnread = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/inquiries/unread-count");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success) {
+        setUnreadCount(json.data.count);
+      }
+    } catch {
+      // Silent
+    }
+  }, [user]);
+
+  // Initial fetch + polling every 30s
+  useEffect(() => {
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground">
@@ -87,6 +111,14 @@ export function Header() {
               <Link href="/inquiries" className="relative">
                 <Button variant="ghost" size="icon" className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
                   <MessageSquare className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-5 min-w-[20px] justify-center px-1 text-[10px] font-bold"
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Badge>
+                  )}
                 </Button>
               </Link>
               <DropdownMenu>
@@ -118,6 +150,14 @@ export function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/inquiries" className="gap-2">
                       <MessageSquare className="h-4 w-4" /> Inquiries
+                      {unreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="ml-auto h-5 min-w-[20px] justify-center px-1.5 text-[10px]"
+                        >
+                          {unreadCount}
+                        </Badge>
+                      )}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -183,8 +223,11 @@ export function Header() {
         {/* Mobile Menu */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild className="lg:hidden">
-            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 relative">
               <Menu className="h-6 w-6" />
+              {user && unreadCount > 0 && (
+                <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" />
+              )}
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-80">
@@ -221,8 +264,13 @@ export function Header() {
                     <Link href="/saved" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
                       Saved Listings
                     </Link>
-                    <Link href="/inquiries" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
+                    <Link href="/inquiries" className="text-base font-medium flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                       Inquiries
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="h-5 min-w-[20px] justify-center px-1.5 text-[10px]">
+                          {unreadCount}
+                        </Badge>
+                      )}
                     </Link>
                     <Link href="/my-listings" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
                       My Listings

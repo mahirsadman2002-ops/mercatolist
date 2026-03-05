@@ -44,8 +44,7 @@ export default function MarketingNudge({
     <Html>
       <Head />
       <Preview>
-        Still interested? Check back on your {savedCount} saved listing
-        {savedCount !== 1 ? "s" : ""}
+        {`Still interested? Check back on your ${savedCount} saved listing${savedCount !== 1 ? "s" : ""}`}
       </Preview>
       <Body style={main}>
         <Container style={container}>

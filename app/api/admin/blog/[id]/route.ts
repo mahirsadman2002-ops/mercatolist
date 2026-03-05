@@ -57,7 +57,7 @@ export async function PUT(
     const validated = blogPostUpdateSchema.safeParse(body);
     if (!validated.success) {
       return NextResponse.json(
-        { success: false, error: validated.error.errors[0].message },
+        { success: false, error: validated.error.issues[0].message },
         { status: 400 }
       );
     }

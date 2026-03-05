@@ -187,6 +187,33 @@ export const LISTING_STATUSES = [
   { value: "OFF_MARKET", label: "Off Market" },
 ] as const;
 
+export const RELATED_CATEGORIES: Record<string, string[]> = {
+  Restaurants: ["Bars & Nightclubs", "Cafes & Coffee Shops", "Bakeries", "Food Trucks & Carts"],
+  "Bars & Nightclubs": ["Restaurants", "Liquor Stores", "Event Planning"],
+  "Cafes & Coffee Shops": ["Restaurants", "Bakeries", "Delis & Grocery Stores"],
+  Bakeries: ["Cafes & Coffee Shops", "Restaurants", "Delis & Grocery Stores"],
+  "Delis & Grocery Stores": ["Convenience Stores", "Bakeries", "Liquor Stores"],
+  "Food Trucks & Carts": ["Restaurants", "Cafes & Coffee Shops"],
+  "Retail Stores": ["Clothing & Fashion", "Electronics", "Convenience Stores"],
+  "Clothing & Fashion": ["Retail Stores", "E-commerce Businesses"],
+  Electronics: ["Retail Stores", "E-commerce Businesses", "Tech & Software"],
+  "Convenience Stores": ["Delis & Grocery Stores", "Retail Stores", "Smoke Shops & Vape Shops"],
+  Pharmacies: ["Medical & Dental Practices", "Home Health Agencies"],
+  "Laundromats & Dry Cleaners": ["Cleaning Services", "Salons & Barbershops"],
+  "Salons & Barbershops": ["Nail Salons", "Spas & Wellness"],
+  "Spas & Wellness": ["Salons & Barbershops", "Nail Salons", "Gyms & Fitness Studios"],
+  "Nail Salons": ["Salons & Barbershops", "Spas & Wellness"],
+  "Gyms & Fitness Studios": ["Spas & Wellness", "Daycare & Childcare"],
+  "Daycare & Childcare": ["Tutoring & Education Centers"],
+  "Auto Repair & Body Shops": ["Gas Stations", "Car Washes"],
+  "Gas Stations": ["Auto Repair & Body Shops", "Car Washes", "Convenience Stores"],
+  "Car Washes": ["Auto Repair & Body Shops", "Gas Stations"],
+  "Liquor Stores": ["Bars & Nightclubs", "Delis & Grocery Stores", "Convenience Stores"],
+  "Smoke Shops & Vape Shops": ["Convenience Stores", "Retail Stores"],
+  "E-commerce Businesses": ["Tech & Software", "Retail Stores", "Marketing & Advertising Agencies"],
+  "Tech & Software": ["E-commerce Businesses", "Marketing & Advertising Agencies"],
+};
+
 export const PRICE_RANGES = [
   { label: "Under $50K", min: 0, max: 50000 },
   { label: "$50K - $100K", min: 50000, max: 100000 },

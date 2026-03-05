@@ -43,7 +43,7 @@ export default function SavedSearchMatch({
     <Html>
       <Head />
       <Preview>
-        {matchCount} new listing{matchCount !== 1 ? "s" : ""} match your search: {searchName}
+        {`${matchCount} new listing${matchCount !== 1 ? "s" : ""} match your search: ${searchName}`}
       </Preview>
       <Body style={main}>
         <Container style={container}>

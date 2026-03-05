@@ -60,7 +60,7 @@ export default function CollectionUpdate({
     <Html>
       <Head />
       <Preview>
-        {changes.length} listing{changes.length !== 1 ? "s" : ""} updated in &quot;{collectionName}&quot;
+        {`${changes.length} listing${changes.length !== 1 ? "s" : ""} updated in "${collectionName}"`}
       </Preview>
       <Body style={main}>
         <Container style={container}>

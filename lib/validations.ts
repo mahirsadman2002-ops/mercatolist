@@ -166,3 +166,46 @@ export const statusChangeSchema = z.object({
   soldPrice: z.number().positive().optional().nullable(),
   soldDate: z.string().optional().nullable(),
 });
+
+// ─── Admin Schemas ──────────────────────────────────────────────────
+
+export const blogPostCreateSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters").max(200),
+  content: z.string().min(10, "Content must be at least 10 characters"),
+  excerpt: z.string().max(300).optional().nullable(),
+  featuredImage: z.string().url().optional().nullable().or(z.literal("")),
+  metaTitle: z.string().max(60).optional().nullable(),
+  metaDescription: z.string().max(160).optional().nullable(),
+  category: z.string().max(100).optional().nullable(),
+  tags: z.array(z.string()).optional().default([]),
+  status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
+});
+
+export const blogPostUpdateSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  content: z.string().min(10).optional(),
+  excerpt: z.string().max(300).optional().nullable(),
+  featuredImage: z.string().url().optional().nullable().or(z.literal("")),
+  metaTitle: z.string().max(60).optional().nullable(),
+  metaDescription: z.string().max(160).optional().nullable(),
+  category: z.string().max(100).optional().nullable(),
+  tags: z.array(z.string()).optional(),
+  status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
+});
+
+export const adminListingUpdateSchema = z.object({
+  status: z.enum(["ACTIVE", "UNDER_CONTRACT", "SOLD", "OFF_MARKET"]).optional(),
+  isFeatured: z.boolean().optional(),
+  adminNotes: z.string().optional().nullable(),
+  soldPrice: z.number().positive().optional().nullable(),
+  soldDate: z.string().optional().nullable(),
+});
+
+export const adminUserBanSchema = z.object({
+  bannedReason: z.string().min(1, "Reason is required").max(500),
+});
+
+export const adminReportUpdateSchema = z.object({
+  status: z.enum(["PENDING", "REVIEWED", "DISMISSED", "ACTION_TAKEN"]),
+  adminNotes: z.string().max(2000).optional().nullable(),
+});

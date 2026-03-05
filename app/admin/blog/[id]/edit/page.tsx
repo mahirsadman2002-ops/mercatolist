@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,9 +14,11 @@ import { ArrowLeft, Save, Globe } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
-export default function NewBlogPostPage() {
+export default function EditBlogPostPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -26,8 +28,30 @@ export default function NewBlogPostPage() {
   const [tags, setTags] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
+  const [currentStatus, setCurrentStatus] = useState("DRAFT");
 
-  const handleSave = async (status: "DRAFT" | "PUBLISHED") => {
+  useEffect(() => {
+    fetch(`/api/admin/blog/${id}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          const post = res.data;
+          setTitle(post.title || "");
+          setContent(post.content || "");
+          setExcerpt(post.excerpt || "");
+          setFeaturedImage(post.featuredImage || "");
+          setCategory(post.category || "");
+          setTags(post.tags?.join(", ") || "");
+          setMetaTitle(post.metaTitle || "");
+          setMetaDescription(post.metaDescription || "");
+          setCurrentStatus(post.status);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const handleSave = async (status?: "DRAFT" | "PUBLISHED") => {
     if (!title.trim() || !content.trim()) {
       toast.error("Title and content are required");
       return;
@@ -35,25 +59,27 @@ export default function NewBlogPostPage() {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/blog", {
-        method: "POST",
+      const body: Record<string, any> = {
+        title,
+        content,
+        excerpt: excerpt || null,
+        featuredImage: featuredImage || null,
+        category: category || null,
+        tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+        metaTitle: metaTitle || null,
+        metaDescription: metaDescription || null,
+      };
+      if (status) body.status = status;
+
+      const res = await fetch(`/api/admin/blog/${id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          content,
-          excerpt: excerpt || null,
-          featuredImage: featuredImage || null,
-          category: category || null,
-          tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-          metaTitle: metaTitle || null,
-          metaDescription: metaDescription || null,
-          status,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(status === "PUBLISHED" ? "Post published!" : "Draft saved!");
-        router.push("/admin/blog");
+        toast.success("Post saved!");
+        if (status) setCurrentStatus(status);
       } else {
         toast.error(data.error || "Failed to save post");
       }
@@ -64,6 +90,15 @@ export default function NewBlogPostPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-4xl space-y-6">
+        <h1 className="text-3xl font-bold">Edit Post</h1>
+        <div className="h-96 animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
@@ -71,15 +106,21 @@ export default function NewBlogPostPage() {
           <Button variant="ghost" size="icon" asChild>
             <Link href="/admin/blog"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
-          <h1 className="text-3xl font-bold">New Blog Post</h1>
+          <h1 className="text-3xl font-bold">Edit Post</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleSave("DRAFT")} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" /> Save Draft
+          <Button variant="outline" onClick={() => handleSave()} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" /> Save
           </Button>
-          <Button onClick={() => handleSave("PUBLISHED")} disabled={saving}>
-            <Globe className="h-4 w-4 mr-2" /> Publish
-          </Button>
+          {currentStatus === "DRAFT" ? (
+            <Button onClick={() => handleSave("PUBLISHED")} disabled={saving}>
+              <Globe className="h-4 w-4 mr-2" /> Publish
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => handleSave("DRAFT")} disabled={saving}>
+              Unpublish
+            </Button>
+          )}
         </div>
       </div>
 

@@ -1,23 +1,279 @@
-import type { Metadata } from "next";
+"use client";
 
-// Components needed: RegisterForm with name, email, password fields + Google OAuth
-// import { RegisterForm } from "@/components/forms/RegisterForm";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { Eye, EyeOff, Loader2, Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { toast } from "sonner";
 
-export const metadata: Metadata = {
-  title: "Create Account | MercatoList",
-  description: "Create your free MercatoList account to buy or sell businesses in New York City.",
-};
+// Reuse the same OAuth icons
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  );
+}
+
+function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+    </svg>
+  );
+}
+
+// Password strength helper
+function getPasswordStrength(password: string): { label: string; color: string; width: string } {
+  if (password.length === 0) return { label: "", color: "", width: "0%" };
+
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  if (score <= 2) return { label: "Weak", color: "bg-red-500", width: "33%" };
+  if (score <= 4) return { label: "Medium", color: "bg-amber-500", width: "66%" };
+  return { label: "Strong", color: "bg-emerald-500", width: "100%" };
+}
+
+// Step indicator component
+function StepIndicator({ currentStep }: { currentStep: number }) {
+  const steps = ["Create Account", "Account Type", "Details"];
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6">
+      {steps.map((step, i) => (
+        <div key={step} className="flex items-center gap-2">
+          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+            i < currentStep
+              ? "bg-accent text-accent-foreground"
+              : i === currentStep
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground"
+          }`}>
+            {i < currentStep ? <Check className="h-3.5 w-3.5" /> : i + 1}
+          </div>
+          <span className={`text-xs hidden sm:inline ${i === currentStep ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+            {step}
+          </span>
+          {i < steps.length - 1 && <div className="w-6 h-px bg-border" />}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function RegisterPage() {
+  const router = useRouter();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const passwordStrength = getPasswordStrength(password);
+
+  // Password requirements check
+  const requirements = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "One uppercase letter", met: /[A-Z]/.test(password) },
+    { label: "One lowercase letter", met: /[a-z]/.test(password) },
+    { label: "One number", met: /[0-9]/.test(password) },
+  ];
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (name.trim().length < 2) newErrors.name = "Name must be at least 2 characters";
+    if (!email.includes("@")) newErrors.email = "Please enter a valid email";
+    if (password.length < 8) newErrors.password = "Password must be at least 8 characters";
+    else if (!/[A-Z]/.test(password)) newErrors.password = "Password must contain an uppercase letter";
+    else if (!/[0-9]/.test(password)) newErrors.password = "Password must contain a number";
+    if (password !== confirmPassword) newErrors.confirmPassword = "Passwords don't match";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setErrors({ email: "An account with this email already exists" });
+        } else if (data.details) {
+          const fieldErrors: Record<string, string> = {};
+          for (const [key, msgs] of Object.entries(data.details)) {
+            fieldErrors[key] = Array.isArray(msgs) ? msgs[0] : String(msgs);
+          }
+          setErrors(fieldErrors);
+        } else {
+          toast.error(data.error || "Failed to create account");
+        }
+        return;
+      }
+
+      toast.success("Account created! Check your email to verify.");
+
+      // Sign in immediately (they'll need to verify email before they can use credentials again)
+      // For now, redirect to account type selection
+      // We auto-sign them in so they can select account type
+      const signInResult = await signIn("credentials", {
+        email: email.trim(),
+        password,
+        redirect: false,
+      });
+
+      // If sign-in fails (expected since email isn't verified), just redirect
+      router.push("/register/account-type");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOAuthSignup = async (provider: string) => {
+    setIsOAuthLoading(provider);
+    try {
+      await signIn(provider, { callbackUrl: "/complete-profile" });
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+      setIsOAuthLoading(null);
+    }
+  };
+
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Create your account</h1>
-          <p className="text-muted-foreground mt-2">Join NYC&apos;s premier business marketplace</p>
-        </div>
-        <p className="text-muted-foreground text-center">Registration form — coming soon</p>
-      </div>
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center space-y-2">
+          <Link href="/" className="inline-block mx-auto">
+            <span className="font-heading text-2xl font-bold tracking-tight">MercatoList</span>
+          </Link>
+          <StepIndicator currentStep={0} />
+          <CardTitle className="text-2xl font-bold">Create your MercatoList account</CardTitle>
+          <CardDescription>Join NYC&apos;s premier business marketplace</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* OAuth buttons */}
+          <div className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full h-11 gap-3 font-medium"
+              onClick={() => handleOAuthSignup("google")}
+              disabled={!!isOAuthLoading}
+            >
+              {isOAuthLoading === "google" ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon className="h-5 w-5" />}
+              Sign up with Google
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-11 gap-3 font-medium bg-black text-white hover:bg-black/90 hover:text-white border-black"
+              onClick={() => handleOAuthSignup("apple")}
+              disabled={!!isOAuthLoading}
+            >
+              {isOAuthLoading === "apple" ? <Loader2 className="h-5 w-5 animate-spin" /> : <AppleIcon className="h-5 w-5" />}
+              Sign up with Apple
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
+          {/* Registration form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input id="name" placeholder="John Doe" value={name} onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: "" })); }} required />
+              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reg-email">Email</Label>
+              <Input id="reg-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: "" })); }} required autoComplete="email" />
+              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reg-password">Password</Label>
+              <div className="relative">
+                <Input id="reg-password" type={showPassword ? "text" : "password"} placeholder="Create a password" value={password} onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: "" })); }} required className="pr-10" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {password.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${passwordStrength.color}`} style={{ width: passwordStrength.width }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground">{passwordStrength.label}</span>
+                  </div>
+                  <div className="space-y-1 mt-2">
+                    {requirements.map((req) => (
+                      <div key={req.label} className="flex items-center gap-1.5 text-xs">
+                        {req.met ? <Check className="h-3 w-3 text-emerald-500" /> : <X className="h-3 w-3 text-muted-foreground" />}
+                        <span className={req.met ? "text-emerald-600" : "text-muted-foreground"}>{req.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reg-confirm-password">Confirm Password</Label>
+              <Input id="reg-confirm-password" type="password" placeholder="Confirm your password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setErrors((p) => ({ ...p, confirmPassword: "" })); }} required />
+              {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
+            </div>
+
+            <Button type="submit" className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold" disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Create Account
+            </Button>
+          </form>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-foreground hover:underline">Sign in</Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

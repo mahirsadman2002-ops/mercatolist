@@ -113,6 +113,18 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
 model User {
   id             String    @id @default(uuid())
   email          String    @unique
@@ -156,6 +168,7 @@ model User {
   messages          Message[]
   reports           Report[]
   statusLogs        ListingStatusLog[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@index([role])
   @@index([email])

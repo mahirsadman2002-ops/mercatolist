@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import "./globals.css";
@@ -65,12 +66,14 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} ${plusJakarta.variable} font-sans antialiased`}
       >
-        <TooltipProvider>
-          <Header />
-          <main className="min-h-[calc(100vh-4rem)]">{children}</main>
-          <Footer />
-          <Toaster position="bottom-right" />
-        </TooltipProvider>
+        <SessionProvider>
+          <TooltipProvider>
+            <Header />
+            <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+            <Footer />
+            <Toaster position="bottom-right" />
+          </TooltipProvider>
+        </SessionProvider>
       </body>
     </html>
   );

@@ -348,7 +348,7 @@ export function FilterSidebar({
                                 priceMin: preset.min,
                                 priceMax: preset.max,
                               };
-                              if (!next.priceMax) delete next.priceMax;
+                              if (!next.priceMax) (next as Record<string, unknown>).priceMax = undefined;
                               emitFilters(next);
                               return next;
                             });
@@ -411,7 +411,7 @@ export function FilterSidebar({
                                 revenueMin: preset.min,
                                 revenueMax: preset.max,
                               };
-                              if (!next.revenueMax) delete next.revenueMax;
+                              if (!next.revenueMax) (next as Record<string, unknown>).revenueMax = undefined;
                               emitFilters(next);
                               return next;
                             });

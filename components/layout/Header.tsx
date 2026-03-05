@@ -161,16 +161,18 @@ export function Header() {
             </>
           ) : (
             <>
-              <Link href="/register/broker" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
-                Register as Broker
+              <Link href="/register/broker">
+                <Button size="sm" className="bg-amber-400 text-amber-950 hover:bg-amber-500 font-semibold shadow-sm">
+                  Register as Broker
+                </Button>
               </Link>
               <Link href="/register">
-                <Button variant="secondary" size="sm" className="font-semibold">
+                <Button size="sm" className="bg-teal-500 text-white hover:bg-teal-600 font-semibold shadow-sm">
                   Create Account
                 </Button>
               </Link>
               <Link href="/login">
-                <Button variant="outline" size="sm" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 font-semibold">
+                <Button variant="outline" size="sm" className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 font-semibold">
                   Sign In
                 </Button>
               </Link>
@@ -245,11 +247,15 @@ export function Header() {
                   </>
                 ) : (
                   <>
-                    <Link href="/register/broker" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                      Register as Broker
+                    <Link href="/register/broker" onClick={() => setMobileOpen(false)}>
+                      <Button className="w-full bg-amber-400 text-amber-950 hover:bg-amber-500 font-semibold shadow-sm" size="lg">
+                        Register as Broker
+                      </Button>
                     </Link>
                     <Link href="/register" onClick={() => setMobileOpen(false)}>
-                      <Button className="w-full" size="lg">Create Account</Button>
+                      <Button className="w-full bg-teal-500 text-white hover:bg-teal-600 font-semibold shadow-sm" size="lg">
+                        Create Account
+                      </Button>
                     </Link>
                     <Link href="/login" onClick={() => setMobileOpen(false)}>
                       <Button variant="outline" className="w-full" size="lg">Sign In</Button>

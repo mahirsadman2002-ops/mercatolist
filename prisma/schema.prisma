@@ -169,6 +169,7 @@ model User {
   reports           Report[]
   statusLogs        ListingStatusLog[]
   emailVerificationTokens EmailVerificationToken[]
+  reviewTokens            ReviewToken[]              @relation("ReviewTokens")
 
   @@index([role])
   @@index([email])
@@ -403,6 +404,19 @@ model Review {
 
   @@index([brokerId])
   @@index([reviewerId])
+}
+
+model ReviewToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  brokerId    String
+  broker      User     @relation("ReviewTokens", fields: [brokerId], references: [id], onDelete: Cascade)
+  clientEmail String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([brokerId])
+  @@index([token])
 }
 
 model Report {

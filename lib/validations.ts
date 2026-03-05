@@ -117,3 +117,52 @@ export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
+
+export const profileUpdateSchema = z.object({
+  displayName: z.string().max(100).optional().nullable(),
+  phone: z.string().max(20).optional().nullable(),
+  bio: z.string().max(1000).optional().nullable(),
+  avatarUrl: z.string().url().optional().nullable().or(z.literal("")),
+  ownedBusiness: z.string().max(200).optional().nullable(),
+  buyBox: z
+    .object({
+      categories: z.array(z.string()).optional(),
+      boroughs: z.array(z.string()).optional(),
+      priceMin: z.number().optional().nullable(),
+      priceMax: z.number().optional().nullable(),
+      revenueMin: z.number().optional().nullable(),
+      revenueMax: z.number().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
+  // Broker-specific fields
+  brokerageName: z.string().max(200).optional().nullable(),
+  brokerageWebsite: z.string().url().optional().nullable().or(z.literal("")),
+  brokeragePhone: z.string().max(20).optional().nullable(),
+  instagramUrl: z.string().url().optional().nullable().or(z.literal("")),
+  linkedinUrl: z.string().url().optional().nullable().or(z.literal("")),
+  twitterUrl: z.string().url().optional().nullable().or(z.literal("")),
+  facebookUrl: z.string().url().optional().nullable().or(z.literal("")),
+  tiktokUrl: z.string().url().optional().nullable().or(z.literal("")),
+});
+
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+export const statusChangeSchema = z.object({
+  status: z.enum(["ACTIVE", "UNDER_CONTRACT", "SOLD", "OFF_MARKET"]),
+  soldPrice: z.number().positive().optional().nullable(),
+  soldDate: z.string().optional().nullable(),
+});

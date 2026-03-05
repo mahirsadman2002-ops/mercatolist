@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        { success: false, error: "Sign in to save listings" },
         { status: 401 }
       );
     }
@@ -28,21 +28,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (existing) {
       // Unsave
       await prisma.savedListing.delete({ where: { id: existing.id } });
-      await prisma.businessListing.update({
+      const listing = await prisma.businessListing.update({
         where: { id },
         data: { saveCount: { decrement: 1 } },
+        select: { saveCount: true },
       });
-      return NextResponse.json({ success: true, data: { saved: false } });
+      return NextResponse.json({
+        success: true,
+        data: { saved: false, saveCount: listing.saveCount },
+      });
     } else {
       // Save
       await prisma.savedListing.create({
         data: { userId: session.user.id, listingId: id },
       });
-      await prisma.businessListing.update({
+      const listing = await prisma.businessListing.update({
         where: { id },
         data: { saveCount: { increment: 1 } },
+        select: { saveCount: true },
       });
-      return NextResponse.json({ success: true, data: { saved: true } });
+      return NextResponse.json({
+        success: true,
+        data: { saved: true, saveCount: listing.saveCount },
+      });
     }
   } catch (error) {
     console.error("Error saving listing:", error);

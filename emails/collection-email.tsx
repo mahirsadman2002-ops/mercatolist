@@ -14,36 +14,49 @@ import {
   Row,
 } from "@react-email/components";
 
-interface MatchedListing {
-  title: string;
+interface CollectionListing {
+  id: string;
   slug: string;
-  askingPrice: string;
+  title: string;
   category: string;
+  askingPrice: string;
   neighborhood: string;
   borough: string;
   photoUrl?: string | null;
 }
 
-interface SavedSearchMatchProps {
-  userName: string;
-  searchName: string;
-  matchCount: number;
-  listings: MatchedListing[];
-  viewAllUrl: string;
+interface CollectionEmailProps {
+  collectionName: string;
+  collectionDescription?: string | null;
+  clientName?: string | null;
+  personalMessage?: string | null;
+  listings: CollectionListing[];
+  sender: {
+    name: string;
+    email: string;
+    phone?: string | null;
+    brokerageName?: string | null;
+  };
 }
 
-export default function SavedSearchMatch({
-  userName = "there",
-  searchName = "Restaurants in Brooklyn",
-  matchCount = 3,
+export function CollectionEmail({
+  collectionName = "Manhattan Restaurants",
+  collectionDescription,
+  clientName,
+  personalMessage,
   listings = [],
-  viewAllUrl = "https://mercatolist.com/listings",
-}: SavedSearchMatchProps) {
+  sender = {
+    name: "Jane Broker",
+    email: "jane@example.com",
+    phone: "(212) 555-0100",
+    brokerageName: "NYC Business Brokers",
+  },
+}: CollectionEmailProps) {
   return (
     <Html>
       <Head />
       <Preview>
-        {matchCount} new listing{matchCount !== 1 ? "s" : ""} match your search: {searchName}
+        {sender.name} shared listings with you: {collectionName}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -53,18 +66,34 @@ export default function SavedSearchMatch({
 
           <Section style={content}>
             <Heading as="h2" style={heading}>
-              New matches found
+              {collectionName}
             </Heading>
+
             <Text style={paragraph}>
-              Hi {userName}, we found{" "}
-              <strong>
-                {matchCount} new listing{matchCount !== 1 ? "s" : ""}
-              </strong>{" "}
-              matching your saved search{" "}
-              <strong>&quot;{searchName}&quot;</strong>.
+              Hi {clientName || "there"},{" "}
+              <strong>{sender.name}</strong>
+              {sender.brokerageName && ` from ${sender.brokerageName}`} has
+              curated a collection of listings for you.
             </Text>
 
-            {listings.slice(0, 5).map((listing, i) => {
+            {collectionDescription && (
+              <Text style={descriptionText}>{collectionDescription}</Text>
+            )}
+
+            {personalMessage && (
+              <Section style={messageCard}>
+                <Text style={messageLabel}>Personal note from {sender.name}:</Text>
+                <Text style={messageText}>
+                  &quot;{personalMessage}&quot;
+                </Text>
+              </Section>
+            )}
+
+            <Text style={sectionHeading}>
+              {listings.length} Listing{listings.length !== 1 ? "s" : ""}
+            </Text>
+
+            {listings.map((listing, i) => {
               const price = Number(listing.askingPrice).toLocaleString("en-US", {
                 style: "currency",
                 currency: "USD",
@@ -76,15 +105,15 @@ export default function SavedSearchMatch({
                 listing.borough.slice(1).toLowerCase().replace("_", " ");
 
               return (
-                <Section key={String(i)} style={listingRow}>
+                <Section key={String(i)} style={listingCard}>
                   <Row>
                     {listing.photoUrl && (
                       <Column style={listingImageCol}>
                         <Img
                           src={listing.photoUrl}
                           alt={listing.title}
-                          width="80"
-                          height="60"
+                          width="90"
+                          height="68"
                           style={listingThumb}
                         />
                       </Column>
@@ -106,23 +135,19 @@ export default function SavedSearchMatch({
               );
             })}
 
-            {matchCount > 5 && (
-              <Text style={moreText}>
-                ...and {matchCount - 5} more listing
-                {matchCount - 5 !== 1 ? "s" : ""}
-              </Text>
-            )}
-
-            <Section style={buttonContainer}>
-              <Button style={button} href={viewAllUrl}>
-                View All Results
-              </Button>
+            {/* Broker contact info */}
+            <Hr style={divider} />
+            <Section style={brokerSection}>
+              <Text style={brokerHeading}>Your Broker</Text>
+              <Text style={brokerName}>{sender.name}</Text>
+              {sender.brokerageName && (
+                <Text style={brokerDetail}>{sender.brokerageName}</Text>
+              )}
+              <Text style={brokerDetail}>{sender.email}</Text>
+              {sender.phone && (
+                <Text style={brokerDetail}>{sender.phone}</Text>
+              )}
             </Section>
-
-            <Text style={smallText}>
-              You&apos;re receiving this because of your saved search. Manage
-              your saved searches in your dashboard.
-            </Text>
           </Section>
 
           <Hr style={hr} />
@@ -139,6 +164,8 @@ export default function SavedSearchMatch({
     </Html>
   );
 }
+
+export default CollectionEmail;
 
 const main: React.CSSProperties = {
   backgroundColor: "#f6f9fc",
@@ -184,13 +211,54 @@ const paragraph: React.CSSProperties = {
   margin: "16px 0",
 };
 
-const listingRow: React.CSSProperties = {
+const descriptionText: React.CSSProperties = {
+  fontSize: "14px",
+  color: "#718096",
+  margin: "0 0 16px 0",
+  lineHeight: "22px",
+};
+
+const messageCard: React.CSSProperties = {
+  backgroundColor: "#f0fdfa",
+  borderRadius: "8px",
+  padding: "16px",
+  margin: "16px 0",
+  borderLeft: "3px solid #0d9488",
+};
+
+const messageLabel: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  color: "#0d9488",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  margin: "0 0 6px 0",
+};
+
+const messageText: React.CSSProperties = {
+  fontSize: "14px",
+  color: "#4a5568",
+  fontStyle: "italic" as const,
+  lineHeight: "22px",
+  margin: 0,
+};
+
+const sectionHeading: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#718096",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  margin: "24px 0 12px 0",
+};
+
+const listingCard: React.CSSProperties = {
   borderBottom: "1px solid #f0f0f0",
   padding: "12px 0",
 };
 
 const listingImageCol: React.CSSProperties = {
-  width: "80px",
+  width: "90px",
   verticalAlign: "top",
   paddingRight: "12px",
 };
@@ -222,42 +290,39 @@ const listingMeta: React.CSSProperties = {
 };
 
 const listingPrice: React.CSSProperties = {
-  fontSize: "14px",
+  fontSize: "15px",
   fontWeight: 700,
   color: "#1a1f36",
   margin: 0,
 };
 
-const moreText: React.CSSProperties = {
-  fontSize: "13px",
-  color: "#718096",
-  textAlign: "center" as const,
-  margin: "12px 0",
-  fontStyle: "italic" as const,
-};
-
-const buttonContainer: React.CSSProperties = {
-  textAlign: "center" as const,
+const divider: React.CSSProperties = {
+  borderColor: "#e2e8f0",
   margin: "24px 0",
 };
 
-const button: React.CSSProperties = {
-  backgroundColor: "#0d9488",
-  borderRadius: "6px",
-  color: "#ffffff",
-  fontSize: "15px",
+const brokerSection: React.CSSProperties = { margin: "0" };
+
+const brokerHeading: React.CSSProperties = {
+  fontSize: "11px",
   fontWeight: 600,
-  padding: "12px 32px",
-  textDecoration: "none",
-  textAlign: "center" as const,
-  display: "inline-block",
+  color: "#718096",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  margin: "0 0 8px 0",
 };
 
-const smallText: React.CSSProperties = {
+const brokerName: React.CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 600,
+  color: "#1a1f36",
+  margin: "0 0 2px 0",
+};
+
+const brokerDetail: React.CSSProperties = {
   fontSize: "13px",
   color: "#718096",
-  marginTop: "16px",
-  lineHeight: "20px",
+  margin: "0 0 2px 0",
 };
 
 const hr: React.CSSProperties = { borderColor: "#e2e8f0", margin: "0" };

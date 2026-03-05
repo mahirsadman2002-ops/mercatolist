@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Heart, MapPin, Clock, Building2 } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
@@ -37,6 +38,8 @@ interface ListingCardProps {
     };
   };
   isSaved?: boolean;
+  savedAt?: string | Date | null;
+  statusChanged?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,7 +77,12 @@ function toNumber(value: number | string | null | undefined): number | null {
 // Component
 // ---------------------------------------------------------------------------
 
-export function ListingCard({ listing, isSaved = false }: ListingCardProps) {
+export function ListingCard({
+  listing,
+  isSaved = false,
+  savedAt,
+  statusChanged,
+}: ListingCardProps) {
   const [saved, setSaved] = useState(isSaved);
   const [saving, setSaving] = useState(false);
 
@@ -94,13 +102,16 @@ export function ListingCard({ listing, isSaved = false }: ListingCardProps) {
       : listing.createdAt
   );
 
-  // Save handler
+  // Save handler with optimistic UI
   const handleSave = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
       if (saving) return;
+
+      const previousState = saved;
+      setSaved(!saved); // Optimistic
       setSaving(true);
 
       try {
@@ -108,16 +119,34 @@ export function ListingCard({ listing, isSaved = false }: ListingCardProps) {
           method: "POST",
         });
 
-        if (res.ok) {
-          setSaved((prev) => !prev);
+        if (!res.ok) {
+          setSaved(previousState); // Rollback
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 401) {
+            toast.info("Sign in to save listings", {
+              action: {
+                label: "Sign in",
+                onClick: () => {
+                  window.location.href = "/login";
+                },
+              },
+            });
+          } else {
+            toast.error(data.error || "Failed to save listing");
+          }
+          return;
         }
+
+        const json = await res.json();
+        toast.success(json.data.saved ? "Listing saved" : "Listing removed from saves");
       } catch {
-        // Silently fail -- toast could be wired in at integration time
+        setSaved(previousState); // Rollback
+        toast.error("Something went wrong. Please try again.");
       } finally {
         setSaving(false);
       }
     },
-    [listing.id, saving]
+    [listing.id, saving, saved]
   );
 
   // Broker / lister display name
@@ -177,14 +206,23 @@ export function ListingCard({ listing, isSaved = false }: ListingCardProps) {
             className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm transition-all duration-200 hover:bg-white hover:scale-110 active:scale-95 disabled:opacity-50"
           >
             <Heart
-              className={`h-[18px] w-[18px] transition-colors duration-200 ${
+              className={`h-[18px] w-[18px] transition-all duration-200 ${
                 saved
-                  ? "fill-red-500 text-red-500"
+                  ? "fill-red-500 text-red-500 scale-110"
                   : "fill-transparent text-slate-600"
               }`}
               strokeWidth={2}
             />
           </button>
+
+          {/* Status changed badge */}
+          {statusChanged && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2">
+              <Badge className="bg-blue-500 text-white text-[10px] border-0">
+                Status Updated
+              </Badge>
+            </div>
+          )}
 
           {/* Bottom-left: Status badge (non-ACTIVE only) */}
           {listing.status !== "ACTIVE" &&
@@ -269,11 +307,13 @@ export function ListingCard({ listing, isSaved = false }: ListingCardProps) {
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               <span>
-                {daysOnMarket === 0
-                  ? "Listed today"
-                  : daysOnMarket === 1
-                    ? "1 day on market"
-                    : `${daysOnMarket} days on market`}
+                {savedAt
+                  ? `Saved ${timeAgoShort(savedAt)}`
+                  : daysOnMarket === 0
+                    ? "Listed today"
+                    : daysOnMarket === 1
+                      ? "1 day on market"
+                      : `${daysOnMarket} days on market`}
               </span>
             </div>
             <span
@@ -288,4 +328,15 @@ export function ListingCard({ listing, isSaved = false }: ListingCardProps) {
       </Card>
     </Link>
   );
+}
+
+function timeAgoShort(dateInput: string | Date): string {
+  const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  const diff = Date.now() - d.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
 }

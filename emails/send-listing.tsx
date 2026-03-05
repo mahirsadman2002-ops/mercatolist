@@ -12,65 +12,47 @@ import {
   Img,
 } from "@react-email/components";
 
-interface ListingStatusChangeProps {
-  userName: string;
+interface SendListingProps {
+  brokerName: string;
+  brokerageName?: string;
+  clientName?: string;
   listingTitle: string;
   listingSlug: string;
-  oldStatus: string;
-  newStatus: string;
   askingPrice: string;
   category: string;
   neighborhood: string;
   borough: string;
-  photoUrl?: string | null;
-  soldPrice?: string | null;
+  photoUrl?: string;
+  personalMessage?: string;
 }
 
-function formatStatus(status: string): string {
-  switch (status) {
-    case "ACTIVE": return "Active";
-    case "UNDER_CONTRACT": return "Under Contract";
-    case "SOLD": return "Sold";
-    case "OFF_MARKET": return "Off Market";
-    default: return status;
-  }
-}
-
-function statusColor(status: string): string {
-  switch (status) {
-    case "ACTIVE": return "#16a34a";
-    case "UNDER_CONTRACT": return "#d97706";
-    case "SOLD": return "#dc2626";
-    case "OFF_MARKET": return "#6b7280";
-    default: return "#4a5568";
-  }
-}
-
-export default function ListingStatusChange({
-  userName = "there",
+export default function SendListing({
+  brokerName = "Jane Broker",
+  brokerageName,
+  clientName,
   listingTitle = "Joe's Pizza - Astoria",
   listingSlug = "joes-pizza-astoria",
-  oldStatus = "ACTIVE",
-  newStatus = "UNDER_CONTRACT",
   askingPrice = "350000",
   category = "Restaurants",
   neighborhood = "Astoria",
   borough = "QUEENS",
   photoUrl,
-  soldPrice,
-}: ListingStatusChangeProps) {
+  personalMessage,
+}: SendListingProps) {
   const listingUrl = `https://mercatolist.com/listings/${listingSlug}`;
   const formattedPrice = Number(askingPrice).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
   });
+  const boroughLabel =
+    borough.charAt(0) + borough.slice(1).toLowerCase().replace("_", " ");
 
   return (
     <Html>
       <Head />
       <Preview>
-        {listingTitle} is now {formatStatus(newStatus)}
+        {brokerName} shared a listing with you: {listingTitle}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -80,11 +62,25 @@ export default function ListingStatusChange({
 
           <Section style={content}>
             <Heading as="h2" style={heading}>
-              Listing status update
+              A listing picked for you
             </Heading>
             <Text style={paragraph}>
-              Hi {userName}, a listing you saved has changed status:
+              Hi {clientName || "there"},{" "}
+              <strong>{brokerName}</strong>
+              {brokerageName && ` from ${brokerageName}`} thinks you might be
+              interested in this listing:
             </Text>
+
+            {personalMessage && (
+              <Section style={messageCard}>
+                <Text style={messageLabel}>
+                  Note from {brokerName}:
+                </Text>
+                <Text style={messageText}>
+                  &quot;{personalMessage}&quot;
+                </Text>
+              </Section>
+            )}
 
             <Section style={listingCard}>
               {photoUrl && (
@@ -92,56 +88,28 @@ export default function ListingStatusChange({
                   src={photoUrl}
                   alt={listingTitle}
                   width="536"
-                  height="160"
+                  height="200"
                   style={listingImage}
                 />
               )}
               <Section style={listingBody}>
                 <Text style={listingTitle_}>{listingTitle}</Text>
                 <Text style={listingMeta}>
-                  {category} &bull; {neighborhood}, {borough.charAt(0) + borough.slice(1).toLowerCase().replace("_", " ")}
+                  {category} &bull; {neighborhood}, {boroughLabel}
                 </Text>
                 <Text style={listingPrice}>{formattedPrice}</Text>
-
-                <Section style={statusRow}>
-                  <Text style={statusLabel}>
-                    <span style={{ color: statusColor(oldStatus) }}>
-                      {formatStatus(oldStatus)}
-                    </span>
-                    {" → "}
-                    <span
-                      style={{
-                        color: statusColor(newStatus),
-                        fontWeight: 700,
-                      }}
-                    >
-                      {formatStatus(newStatus)}
-                    </span>
-                  </Text>
-                </Section>
-
-                {soldPrice && newStatus === "SOLD" && (
-                  <Text style={soldPriceText}>
-                    Sold for{" "}
-                    {Number(soldPrice).toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 0,
-                    })}
-                  </Text>
-                )}
               </Section>
             </Section>
 
             <Section style={buttonContainer}>
               <Button style={button} href={listingUrl}>
-                View Listing
+                View Listing Details
               </Button>
             </Section>
 
             <Text style={smallText}>
-              You&apos;re receiving this because you saved this listing. To stop
-              receiving these alerts, unsave the listing from your dashboard.
+              Interested? Reply to this email to contact {brokerName} directly,
+              or click the button above to see full details on MercatoList.
             </Text>
           </Section>
 
@@ -204,6 +172,31 @@ const paragraph: React.CSSProperties = {
   margin: "16px 0",
 };
 
+const messageCard: React.CSSProperties = {
+  backgroundColor: "#f0fdfa",
+  borderRadius: "8px",
+  padding: "16px",
+  margin: "16px 0",
+  borderLeft: "3px solid #0d9488",
+};
+
+const messageLabel: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  color: "#0d9488",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  margin: "0 0 6px 0",
+};
+
+const messageText: React.CSSProperties = {
+  fontSize: "14px",
+  color: "#4a5568",
+  fontStyle: "italic" as const,
+  lineHeight: "22px",
+  margin: 0,
+};
+
 const listingCard: React.CSSProperties = {
   border: "1px solid #e2e8f0",
   borderRadius: "8px",
@@ -233,25 +226,10 @@ const listingMeta: React.CSSProperties = {
 };
 
 const listingPrice: React.CSSProperties = {
-  fontSize: "18px",
+  fontSize: "20px",
   fontWeight: 700,
   color: "#1a1f36",
-  margin: "0 0 12px 0",
-};
-
-const statusRow: React.CSSProperties = {
-  margin: "0",
-};
-
-const statusLabel: React.CSSProperties = {
-  fontSize: "14px",
   margin: 0,
-};
-
-const soldPriceText: React.CSSProperties = {
-  fontSize: "13px",
-  color: "#718096",
-  margin: "4px 0 0 0",
 };
 
 const buttonContainer: React.CSSProperties = {

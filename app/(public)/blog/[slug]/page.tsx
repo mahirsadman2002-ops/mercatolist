@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { BlogPostClient } from "./BlogPostClient";
 
+export const revalidate = 3600;
+
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
 }

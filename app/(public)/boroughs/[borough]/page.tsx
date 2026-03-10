@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, MapPin, Store, Tag } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+
+export const revalidate = 3600;
 import { slugify } from "@/lib/utils";
 import { BOROUGHS, NEIGHBORHOODS } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";

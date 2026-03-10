@@ -68,8 +68,14 @@ export default function RootLayout({
       >
         <SessionProvider>
           <TooltipProvider>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-foreground focus:text-sm focus:font-semibold focus:shadow-lg"
+            >
+              Skip to content
+            </a>
             <Header />
-            <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+            <main id="main-content" className="min-h-[calc(100vh-4rem)]">{children}</main>
             <Footer />
             <Toaster position="bottom-right" />
           </TooltipProvider>

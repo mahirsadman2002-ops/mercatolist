@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -139,4 +140,70 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Homepage: Carousel infinite scroll                                  */
+/* ------------------------------------------------------------------ */
+@keyframes carousel-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-carousel {
+  animation: carousel-scroll 40s linear infinite;
+}
+
+.animate-carousel:hover {
+  animation-play-state: paused;
+}
+
+/* ------------------------------------------------------------------ */
+/* Homepage: Scroll reveal                                             */
+/* ------------------------------------------------------------------ */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.scroll-reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered children inside scroll-reveal */
+.scroll-reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.scroll-reveal-stagger.in-view > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal-stagger.in-view > *:nth-child(1) { transition-delay: 0ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(2) { transition-delay: 60ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(3) { transition-delay: 120ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(4) { transition-delay: 180ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(5) { transition-delay: 240ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(6) { transition-delay: 300ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(7) { transition-delay: 360ms; }
+.scroll-reveal-stagger.in-view > *:nth-child(8) { transition-delay: 420ms; }
+
+/* ------------------------------------------------------------------ */
+/* NYC skyline text clip                                               */
+/* ------------------------------------------------------------------ */
+.text-clip-image {
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: cover;
+  background-position: center 40%;
 }

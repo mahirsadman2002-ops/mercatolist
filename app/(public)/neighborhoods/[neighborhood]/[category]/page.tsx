@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { slugify, formatCurrency } from "@/lib/utils";
+
+export const revalidate = 3600;
 import {
   BUSINESS_CATEGORIES,
   BOROUGHS,

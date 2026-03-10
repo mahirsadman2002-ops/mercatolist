@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+
+export const revalidate = 3600;
 import { slugify, formatCurrency } from "@/lib/utils";
 import {
   BUSINESS_CATEGORIES,

@@ -219,9 +219,9 @@ export default async function HomePage() {
             <p
               className="font-heading text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl leading-[1.05] mt-2 text-clip-image"
               style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1560969184-10fe8719e047?w=1800&q=80')`,
+                backgroundImage: `url('https://images.unsplash.com/photo-1518235506717-e1ed3306a89b?w=1800&q=80')`,
                 backgroundSize: "cover",
-                backgroundPosition: "center 60%",
+                backgroundPosition: "center 45%",
               }}
               aria-label="New York City"
             >

@@ -21,9 +21,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       allowDangerousEmailAccountLinking: true,
     }),
     Apple({
-      clientId: process.env.APPLE_CLIENT_ID!,
-      clientSecret: process.env.APPLE_CLIENT_SECRET!,
+      clientId: process.env.APPLE_ID!,
+      clientSecret: "",
       allowDangerousEmailAccountLinking: true,
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name
+            ? `${profile.name.firstName ?? ""} ${profile.name.lastName ?? ""}`.trim()
+            : profile.email?.split("@")[0] ?? "Apple User",
+          email: profile.email,
+        };
+      },
     }),
     Credentials({
       name: "credentials",

@@ -16,16 +16,14 @@ import {
   Scissors,
   Sparkles,
   Hand,
-  Dumbbell,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search/SearchBar";
 import { ListingCarousel } from "@/components/home/ListingCarousel";
-import { AnimatedStats } from "@/components/home/AnimatedStats";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { BUSINESS_CATEGORIES } from "@/lib/constants";
-import { slugify, formatCurrency } from "@/lib/utils";
+import { slugify } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
@@ -116,14 +114,9 @@ const BOROUGH_DATA = [
 
 async function getHomePageData() {
   const [
-    listingCount,
-    userCount,
     featuredListings,
     boroughCounts,
-    totalValue,
   ] = await Promise.all([
-    prisma.businessListing.count({ where: { status: "ACTIVE" } }),
-    prisma.user.count(),
     prisma.businessListing.findMany({
       where: { status: "ACTIVE" },
       orderBy: { viewCount: "desc" },
@@ -159,10 +152,6 @@ async function getHomePageData() {
       where: { status: "ACTIVE" },
       _count: { id: true },
     }),
-    prisma.businessListing.aggregate({
-      where: { status: "ACTIVE" },
-      _sum: { askingPrice: true },
-    }),
   ]);
 
   // Build borough count lookup
@@ -180,14 +169,9 @@ async function getHomePageData() {
     createdAt: l.createdAt.toISOString(),
   }));
 
-  const totalValueNum = Number(totalValue._sum.askingPrice ?? 0);
-
   return {
-    listingCount,
-    userCount,
     featuredListings: serializedListings,
     boroughCountMap,
-    totalValue: totalValueNum,
   };
 }
 
@@ -197,16 +181,11 @@ async function getHomePageData() {
 
 export default async function HomePage() {
   const {
-    listingCount,
-    userCount,
     featuredListings,
     boroughCountMap,
-    totalValue,
   } = await getHomePageData();
 
   const top15Categories = BUSINESS_CATEGORIES.slice(0, 15);
-  const neighborhoodCount = 140;
-  const totalValueMillions = Math.floor(totalValue / 1_000_000);
 
   return (
     <div className="flex flex-col">
@@ -238,11 +217,11 @@ export default async function HomePage() {
 
             {/* Line 2 — NYC skyline text effect */}
             <p
-              className="font-heading text-6xl font-extrabold tracking-tight sm:text-7xl lg:text-8xl leading-[1.05] mt-2 text-clip-image"
+              className="font-heading text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl leading-[1.05] mt-2 text-clip-image"
               style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1534430480872-3498386e7856?w=1600&q=80')`,
+                backgroundImage: `url('https://images.unsplash.com/photo-1560969184-10fe8719e047?w=1800&q=80')`,
                 backgroundSize: "cover",
-                backgroundPosition: "center 40%",
+                backgroundPosition: "center 60%",
               }}
               aria-label="New York City"
             >
@@ -263,21 +242,7 @@ export default async function HomePage() {
       </section>
 
       {/* ================================================================= */}
-      {/* 2. Animated Stats Bar                                             */}
-      {/* ================================================================= */}
-      <section className="container mx-auto px-4 -mt-8 relative z-10">
-        <ScrollReveal>
-          <AnimatedStats
-            listingCount={listingCount}
-            neighborhoodCount={neighborhoodCount}
-            userCount={userCount}
-            boroughCount={5}
-          />
-        </ScrollReveal>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 3. Featured Listings Carousel                                     */}
+      {/* 2. Featured Listings Carousel                                     */}
       {/* ================================================================= */}
       <section className="container mx-auto px-4 py-16 md:py-20">
         <ScrollReveal>
@@ -401,46 +366,7 @@ export default async function HomePage() {
       </section>
 
       {/* ================================================================= */}
-      {/* 6. Social Proof / Marketplace Stats                               */}
-      {/* ================================================================= */}
-      <section className="border-t bg-muted/30">
-        <div className="container mx-auto px-4 py-16 md:py-20">
-          <ScrollReveal>
-            <div className="mx-auto max-w-3xl text-center">
-              <h2 className="font-heading text-3xl font-bold md:text-4xl">
-                Trusted by NYC Business Owners
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                The marketplace connecting buyers, sellers, and brokers across the five boroughs
-              </p>
-
-              {totalValueMillions > 0 && (
-                <div className="mt-8 inline-flex items-center gap-3 rounded-xl border bg-card px-6 py-4 shadow-sm">
-                  <TrendingUp className="h-6 w-6 text-accent" />
-                  <span className="text-lg font-semibold">
-                    Over{" "}
-                    <span className="text-accent">
-                      {formatCurrency(totalValueMillions * 1_000_000)}
-                    </span>{" "}
-                    in active listings
-                  </span>
-                </div>
-              )}
-
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
-                <span>{listingCount} active businesses</span>
-                <span className="hidden sm:inline text-border" aria-hidden="true">&bull;</span>
-                <span>5 boroughs covered</span>
-                <span className="hidden sm:inline text-border" aria-hidden="true">&bull;</span>
-                <span>Free to list</span>
-              </div>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 7. CTA Section                                                    */}
+      {/* 5. CTA Section                                                    */}
       {/* ================================================================= */}
       <section className="border-t bg-muted">
         <div className="container mx-auto px-4 py-16 md:py-20">

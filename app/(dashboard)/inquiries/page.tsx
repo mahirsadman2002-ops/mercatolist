@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -329,6 +329,20 @@ function AnonymousInquiryDetail({
 // ---------------------------------------------------------------------------
 
 export default function InquiriesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <InquiriesPageContent />
+    </Suspense>
+  );
+}
+
+function InquiriesPageContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState(searchParams.get("tab") || "received");
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);

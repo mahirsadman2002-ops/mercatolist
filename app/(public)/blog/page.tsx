@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -131,7 +132,7 @@ export default async function BlogPage() {
                 <>
                   <h2 className="text-2xl font-bold mb-6">Latest Posts</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {remainingPosts.map((post) => (
+                    {remainingPosts.map((post: Prisma.BlogPostGetPayload<{ include: { author: { select: { name: true; avatarUrl: true } } } }>) => (
                       <Link
                         key={post.id}
                         href={`/blog/${post.slug}`}

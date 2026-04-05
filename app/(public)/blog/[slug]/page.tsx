@@ -96,7 +96,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     updatedAt: post.updatedAt.toISOString(),
   };
 
-  const serializedRelated = relatedPosts.map((p) => ({
+  const serializedRelated = relatedPosts.map((p: { title: string; slug: string; excerpt: string | null; content: string; featuredImage: string | null; category: string | null; publishedAt: Date | null }) => ({
     ...p,
     publishedAt: p.publishedAt?.toISOString() ?? null,
   }));

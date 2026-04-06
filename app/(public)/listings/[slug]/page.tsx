@@ -12,6 +12,7 @@ import {
 
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { BusinessDetails } from "@/components/listings/BusinessDetails";
 import { ListingMap } from "@/components/listings/ListingMap";
 import { ListingContactSidebar } from "@/components/listings/ListingContactSidebar";
 import { ListingStatusBadge } from "@/components/listings/ListingStatusBadge";
+import { CollectionDiscoveryPopup } from "@/components/listings/CollectionDiscoveryPopup";
 
 // Revalidate every 60 seconds so listing data stays fresh
 export const revalidate = 60;
@@ -296,12 +298,16 @@ export default async function ListingDetailPage({
   const sp = await searchParams;
   const token = typeof sp.token === "string" ? sp.token : undefined;
 
-  const listing = await getListingBySlug(slug, token);
+  const [listing, session] = await Promise.all([
+    getListingBySlug(slug, token),
+    auth(),
+  ]);
 
   if (!listing) {
     notFound();
   }
 
+  const isLoggedIn = !!session?.user;
   const borough = formatBoroughDisplay(listing.borough);
   const daysOnMarket = calculateDaysOnMarket(new Date(listing.createdAt));
   const jsonLd = generateJsonLd(listing);
@@ -566,6 +572,14 @@ export default async function ListingDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Collection Discovery Popup */}
+      <CollectionDiscoveryPopup
+        isLoggedIn={isLoggedIn}
+        hasCollections={false}
+        listingSlug={slug}
+        onCreateCollection={() => {}}
+      />
     </>
   );
 }

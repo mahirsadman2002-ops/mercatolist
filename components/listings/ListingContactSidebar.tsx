@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, type FormEvent } from "react";
+import { useState, useCallback, useEffect, useRef, type FormEvent } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
   Heart,
@@ -24,6 +24,8 @@ import {
   Twitter,
   Facebook,
   Linkedin,
+  FolderPlus,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,6 +60,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -285,12 +294,18 @@ function ContactDialog({
   listing,
   user,
   onSuccess,
+  externalOpen,
+  onExternalOpenChange,
 }: {
   listing: ListingContactSidebarProps["listing"];
   user: { id: string; name?: string | null; email?: string | null; phone?: string | null } | null;
   onSuccess: () => void;
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setIsOpen = onExternalOpenChange || setInternalOpen;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -593,6 +608,16 @@ function ReportListingDialog({ listingId }: { listingId: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Collection types
+// ---------------------------------------------------------------------------
+
+interface CollectionItem {
+  id: string;
+  name: string;
+  listings?: { id: string }[];
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
@@ -602,9 +627,22 @@ export function ListingContactSidebar({
 }: ListingContactSidebarProps) {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSaved, setIsSaved] = useState(initialIsSaved);
   const [isSaving, setIsSaving] = useState(false);
   const [hasExistingConversation, setHasExistingConversation] = useState(false);
+
+  // Contact dialog external state (for auto-action)
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+
+  // Collection state
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [collectionPopoverOpen, setCollectionPopoverOpen] = useState(false);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const [showCreateInput, setShowCreateInput] = useState(false);
+  const [togglingCollectionId, setTogglingCollectionId] = useState<string | null>(null);
 
   const currentUser = session?.user as
     | { id: string; name?: string | null; email?: string | null; phone?: string | null }
@@ -612,6 +650,9 @@ export function ListingContactSidebar({
   const isOwner = currentUser?.id === listing.listedBy.id;
   const isBroker = listing.listedBy.role === "BROKER";
   const phone = listing.listedBy.phone || listing.listedBy.brokeragePhone;
+
+  // Track whether auto-action has been executed
+  const autoActionExecuted = useRef(false);
 
   // Check if logged-in user already has a conversation for this listing
   useEffect(() => {
@@ -638,6 +679,65 @@ export function ListingContactSidebar({
       cancelled = true;
     };
   }, [currentUser?.id, listing.id, isOwner]);
+
+  // Fetch user's collections on mount (for logged-in users)
+  const fetchCollections = useCallback(async () => {
+    if (!currentUser?.id) return;
+    setIsLoadingCollections(true);
+    try {
+      const res = await fetch("/api/collections");
+      if (res.ok) {
+        const data = await res.json();
+        setCollections(data.data || []);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoadingCollections(false);
+    }
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    fetchCollections();
+  }, [fetchCollections]);
+
+  // Auto-action from URL params (runs once on mount)
+  useEffect(() => {
+    if (autoActionExecuted.current) return;
+    const autoAction = searchParams.get("autoAction");
+    if (!autoAction || !currentUser?.id) return;
+
+    autoActionExecuted.current = true;
+
+    const cleanUrl = () => {
+      router.replace(`/listings/${listing.slug}`, { scroll: false });
+    };
+
+    if (autoAction === "save") {
+      // Auto-save the listing
+      (async () => {
+        try {
+          const res = await fetch(`/api/listings/${listing.id}/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (res.ok) {
+            setIsSaved(true);
+            toast.success("Listing saved!");
+          }
+        } catch {
+          // Silently fail
+        }
+        cleanUrl();
+      })();
+    } else if (autoAction === "contact") {
+      setContactDialogOpen(true);
+      cleanUrl();
+    } else if (autoAction === "collection") {
+      setCollectionPopoverOpen(true);
+      cleanUrl();
+    }
+  }, [searchParams, currentUser?.id, listing.slug, listing.id, router]);
 
   // ---- Save / Unsave ----
   const handleToggleSave = useCallback(async () => {
@@ -753,6 +853,95 @@ export function ListingContactSidebar({
     setHasExistingConversation(true);
   }, []);
 
+  // ---- Collection helpers ----
+  const isListingInCollection = useCallback(
+    (collection: CollectionItem) => {
+      return collection.listings?.some((l) => l.id === listing.id) ?? false;
+    },
+    [listing.id]
+  );
+
+  const handleToggleCollection = useCallback(
+    async (collection: CollectionItem) => {
+      const isIn = isListingInCollection(collection);
+      setTogglingCollectionId(collection.id);
+
+      try {
+        if (isIn) {
+          const res = await fetch(
+            `/api/collections/${collection.id}/listings/${listing.id}`,
+            { method: "DELETE" }
+          );
+          if (!res.ok) throw new Error("Failed to remove from collection");
+          toast.success(`Removed from "${collection.name}"`);
+        } else {
+          const res = await fetch(`/api/collections/${collection.id}/listings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ listingId: listing.id }),
+          });
+          if (!res.ok) throw new Error("Failed to add to collection");
+          toast.success(`Added to "${collection.name}"`);
+        }
+        // Refresh collections to get updated listing associations
+        await fetchCollections();
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Something went wrong."
+        );
+      } finally {
+        setTogglingCollectionId(null);
+      }
+    },
+    [listing.id, isListingInCollection, fetchCollections]
+  );
+
+  const handleCreateCollection = useCallback(async () => {
+    const name = newCollectionName.trim();
+    if (!name) return;
+
+    setIsCreatingCollection(true);
+    try {
+      const res = await fetch("/api/collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error("Failed to create collection");
+      const data = await res.json();
+      toast.success(`Collection "${name}" created`);
+      setNewCollectionName("");
+      setShowCreateInput(false);
+      // Refresh collections and auto-add listing to new collection
+      await fetchCollections();
+      if (data.data?.id) {
+        await fetch(`/api/collections/${data.data.id}/listings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingId: listing.id }),
+        });
+        toast.success(`Added to "${name}"`);
+        await fetchCollections();
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create collection."
+      );
+    } finally {
+      setIsCreatingCollection(false);
+    }
+  }, [newCollectionName, listing.id, fetchCollections]);
+
+  const handleCollectionButtonClick = useCallback(() => {
+    if (!currentUser?.id) {
+      router.push(
+        `/signup-prompt?action=collection&callbackUrl=/listings/${listing.slug}?autoAction=collection`
+      );
+      return;
+    }
+    setCollectionPopoverOpen(true);
+  }, [currentUser?.id, listing.slug, router]);
+
   // ---- Ghost listing share link ----
   const ghostShareUrl =
     listing.isGhostListing && listing.shareToken
@@ -861,6 +1050,8 @@ export function ListingContactSidebar({
                   listing={listing}
                   user={currentUser}
                   onSuccess={handleContactSuccess}
+                  externalOpen={contactDialogOpen}
+                  onExternalOpenChange={setContactDialogOpen}
                 />
               )}
 
@@ -879,7 +1070,7 @@ export function ListingContactSidebar({
             </div>
           )}
 
-          {/* 5. Action Buttons Row: Save | Share */}
+          {/* 5. Action Buttons Row: Save | Share | Collection */}
           <div className="flex items-center gap-2">
             <Button
               variant={isSaved ? "default" : "outline"}
@@ -926,6 +1117,110 @@ export function ListingContactSidebar({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Popover open={collectionPopoverOpen} onOpenChange={setCollectionPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={(e) => {
+                    if (!currentUser?.id) {
+                      e.preventDefault();
+                      handleCollectionButtonClick();
+                    }
+                  }}
+                >
+                  <FolderPlus className="size-4" />
+                  Collect
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-0">
+                <div className="p-3 pb-2">
+                  <p className="text-sm font-semibold">Add to Collection</p>
+                </div>
+                <Separator />
+                <div className="max-h-48 overflow-y-auto p-2">
+                  {isLoadingCollections ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : collections.length === 0 ? (
+                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                      No collections yet. Create one below.
+                    </p>
+                  ) : (
+                    collections.map((collection) => {
+                      const isIn = isListingInCollection(collection);
+                      const isToggling = togglingCollectionId === collection.id;
+                      return (
+                        <button
+                          key={collection.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent disabled:opacity-50"
+                          onClick={() => handleToggleCollection(collection)}
+                          disabled={isToggling}
+                        >
+                          {isToggling ? (
+                            <Loader2 className="size-4 shrink-0 animate-spin" />
+                          ) : (
+                            <Checkbox
+                              checked={isIn}
+                              className="pointer-events-none"
+                              tabIndex={-1}
+                            />
+                          )}
+                          <span className="truncate">{collection.name}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                <Separator />
+                <div className="p-2">
+                  {showCreateInput ? (
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        placeholder="Collection name"
+                        value={newCollectionName}
+                        onChange={(e) => setNewCollectionName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCreateCollection();
+                          }
+                          if (e.key === "Escape") {
+                            setShowCreateInput(false);
+                            setNewCollectionName("");
+                          }
+                        }}
+                        className="h-8 text-sm"
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 shrink-0 px-3"
+                        onClick={handleCreateCollection}
+                        disabled={isCreatingCollection || !newCollectionName.trim()}
+                      >
+                        {isCreatingCollection ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          "Create"
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-accent"
+                      onClick={() => setShowCreateInput(true)}
+                    >
+                      <Plus className="size-4" />
+                      Create New Collection
+                    </button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* 6. Report Link */}

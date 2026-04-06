@@ -18,13 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+// Card components no longer used in two-column layout
 import { toast } from "sonner";
 
 // ── OAuth icon components ───────────────────────────────────────────
@@ -247,29 +241,28 @@ function SignupPromptContent() {
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <Link href="/" className="inline-block mx-auto">
+      <div className="flex w-full max-w-4xl flex-col md:flex-row md:gap-0 rounded-lg border bg-background shadow-lg overflow-hidden">
+        {/* ── Left column: Benefits (40%) ────────────────────────── */}
+        <div className="w-full md:w-[40%] bg-muted/40 p-8 flex flex-col justify-center gap-6">
+          <Link href="/" className="inline-block">
             <span className="font-heading text-2xl font-bold tracking-tight">
               MercatoList
             </span>
           </Link>
 
-          {/* Context-specific icon + heading + bullets */}
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
               <Icon className="h-7 w-7 text-accent" />
             </div>
-            <CardTitle className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold tracking-tight">
               {config.heading}
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground max-w-sm">
+            </h1>
+            <p className="text-sm text-muted-foreground">
               {config.subtext}
-            </CardDescription>
+            </p>
           </div>
 
-          {/* Bullet points */}
-          <ul className="text-left space-y-2 text-sm text-muted-foreground">
+          <ul className="space-y-3 text-sm text-muted-foreground">
             {config.bullets.map((bullet) => (
               <li key={bullet} className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -277,181 +270,184 @@ function SignupPromptContent() {
               </li>
             ))}
           </ul>
-        </CardHeader>
+        </div>
 
-        <CardContent className="space-y-6">
-          {/* OAuth buttons */}
-          <div className="space-y-3">
-            <Button
-              variant="outline"
-              className="w-full h-11 gap-3 font-medium"
-              onClick={() => handleOAuthSignup("google")}
-              disabled={!!isOAuthLoading}
-            >
-              {isOAuthLoading === "google" ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <GoogleIcon className="h-5 w-5" />
-              )}
-              Sign up with Google
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full h-11 gap-3 font-medium bg-black text-white hover:bg-black/90 hover:text-white border-black"
-              onClick={() => handleOAuthSignup("apple")}
-              disabled={!!isOAuthLoading}
-            >
-              {isOAuthLoading === "apple" ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <AppleIcon className="h-5 w-5" />
-              )}
-              Sign up with Apple
-            </Button>
-          </div>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or</span>
-            </div>
-          </div>
-
-          {/* Registration form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setErrors((p) => ({ ...p, name: "" }));
-                }}
-                required
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name}</p>
-              )}
+        {/* ── Right column: Form (60%) ───────────────────────────── */}
+        <div className="w-full md:w-[60%] p-8 flex flex-col justify-center">
+          <div className="mx-auto w-full max-w-sm space-y-6">
+            {/* OAuth buttons */}
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full h-11 gap-3 font-medium"
+                onClick={() => handleOAuthSignup("google")}
+                disabled={!!isOAuthLoading}
+              >
+                {isOAuthLoading === "google" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <GoogleIcon className="h-5 w-5" />
+                )}
+                Sign up with Google
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full h-11 gap-3 font-medium bg-black text-white hover:bg-black/90 hover:text-white border-black"
+                onClick={() => handleOAuthSignup("apple")}
+                disabled={!!isOAuthLoading}
+              >
+                {isOAuthLoading === "apple" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <AppleIcon className="h-5 w-5" />
+                )}
+                Sign up with Apple
+              </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="signup-email">Email</Label>
-              <Input
-                id="signup-email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setErrors((p) => ({ ...p, email: "" }));
-                }}
-                required
-                autoComplete="email"
-              />
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email}</p>
-              )}
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">or</span>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="signup-password">Password</Label>
-              <div className="relative">
+            {/* Registration form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
                 <Input
-                  id="signup-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
-                  value={password}
+                  id="name"
+                  placeholder="John Doe"
+                  value={name}
                   onChange={(e) => {
-                    setPassword(e.target.value);
-                    setErrors((p) => ({ ...p, password: "" }));
+                    setName(e.target.value);
+                    setErrors((p) => ({ ...p, name: "" }));
                   }}
                   required
-                  className="pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+                {errors.name && (
+                  <p className="text-xs text-destructive">{errors.name}</p>
+                )}
               </div>
-              {password.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${passwordStrength.color}`}
-                        style={{ width: passwordStrength.width }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {passwordStrength.label}
-                    </span>
-                  </div>
-                  <div className="space-y-1 mt-2">
-                    {requirements.map((req) => (
-                      <div
-                        key={req.label}
-                        className="flex items-center gap-1.5 text-xs"
-                      >
-                        {req.met ? (
-                          <Check className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <X className="h-3 w-3 text-muted-foreground" />
-                        )}
-                        <span
-                          className={
-                            req.met
-                              ? "text-emerald-600"
-                              : "text-muted-foreground"
-                          }
-                        >
-                          {req.label}
-                        </span>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-email">Email</Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrors((p) => ({ ...p, email: "" }));
+                  }}
+                  required
+                  autoComplete="email"
+                />
+                {errors.email && (
+                  <p className="text-xs text-destructive">{errors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="signup-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setErrors((p) => ({ ...p, password: "" }));
+                    }}
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {password.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${passwordStrength.color}`}
+                          style={{ width: passwordStrength.width }}
+                        />
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password}</p>
-              )}
-            </div>
+                      <span className="text-xs text-muted-foreground">
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+                    <div className="space-y-1 mt-2">
+                      {requirements.map((req) => (
+                        <div
+                          key={req.label}
+                          className="flex items-center gap-1.5 text-xs"
+                        >
+                          {req.met ? (
+                            <Check className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <X className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <span
+                            className={
+                              req.met
+                                ? "text-emerald-600"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {req.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {errors.password && (
+                  <p className="text-xs text-destructive">{errors.password}</p>
+                )}
+              </div>
 
-            <Button
-              type="submit"
-              className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Create Account
-            </Button>
-          </form>
+              <Button
+                type="submit"
+                className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Create Account
+              </Button>
+            </form>
 
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-              className="font-medium text-foreground hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Link
+                href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+                className="font-medium text-foreground hover:underline"
+              >
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -461,29 +457,37 @@ function SignupPromptContent() {
 function SignupPromptFallback() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <span className="font-heading text-2xl font-bold tracking-tight mx-auto">
-            MercatoList
-          </span>
-          <div className="flex flex-col items-center gap-3">
+      <div className="flex w-full max-w-4xl flex-col md:flex-row md:gap-0 rounded-lg border bg-background shadow-lg overflow-hidden">
+        {/* Left column skeleton */}
+        <div className="w-full md:w-[40%] bg-muted/40 p-8 flex flex-col justify-center gap-6">
+          <div className="h-8 w-32 rounded bg-muted animate-pulse" />
+          <div className="flex flex-col gap-3">
             <div className="h-14 w-14 rounded-full bg-muted animate-pulse" />
             <div className="h-7 w-48 rounded bg-muted animate-pulse" />
-            <div className="h-4 w-72 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-full rounded bg-muted animate-pulse" />
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="h-11 rounded bg-muted animate-pulse" />
-          <div className="h-11 rounded bg-muted animate-pulse" />
-          <div className="h-px bg-border" />
           <div className="space-y-3">
-            <div className="h-10 rounded bg-muted animate-pulse" />
-            <div className="h-10 rounded bg-muted animate-pulse" />
-            <div className="h-10 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-full rounded bg-muted animate-pulse" />
+            <div className="h-4 w-5/6 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-4/5 rounded bg-muted animate-pulse" />
           </div>
-          <div className="h-11 rounded bg-muted animate-pulse" />
-        </CardContent>
-      </Card>
+        </div>
+        {/* Right column skeleton */}
+        <div className="w-full md:w-[60%] p-8 flex flex-col justify-center">
+          <div className="mx-auto w-full max-w-sm space-y-4">
+            <div className="h-11 rounded bg-muted animate-pulse" />
+            <div className="h-11 rounded bg-muted animate-pulse" />
+            <div className="h-px bg-border" />
+            <div className="space-y-3">
+              <div className="h-10 rounded bg-muted animate-pulse" />
+              <div className="h-10 rounded bg-muted animate-pulse" />
+              <div className="h-10 rounded bg-muted animate-pulse" />
+              <div className="h-10 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-11 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

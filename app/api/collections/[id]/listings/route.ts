@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// POST: Add a listing to a collection
+// POST: Add a listing to a collection via CollectionListing
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,12 +18,12 @@ export async function POST(
 
     const { id } = await params;
 
-    // Verify collection exists and user owns it
+    // Verify collection exists and user is owner or collaborator
     const collection = await prisma.collection.findUnique({
       where: { id },
       include: {
-        listings: {
-          select: { id: true },
+        collaborators: {
+          select: { userId: true },
         },
       },
     });
@@ -35,7 +35,12 @@ export async function POST(
       );
     }
 
-    if (collection.userId !== session.user.id) {
+    const isOwner = collection.userId === session.user.id;
+    const isCollaborator = collection.collaborators.some(
+      (c) => c.userId === session.user.id
+    );
+
+    if (!isOwner && !isCollaborator) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
@@ -65,46 +70,36 @@ export async function POST(
     }
 
     // Check for duplicates
-    const alreadyInCollection = collection.listings.some(
-      (l) => l.id === listingId
-    );
+    const existing = await prisma.collectionListing.findUnique({
+      where: {
+        collectionId_listingId: {
+          collectionId: id,
+          listingId,
+        },
+      },
+    });
 
-    if (alreadyInCollection) {
+    if (existing) {
       return NextResponse.json(
         { success: false, error: "Listing is already in this collection" },
         { status: 409 }
       );
     }
 
-    // Add listing to collection
-    const updatedCollection = await prisma.collection.update({
-      where: { id },
+    // Create CollectionListing record
+    const collectionListing = await prisma.collectionListing.create({
       data: {
-        listings: {
-          connect: { id: listingId },
-        },
+        collectionId: id,
+        listingId,
+        addedBy: session.user.id,
       },
       include: {
-        listings: {
+        listing: {
           include: {
             photos: {
               orderBy: { order: "asc" },
             },
-            listedBy: {
-              select: {
-                id: true,
-                name: true,
-                displayName: true,
-                avatarUrl: true,
-                phone: true,
-                role: true,
-                brokerageName: true,
-              },
-            },
           },
-        },
-        _count: {
-          select: { listings: true },
         },
       },
     });
@@ -112,36 +107,12 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        id: updatedCollection.id,
-        name: updatedCollection.name,
-        description: updatedCollection.description,
-        clientName: updatedCollection.clientName,
-        clientEmail: updatedCollection.clientEmail,
-        clientPhone: updatedCollection.clientPhone,
-        clientBuyBox: updatedCollection.clientBuyBox,
-        listingCount: updatedCollection._count.listings,
-        listings: updatedCollection.listings.map((l) => ({
-          id: l.id,
-          slug: l.slug,
-          title: l.title,
-          description: l.description,
-          category: l.category,
-          status: l.status,
-          askingPrice: l.askingPrice,
-          annualRevenue: l.annualRevenue,
-          cashFlowSDE: l.cashFlowSDE,
-          neighborhood: l.neighborhood,
-          borough: l.borough,
-          address: l.hideAddress ? null : l.address,
-          photos: l.photos,
-          listedBy: l.listedBy,
-          yearEstablished: l.yearEstablished,
-          numberOfEmployees: l.numberOfEmployees,
-          squareFootage: l.squareFootage,
-          createdAt: l.createdAt,
-        })),
-        createdAt: updatedCollection.createdAt,
-        updatedAt: updatedCollection.updatedAt,
+        id: collectionListing.id,
+        listingId: collectionListing.listingId,
+        personalRating: collectionListing.personalRating,
+        clientInterested: collectionListing.clientInterested,
+        addedAt: collectionListing.addedAt,
+        listing: collectionListing.listing,
       },
     });
   } catch (error) {

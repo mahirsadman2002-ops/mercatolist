@@ -184,6 +184,9 @@ model User {
   searchLogs        SearchLog[]
   licenses          License[]
   pastDeals         PastDeal[]
+  collectionCollaborations CollectionCollaborator[]
+  collectionNotes          CollectionNote[]
+  clients                  Client[]               @relation("advisorClients")
 
   // Admin: ban management
   isBanned     Boolean @default(false)
@@ -275,9 +278,10 @@ model BusinessListing {
   photos    Photo[]
   inquiries Inquiry[]
 
-  savedByUsers  SavedListing[]
-  collections   Collection[]   @relation("CollectionListings")
-  statusLogs    ListingStatusLog[]
+  savedByUsers       SavedListing[]
+  collectionListings CollectionListing[]
+  collectionNotes    CollectionNote[]
+  statusLogs         ListingStatusLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -366,24 +370,25 @@ model SavedListing {
 }
 
 model Collection {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
-  userId      String
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  userId            String
+  shareToken        String?  @unique
+  isPubliclyShared  Boolean  @default(false)
+  clientId          String?
 
-  // Broker-specific: assign to a client
-  clientName  String?
-  clientEmail String?
-  clientPhone String?
-  clientBuyBox Json?
-
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  listings BusinessListing[] @relation("CollectionListings")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client            Client?           @relation(fields: [clientId], references: [id])
+  collectionListings CollectionListing[]
+  collaborators     CollectionCollaborator[]
+  notes             CollectionNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([clientId])
 }
 
 model SavedSearch {
@@ -553,4 +558,79 @@ model PastDeal {
   createdAt     DateTime  @default(now())
 
   @@index([userId])
+}
+
+// ─── Collection & Client Models ─────────────────────────────────────
+
+model CollectionListing {
+  id               String          @id @default(uuid())
+  collectionId     String
+  collection       Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listingId        String
+  listing          BusinessListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  personalRating   Int?
+  ratedBy          String?
+  clientInterested Boolean?
+  addedBy          String
+  addedAt          DateTime        @default(now())
+
+  @@unique([collectionId, listingId])
+  @@index([collectionId])
+  @@index([listingId])
+}
+
+model CollectionCollaborator {
+  id           String     @id @default(uuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         String     @default("viewer")
+  invitedBy    String
+  invitedAt    DateTime   @default(now())
+  acceptedAt   DateTime?
+
+  @@unique([collectionId, userId])
+  @@index([collectionId])
+  @@index([userId])
+}
+
+model CollectionNote {
+  id           String           @id @default(uuid())
+  collectionId String
+  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listingId    String?
+  listing      BusinessListing? @relation(fields: [listingId], references: [id])
+  userId       String
+  user         User             @relation(fields: [userId], references: [id])
+  content      String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([collectionId])
+  @@index([listingId])
+  @@index([userId])
+}
+
+model Client {
+  id                  String       @id @default(uuid())
+  advisorId           String
+  advisor             User         @relation("advisorClients", fields: [advisorId], references: [id], onDelete: Cascade)
+  name                String
+  email               String
+  phone               String?
+  company             String?
+  preferredCategories String[]
+  preferredBoroughs   String[]
+  priceRangeMin       Decimal?
+  priceRangeMax       Decimal?
+  revenueRangeMin     Decimal?
+  revenueRangeMax     Decimal?
+  notes               String?      @db.Text
+  collections         Collection[]
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@unique([advisorId, email])
+  @@index([advisorId])
 }

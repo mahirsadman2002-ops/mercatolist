@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET: Get client info from a collection, plus all collections for that client
+// GET: Get a single client with their collections
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,61 +18,59 @@ export async function GET(
 
     const { id } = await params;
 
-    // Find the collection by ID
-    const collection = await prisma.collection.findUnique({
+    const client = await prisma.client.findUnique({
       where: { id },
+      include: {
+        collections: {
+          include: {
+            _count: {
+              select: { collectionListings: true },
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+        },
+      },
     });
 
-    if (!collection) {
+    if (!client) {
       return NextResponse.json(
-        { success: false, error: "Collection not found" },
+        { success: false, error: "Client not found" },
         { status: 404 }
       );
     }
 
-    if (collection.userId !== session.user.id) {
+    if (client.advisorId !== session.user.id) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
       );
     }
 
-    if (!collection.clientEmail) {
-      return NextResponse.json(
-        { success: false, error: "This collection has no associated client" },
-        { status: 404 }
-      );
-    }
-
-    // Find all collections for this client email
-    const allCollections = await prisma.collection.findMany({
-      where: {
-        userId: session.user.id,
-        clientEmail: collection.clientEmail,
-      },
-      include: {
-        _count: {
-          select: { listings: true },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-
     return NextResponse.json({
       success: true,
       data: {
-        clientName: collection.clientName,
-        clientEmail: collection.clientEmail,
-        clientPhone: collection.clientPhone,
-        clientBuyBox: collection.clientBuyBox,
-        collections: allCollections.map((c) => ({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        company: client.company,
+        preferredCategories: client.preferredCategories,
+        preferredBoroughs: client.preferredBoroughs,
+        priceRangeMin: client.priceRangeMin ? Number(client.priceRangeMin) : null,
+        priceRangeMax: client.priceRangeMax ? Number(client.priceRangeMax) : null,
+        revenueRangeMin: client.revenueRangeMin ? Number(client.revenueRangeMin) : null,
+        revenueRangeMax: client.revenueRangeMax ? Number(client.revenueRangeMax) : null,
+        notes: client.notes,
+        collections: client.collections.map((c) => ({
           id: c.id,
           name: c.name,
           description: c.description,
-          listingCount: c._count.listings,
+          listingCount: c._count.collectionListings,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         })),
+        createdAt: client.createdAt,
+        updatedAt: client.updatedAt,
       },
     });
   } catch (error) {
@@ -84,7 +82,7 @@ export async function GET(
   }
 }
 
-// PUT: Update client info across all collections with matching clientEmail
+// PUT: Update a client's fields
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -100,83 +98,112 @@ export async function PUT(
 
     const { id } = await params;
 
-    // Find the collection to get the client email
-    const collection = await prisma.collection.findUnique({
+    const client = await prisma.client.findUnique({
       where: { id },
     });
 
-    if (!collection) {
+    if (!client) {
       return NextResponse.json(
-        { success: false, error: "Collection not found" },
+        { success: false, error: "Client not found" },
         { status: 404 }
       );
     }
 
-    if (collection.userId !== session.user.id) {
+    if (client.advisorId !== session.user.id) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
       );
     }
 
-    if (!collection.clientEmail) {
-      return NextResponse.json(
-        { success: false, error: "This collection has no associated client" },
-        { status: 404 }
-      );
-    }
-
     const body = await request.json();
-    const { clientName, clientEmail, clientPhone, clientBuyBox } = body;
+    const {
+      name,
+      email,
+      phone,
+      company,
+      preferredCategories,
+      preferredBoroughs,
+      priceRangeMin,
+      priceRangeMax,
+      revenueRangeMin,
+      revenueRangeMax,
+      notes,
+    } = body;
 
-    // Validate new email if provided
-    if (clientEmail !== undefined) {
-      if (!clientEmail || typeof clientEmail !== "string" || !clientEmail.trim()) {
+    // Validate email if provided
+    if (email !== undefined) {
+      if (!email || typeof email !== "string" || !email.trim()) {
         return NextResponse.json(
           { success: false, error: "Client email cannot be empty" },
           { status: 400 }
         );
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(clientEmail.trim())) {
+      if (!emailRegex.test(email.trim())) {
         return NextResponse.json(
           { success: false, error: "Invalid email format" },
           { status: 400 }
         );
       }
+
+      // Check uniqueness if email is changing
+      const normalizedEmail = email.trim().toLowerCase();
+      if (normalizedEmail !== client.email) {
+        const existing = await prisma.client.findUnique({
+          where: {
+            advisorId_email: {
+              advisorId: session.user.id,
+              email: normalizedEmail,
+            },
+          },
+        });
+        if (existing) {
+          return NextResponse.json(
+            { success: false, error: "A client with this email already exists" },
+            { status: 409 }
+          );
+        }
+      }
     }
 
-    // Build the update data (only include fields that were provided)
+    // Build update data - only include provided fields
     const updateData: Record<string, unknown> = {};
-    if (clientName !== undefined)
-      updateData.clientName = clientName?.trim() || null;
-    if (clientEmail !== undefined)
-      updateData.clientEmail = clientEmail.trim().toLowerCase();
-    if (clientPhone !== undefined)
-      updateData.clientPhone = clientPhone?.trim() || null;
-    if (clientBuyBox !== undefined) updateData.clientBuyBox = clientBuyBox;
+    if (name !== undefined) updateData.name = name?.trim() || client.name;
+    if (email !== undefined) updateData.email = email.trim().toLowerCase();
+    if (phone !== undefined) updateData.phone = phone?.trim() || null;
+    if (company !== undefined) updateData.company = company?.trim() || null;
+    if (preferredCategories !== undefined)
+      updateData.preferredCategories = Array.isArray(preferredCategories) ? preferredCategories : [];
+    if (preferredBoroughs !== undefined)
+      updateData.preferredBoroughs = Array.isArray(preferredBoroughs) ? preferredBoroughs : [];
+    if (priceRangeMin !== undefined) updateData.priceRangeMin = priceRangeMin;
+    if (priceRangeMax !== undefined) updateData.priceRangeMax = priceRangeMax;
+    if (revenueRangeMin !== undefined) updateData.revenueRangeMin = revenueRangeMin;
+    if (revenueRangeMax !== undefined) updateData.revenueRangeMax = revenueRangeMax;
+    if (notes !== undefined) updateData.notes = notes?.trim() || null;
 
-    // Update all collections with the same clientEmail for this user
-    await prisma.collection.updateMany({
-      where: {
-        userId: session.user.id,
-        clientEmail: collection.clientEmail,
-      },
-      data: updateData,
-    });
-
-    // Fetch the updated collection for response
-    const updated = await prisma.collection.findUnique({
+    const updated = await prisma.client.update({
       where: { id },
+      data: updateData,
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        clientName: updated?.clientName,
-        clientEmail: updated?.clientEmail,
-        clientPhone: updated?.clientPhone,
-        clientBuyBox: updated?.clientBuyBox,
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        company: updated.company,
+        preferredCategories: updated.preferredCategories,
+        preferredBoroughs: updated.preferredBoroughs,
+        priceRangeMin: updated.priceRangeMin ? Number(updated.priceRangeMin) : null,
+        priceRangeMax: updated.priceRangeMax ? Number(updated.priceRangeMax) : null,
+        revenueRangeMin: updated.revenueRangeMin ? Number(updated.revenueRangeMin) : null,
+        revenueRangeMax: updated.revenueRangeMax ? Number(updated.revenueRangeMax) : null,
+        notes: updated.notes,
+        updatedAt: updated.updatedAt,
       },
     });
   } catch (error) {
@@ -188,7 +215,7 @@ export async function PUT(
   }
 }
 
-// DELETE: Remove client info from all matching collections
+// DELETE: Delete a client and unlink their collections
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -204,54 +231,43 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Find the collection to get the client email
-    const collection = await prisma.collection.findUnique({
+    const client = await prisma.client.findUnique({
       where: { id },
     });
 
-    if (!collection) {
+    if (!client) {
       return NextResponse.json(
-        { success: false, error: "Collection not found" },
+        { success: false, error: "Client not found" },
         { status: 404 }
       );
     }
 
-    if (collection.userId !== session.user.id) {
+    if (client.advisorId !== session.user.id) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
       );
     }
 
-    if (!collection.clientEmail) {
-      return NextResponse.json(
-        { success: false, error: "This collection has no associated client" },
-        { status: 404 }
-      );
-    }
-
-    // Remove client info from all collections with matching email
+    // Unlink collections (set clientId to null) before deleting
     await prisma.collection.updateMany({
-      where: {
-        userId: session.user.id,
-        clientEmail: collection.clientEmail,
-      },
-      data: {
-        clientName: null,
-        clientEmail: null,
-        clientPhone: null,
-        clientBuyBox: undefined,
-      },
+      where: { clientId: id },
+      data: { clientId: null },
+    });
+
+    // Delete the client record
+    await prisma.client.delete({
+      where: { id },
     });
 
     return NextResponse.json({
       success: true,
-      data: { removedClientEmail: collection.clientEmail },
+      data: { deletedClientId: id, deletedClientEmail: client.email },
     });
   } catch (error) {
-    console.error("Error removing client:", error);
+    console.error("Error deleting client:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to remove client" },
+      { success: false, error: "Failed to delete client" },
       { status: 500 }
     );
   }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET: List all unique clients for current broker (aggregated from Collections)
+// GET: List all clients for current broker from the Client model
 export async function GET() {
   try {
     const session = await auth();
@@ -26,69 +26,35 @@ export async function GET() {
       );
     }
 
-    // Get all collections with client info for this broker
-    const collections = await prisma.collection.findMany({
-      where: {
-        userId: session.user.id,
-        clientEmail: { not: null },
+    const clients = await prisma.client.findMany({
+      where: { advisorId: session.user.id },
+      include: {
+        _count: {
+          select: { collections: true },
+        },
       },
-      select: {
-        id: true,
-        clientName: true,
-        clientEmail: true,
-        clientPhone: true,
-        clientBuyBox: true,
-        updatedAt: true,
-      },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { name: "asc" },
     });
 
-    // Group by clientEmail to get unique clients
-    const clientMap = new Map<
-      string,
-      {
-        clientName: string | null;
-        clientEmail: string;
-        clientPhone: string | null;
-        clientBuyBox: unknown;
-        collectionCount: number;
-        collectionIds: string[];
-        lastUpdated: Date;
-      }
-    >();
+    const data = clients.map((client) => ({
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      company: client.company,
+      preferredCategories: client.preferredCategories,
+      preferredBoroughs: client.preferredBoroughs,
+      priceRangeMin: client.priceRangeMin ? Number(client.priceRangeMin) : null,
+      priceRangeMax: client.priceRangeMax ? Number(client.priceRangeMax) : null,
+      revenueRangeMin: client.revenueRangeMin ? Number(client.revenueRangeMin) : null,
+      revenueRangeMax: client.revenueRangeMax ? Number(client.revenueRangeMax) : null,
+      notes: client.notes,
+      collectionCount: client._count.collections,
+      createdAt: client.createdAt,
+      updatedAt: client.updatedAt,
+    }));
 
-    for (const collection of collections) {
-      const email = collection.clientEmail!;
-      const existing = clientMap.get(email);
-
-      if (existing) {
-        existing.collectionCount += 1;
-        existing.collectionIds.push(collection.id);
-        // Use the most recent name, phone, and buyBox
-        if (collection.updatedAt > existing.lastUpdated) {
-          existing.clientName = collection.clientName;
-          existing.clientPhone = collection.clientPhone;
-          existing.clientBuyBox = collection.clientBuyBox;
-          existing.lastUpdated = collection.updatedAt;
-        }
-      } else {
-        clientMap.set(email, {
-          clientName: collection.clientName,
-          clientEmail: email,
-          clientPhone: collection.clientPhone,
-          clientBuyBox: collection.clientBuyBox,
-          collectionCount: 1,
-          collectionIds: [collection.id],
-          lastUpdated: collection.updatedAt,
-        });
-      }
-    }
-
-    const clients = Array.from(clientMap.values()).sort(
-      (a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime()
-    );
-
-    return NextResponse.json({ success: true, data: clients });
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("Error fetching clients:", error);
     return NextResponse.json(
@@ -98,7 +64,7 @@ export async function GET() {
   }
 }
 
-// POST: Create a new client by creating a Collection with client info
+// POST: Create a new Client record
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
@@ -123,41 +89,74 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { clientName, clientEmail, clientPhone, clientBuyBox, collectionName } =
-      body;
+    const {
+      name,
+      email,
+      phone,
+      company,
+      preferredCategories,
+      preferredBoroughs,
+      priceRangeMin,
+      priceRangeMax,
+      revenueRangeMin,
+      revenueRangeMax,
+      notes,
+    } = body;
 
-    if (!clientEmail || typeof clientEmail !== "string" || !clientEmail.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Client email is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!clientName || typeof clientName !== "string" || !clientName.trim()) {
+    if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
         { success: false, error: "Client name is required" },
         { status: 400 }
       );
     }
 
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Client email is required" },
+        { status: 400 }
+      );
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(clientEmail.trim())) {
+    if (!emailRegex.test(email.trim())) {
       return NextResponse.json(
         { success: false, error: "Invalid email format" },
         { status: 400 }
       );
     }
 
-    // Create a collection with client info
-    const collection = await prisma.collection.create({
+    // Check unique constraint (advisorId + email)
+    const existing = await prisma.client.findUnique({
+      where: {
+        advisorId_email: {
+          advisorId: session.user.id,
+          email: email.trim().toLowerCase(),
+        },
+      },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: "A client with this email already exists" },
+        { status: 409 }
+      );
+    }
+
+    const client = await prisma.client.create({
       data: {
-        name: collectionName?.trim() || `${clientName.trim()}'s Collection`,
-        userId: session.user.id,
-        clientName: clientName.trim(),
-        clientEmail: clientEmail.trim().toLowerCase(),
-        clientPhone: clientPhone?.trim() || null,
-        clientBuyBox: clientBuyBox || null,
+        advisorId: session.user.id,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone?.trim() || null,
+        company: company?.trim() || null,
+        preferredCategories: Array.isArray(preferredCategories) ? preferredCategories : [],
+        preferredBoroughs: Array.isArray(preferredBoroughs) ? preferredBoroughs : [],
+        priceRangeMin: priceRangeMin != null ? priceRangeMin : null,
+        priceRangeMax: priceRangeMax != null ? priceRangeMax : null,
+        revenueRangeMin: revenueRangeMin != null ? revenueRangeMin : null,
+        revenueRangeMax: revenueRangeMax != null ? revenueRangeMax : null,
+        notes: notes?.trim() || null,
       },
     });
 
@@ -165,14 +164,19 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         data: {
-          id: collection.id,
-          clientName: collection.clientName,
-          clientEmail: collection.clientEmail,
-          clientPhone: collection.clientPhone,
-          clientBuyBox: collection.clientBuyBox,
-          collectionId: collection.id,
-          collectionName: collection.name,
-          createdAt: collection.createdAt,
+          id: client.id,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          company: client.company,
+          preferredCategories: client.preferredCategories,
+          preferredBoroughs: client.preferredBoroughs,
+          priceRangeMin: client.priceRangeMin ? Number(client.priceRangeMin) : null,
+          priceRangeMax: client.priceRangeMax ? Number(client.priceRangeMax) : null,
+          revenueRangeMin: client.revenueRangeMin ? Number(client.revenueRangeMin) : null,
+          revenueRangeMax: client.revenueRangeMax ? Number(client.revenueRangeMax) : null,
+          notes: client.notes,
+          createdAt: client.createdAt,
         },
       },
       { status: 201 }

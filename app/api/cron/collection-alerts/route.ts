@@ -29,18 +29,26 @@ export async function POST(request: Request) {
             title: true,
             slug: true,
             askingPrice: true,
-            collections: {
+            collectionListings: {
               select: {
-                id: true,
-                name: true,
-                userId: true,
-                clientName: true,
-                clientEmail: true,
-                user: {
+                collection: {
                   select: {
+                    id: true,
                     name: true,
-                    displayName: true,
-                    email: true,
+                    userId: true,
+                    client: {
+                      select: {
+                        name: true,
+                        email: true,
+                      },
+                    },
+                    user: {
+                      select: {
+                        name: true,
+                        displayName: true,
+                        email: true,
+                      },
+                    },
                   },
                 },
               },
@@ -73,14 +81,15 @@ export async function POST(request: Request) {
     >();
 
     for (const change of recentChanges) {
-      for (const col of change.listing.collections) {
+      for (const cl of change.listing.collectionListings) {
+        const col = cl.collection;
         if (!collectionChanges.has(col.id)) {
           collectionChanges.set(col.id, {
             collection: {
               id: col.id,
               name: col.name,
-              clientName: col.clientName,
-              clientEmail: col.clientEmail,
+              clientName: col.client?.name ?? null,
+              clientEmail: col.client?.email ?? null,
               brokerName: col.user.displayName || col.user.name,
               brokerEmail: col.user.email,
             },

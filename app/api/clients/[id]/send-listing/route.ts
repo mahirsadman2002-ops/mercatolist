@@ -33,29 +33,22 @@ export async function POST(
 
     const { id } = await params;
 
-    // Find the collection to get client info
-    const collection = await prisma.collection.findUnique({
+    // Find the client from Client model
+    const client = await prisma.client.findUnique({
       where: { id },
     });
 
-    if (!collection) {
+    if (!client) {
       return NextResponse.json(
-        { success: false, error: "Collection not found" },
+        { success: false, error: "Client not found" },
         { status: 404 }
       );
     }
 
-    if (collection.userId !== session.user.id) {
+    if (client.advisorId !== session.user.id) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
-      );
-    }
-
-    if (!collection.clientEmail) {
-      return NextResponse.json(
-        { success: false, error: "This collection has no associated client email" },
-        { status: 400 }
       );
     }
 
@@ -89,12 +82,12 @@ export async function POST(
 
     // Send the email
     await sendEmail({
-      to: collection.clientEmail,
+      to: client.email,
       subject: `${user.name} shared a listing with you: ${listing.title}`,
       react: SendListing({
         brokerName: user.name,
         brokerageName: user.brokerageName || undefined,
-        clientName: collection.clientName || undefined,
+        clientName: client.name || undefined,
         listingTitle: listing.title,
         listingSlug: listing.slug,
         askingPrice: listing.askingPrice.toString(),
@@ -109,7 +102,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        sentTo: collection.clientEmail,
+        sentTo: client.email,
         listingId: listing.id,
         listingTitle: listing.title,
       },

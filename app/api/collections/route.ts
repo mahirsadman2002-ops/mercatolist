@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET: List all collections for the current user
+// GET: List all collections for the current user (owned + collaborator)
 export async function GET() {
   try {
     const session = await auth();
@@ -13,40 +13,63 @@ export async function GET() {
       );
     }
 
+    const userId = session.user.id;
+
     const collections = await prisma.collection.findMany({
-      where: { userId: session.user.id },
+      where: {
+        OR: [
+          { userId },
+          { collaborators: { some: { userId } } },
+        ],
+      },
       include: {
-        listings: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        collectionListings: {
+          take: 4,
+          orderBy: { addedAt: "desc" },
           include: {
-            photos: {
-              orderBy: { order: "asc" },
-              take: 4,
+            listing: {
+              include: {
+                photos: {
+                  orderBy: { order: "asc" },
+                  take: 1,
+                },
+              },
             },
           },
         },
         _count: {
-          select: { listings: true },
+          select: {
+            collectionListings: true,
+            collaborators: true,
+          },
         },
       },
       orderBy: { updatedAt: "desc" },
     });
 
-    // Transform to include listing count and first 4 photos at the top level
     const data = collections.map((collection) => ({
       id: collection.id,
       name: collection.name,
       description: collection.description,
-      clientName: collection.clientName,
-      clientEmail: collection.clientEmail,
-      clientPhone: collection.clientPhone,
-      clientBuyBox: collection.clientBuyBox,
-      listingCount: collection._count.listings,
-      previewPhotos: collection.listings
-        .flatMap((listing) => listing.photos)
+      shareToken: collection.shareToken,
+      isPubliclyShared: collection.isPubliclyShared,
+      clientId: collection.clientId,
+      client: collection.client,
+      listingCount: collection._count.collectionListings,
+      previewPhotos: collection.collectionListings
+        .flatMap((cl) => cl.listing.photos)
         .slice(0, 4)
         .map((photo) => ({ id: photo.id, url: photo.url })),
+      collaboratorCount: collection._count.collaborators,
       createdAt: collection.createdAt,
-      updatedAt: collection.updatedAt,
     }));
 
     return NextResponse.json({ success: true, data });
@@ -71,15 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const {
-      name,
-      description,
-      clientName,
-      clientEmail,
-      clientPhone,
-      clientBuyBox,
-      listingId,
-    } = body;
+    const { name, description, clientId } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -88,14 +103,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If a listingId is provided, verify the listing exists
-    if (listingId) {
-      const listing = await prisma.businessListing.findUnique({
-        where: { id: listingId },
+    // Validate clientId if provided
+    if (clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: clientId },
       });
-      if (!listing) {
+      if (!client) {
         return NextResponse.json(
-          { success: false, error: "Listing not found" },
+          { success: false, error: "Client not found" },
           { status: 404 }
         );
       }
@@ -106,27 +121,19 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         userId: session.user.id,
-        clientName: clientName?.trim() || null,
-        clientEmail: clientEmail?.trim() || null,
-        clientPhone: clientPhone?.trim() || null,
-        clientBuyBox: clientBuyBox || null,
-        ...(listingId && {
-          listings: {
-            connect: { id: listingId },
-          },
-        }),
+        clientId: clientId || null,
       },
       include: {
-        listings: {
-          include: {
-            photos: {
-              orderBy: { order: "asc" },
-              take: 4,
-            },
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
           },
         },
         _count: {
-          select: { listings: true },
+          select: { collectionListings: true },
         },
       },
     });
@@ -138,12 +145,9 @@ export async function POST(request: NextRequest) {
           id: collection.id,
           name: collection.name,
           description: collection.description,
-          clientName: collection.clientName,
-          clientEmail: collection.clientEmail,
-          clientPhone: collection.clientPhone,
-          clientBuyBox: collection.clientBuyBox,
-          listingCount: collection._count.listings,
-          listings: collection.listings,
+          clientId: collection.clientId,
+          client: collection.client,
+          listingCount: collection._count.collectionListings,
           createdAt: collection.createdAt,
           updatedAt: collection.updatedAt,
         },

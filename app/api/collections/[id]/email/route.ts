@@ -24,14 +24,19 @@ export async function POST(
     const collection = await prisma.collection.findUnique({
       where: { id },
       include: {
-        listings: {
+        collectionListings: {
           include: {
-            photos: {
-              orderBy: { order: "asc" },
-              take: 1,
+            listing: {
+              include: {
+                photos: {
+                  orderBy: { order: "asc" },
+                  take: 1,
+                },
+              },
             },
           },
         },
+        client: true,
         user: {
           select: {
             id: true,
@@ -62,7 +67,7 @@ export async function POST(
     }
 
     // Require client email
-    if (!collection.clientEmail) {
+    if (!collection.client?.email) {
       return NextResponse.json(
         {
           success: false,
@@ -77,22 +82,22 @@ export async function POST(
 
     // Send email
     await sendEmail({
-      to: collection.clientEmail,
+      to: collection.client.email,
       subject: `Listings for you: ${collection.name}`,
       react: CollectionEmail({
         collectionName: collection.name,
         collectionDescription: collection.description,
-        clientName: collection.clientName,
+        clientName: collection.client.name,
         personalMessage: personalMessage?.trim() || null,
-        listings: collection.listings.map((listing) => ({
-          id: listing.id,
-          slug: listing.slug,
-          title: listing.title,
-          category: listing.category,
-          askingPrice: listing.askingPrice.toString(),
-          neighborhood: listing.neighborhood,
-          borough: listing.borough,
-          photoUrl: listing.photos[0]?.url || null,
+        listings: collection.collectionListings.map((cl: { listing: { id: string; slug: string; title: string; category: string; askingPrice: { toString(): string }; neighborhood: string; borough: string; photos: { url: string }[] } }) => ({
+          id: cl.listing.id,
+          slug: cl.listing.slug,
+          title: cl.listing.title,
+          category: cl.listing.category,
+          askingPrice: cl.listing.askingPrice.toString(),
+          neighborhood: cl.listing.neighborhood,
+          borough: cl.listing.borough,
+          photoUrl: cl.listing.photos[0]?.url || null,
         })),
         sender: {
           name: collection.user.displayName || collection.user.name,

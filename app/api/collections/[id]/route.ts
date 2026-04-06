@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET: Get a single collection with all listings
+// GET: Get a single collection with all listings, collaborators, notes, client
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,26 +21,55 @@ export async function GET(
     const collection = await prisma.collection.findUnique({
       where: { id },
       include: {
-        listings: {
+        client: true,
+        collectionListings: {
+          orderBy: { addedAt: "desc" },
           include: {
-            photos: {
-              orderBy: { order: "asc" },
+            listing: {
+              include: {
+                photos: {
+                  orderBy: { order: "asc" },
+                },
+                listedBy: {
+                  select: {
+                    id: true,
+                    name: true,
+                    displayName: true,
+                    avatarUrl: true,
+                    phone: true,
+                    role: true,
+                    brokerageName: true,
+                  },
+                },
+              },
             },
-            listedBy: {
+          },
+        },
+        collaborators: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        notes: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: {
               select: {
                 id: true,
                 name: true,
                 displayName: true,
                 avatarUrl: true,
-                phone: true,
-                role: true,
-                brokerageName: true,
               },
             },
           },
-        },
-        _count: {
-          select: { listings: true },
         },
       },
     });
@@ -52,8 +81,13 @@ export async function GET(
       );
     }
 
-    // Verify ownership
-    if (collection.userId !== session.user.id) {
+    // Check: user must be owner or collaborator
+    const isOwner = collection.userId === session.user.id;
+    const isCollaborator = collection.collaborators.some(
+      (c) => c.userId === session.user.id
+    );
+
+    if (!isOwner && !isCollaborator) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
@@ -66,30 +100,50 @@ export async function GET(
         id: collection.id,
         name: collection.name,
         description: collection.description,
-        clientName: collection.clientName,
-        clientEmail: collection.clientEmail,
-        clientPhone: collection.clientPhone,
-        clientBuyBox: collection.clientBuyBox,
-        listingCount: collection._count.listings,
-        listings: collection.listings.map((listing) => ({
-          id: listing.id,
-          slug: listing.slug,
-          title: listing.title,
-          description: listing.description,
-          category: listing.category,
-          status: listing.status,
-          askingPrice: listing.askingPrice,
-          annualRevenue: listing.annualRevenue,
-          cashFlowSDE: listing.cashFlowSDE,
-          neighborhood: listing.neighborhood,
-          borough: listing.borough,
-          address: listing.hideAddress ? null : listing.address,
-          photos: listing.photos,
-          listedBy: listing.listedBy,
-          yearEstablished: listing.yearEstablished,
-          numberOfEmployees: listing.numberOfEmployees,
-          squareFootage: listing.squareFootage,
-          createdAt: listing.createdAt,
+        shareToken: collection.shareToken,
+        isPubliclyShared: collection.isPubliclyShared,
+        userId: collection.userId,
+        client: collection.client,
+        listingCount: collection.collectionListings.length,
+        collectionListings: collection.collectionListings.map((cl) => ({
+          id: cl.id,
+          personalRating: cl.personalRating,
+          clientInterested: cl.clientInterested,
+          addedBy: cl.addedBy,
+          addedAt: cl.addedAt,
+          listing: {
+            id: cl.listing.id,
+            slug: cl.listing.slug,
+            title: cl.listing.title,
+            description: cl.listing.description,
+            category: cl.listing.category,
+            status: cl.listing.status,
+            askingPrice: cl.listing.askingPrice,
+            annualRevenue: cl.listing.annualRevenue,
+            cashFlowSDE: cl.listing.cashFlowSDE,
+            neighborhood: cl.listing.neighborhood,
+            borough: cl.listing.borough,
+            address: cl.listing.hideAddress ? null : cl.listing.address,
+            photos: cl.listing.photos,
+            listedBy: cl.listing.listedBy,
+            yearEstablished: cl.listing.yearEstablished,
+            numberOfEmployees: cl.listing.numberOfEmployees,
+            squareFootage: cl.listing.squareFootage,
+            createdAt: cl.listing.createdAt,
+          },
+        })),
+        collaborators: collection.collaborators.map((c) => ({
+          id: c.id,
+          role: c.role,
+          user: c.user,
+          joinedAt: c.invitedAt,
+        })),
+        notes: collection.notes.map((n) => ({
+          id: n.id,
+          content: n.content,
+          listingId: n.listingId,
+          user: n.user,
+          createdAt: n.createdAt,
         })),
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
@@ -104,7 +158,7 @@ export async function GET(
   }
 }
 
-// PUT: Update collection name, description, and client info
+// PUT: Update collection name, description, clientId
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -120,7 +174,6 @@ export async function PUT(
 
     const { id } = await params;
 
-    // Verify ownership
     const existing = await prisma.collection.findUnique({
       where: { id },
       select: { userId: true },
@@ -141,9 +194,8 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, clientName, clientEmail, clientPhone, clientBuyBox } = body;
+    const { name, description, clientId } = body;
 
-    // Build update data — only include fields that were provided
     const updateData: Record<string, unknown> = {};
 
     if (name !== undefined) {
@@ -160,28 +212,28 @@ export async function PUT(
       updateData.description = description?.trim() || null;
     }
 
-    if (clientName !== undefined) {
-      updateData.clientName = clientName?.trim() || null;
-    }
-
-    if (clientEmail !== undefined) {
-      updateData.clientEmail = clientEmail?.trim() || null;
-    }
-
-    if (clientPhone !== undefined) {
-      updateData.clientPhone = clientPhone?.trim() || null;
-    }
-
-    if (clientBuyBox !== undefined) {
-      updateData.clientBuyBox = clientBuyBox || null;
+    if (clientId !== undefined) {
+      if (clientId) {
+        const client = await prisma.client.findUnique({
+          where: { id: clientId },
+        });
+        if (!client) {
+          return NextResponse.json(
+            { success: false, error: "Client not found" },
+            { status: 404 }
+          );
+        }
+      }
+      updateData.clientId = clientId || null;
     }
 
     const collection = await prisma.collection.update({
       where: { id },
       data: updateData,
       include: {
+        client: true,
         _count: {
-          select: { listings: true },
+          select: { collectionListings: true },
         },
       },
     });
@@ -192,11 +244,9 @@ export async function PUT(
         id: collection.id,
         name: collection.name,
         description: collection.description,
-        clientName: collection.clientName,
-        clientEmail: collection.clientEmail,
-        clientPhone: collection.clientPhone,
-        clientBuyBox: collection.clientBuyBox,
-        listingCount: collection._count.listings,
+        clientId: collection.clientId,
+        client: collection.client,
+        listingCount: collection._count.collectionListings,
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
       },
@@ -226,7 +276,6 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Verify ownership
     const existing = await prisma.collection.findUnique({
       where: { id },
       select: { userId: true },

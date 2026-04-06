@@ -177,7 +177,7 @@ export async function generateMetadata({
     listing.description.length > 160
       ? listing.description.slice(0, 157) + "..."
       : listing.description;
-  const priceStr = formatCurrency(listing.askingPrice);
+  const priceStr = listing.askingPrice ? formatCurrency(listing.askingPrice) : "Price TBD";
 
   return {
     title,
@@ -298,10 +298,17 @@ export default async function ListingDetailPage({
   const sp = await searchParams;
   const token = typeof sp.token === "string" ? sp.token : undefined;
 
-  const [listing, session] = await Promise.all([
-    getListingBySlug(slug, token),
-    auth(),
-  ]);
+  let listing;
+  let session;
+  try {
+    [listing, session] = await Promise.all([
+      getListingBySlug(slug, token),
+      auth().catch(() => null), // Don't let auth failure crash the page
+    ]);
+  } catch (error) {
+    console.error("Error loading listing:", error);
+    notFound();
+  }
 
   if (!listing) {
     notFound();
@@ -412,7 +419,7 @@ export default async function ListingDetailPage({
                   <div className="flex items-center gap-1.5">
                     <Tag className="h-4 w-4 text-teal" />
                     <span className="font-semibold text-foreground">
-                      {formatCurrency(listing.askingPrice)}
+                      {listing.askingPrice ? formatCurrency(listing.askingPrice) : "Price TBD"}
                     </span>
                   </div>
                   <Separator orientation="vertical" className="h-4" />

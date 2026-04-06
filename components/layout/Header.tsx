@@ -16,6 +16,7 @@ import {
   Users,
   Shield,
   Settings,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,9 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const user = session?.user;
+  const userRole = user?.role;
+  const isBroker = userRole === "BROKER";
+  const isAdmin = userRole === "ADMIN";
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch unread count
@@ -89,7 +93,7 @@ export function Header() {
             Browse Businesses
           </Link>
           <Link href="/my-listings/new" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
-            Sell Your Business
+            {isBroker ? "List a Business" : "Sell Your Business"}
           </Link>
           <Link href="/brokers" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
             Find a Broker
@@ -139,6 +143,9 @@ export function Header() {
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      {isBroker && (
+                        <Badge variant="secondary" className="w-fit text-[10px] px-1.5 py-0">Broker</Badge>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -165,19 +172,19 @@ export function Header() {
                       <FolderOpen className="h-4 w-4" /> Collections
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/saved-searches" className="gap-2">
-                      <Search className="h-4 w-4" /> Saved Searches
-                    </Link>
-                  </DropdownMenuItem>
-                  {user.role === "BROKER" && (
+                  {isBroker && (
                     <DropdownMenuItem asChild>
                       <Link href="/clients" className="gap-2">
                         <Users className="h-4 w-4" /> Clients
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  {user.role === "ADMIN" && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/saved-searches" className="gap-2">
+                      <Search className="h-4 w-4" /> Saved Searches
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link href="/admin" className="gap-2">
                         <Shield className="h-4 w-4" /> Admin Dashboard
@@ -188,6 +195,11 @@ export function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="gap-2">
                       <Settings className="h-4 w-4" /> Profile Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/public-profile" className="gap-2">
+                      <Globe className="h-4 w-4" /> Public Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -237,7 +249,7 @@ export function Header() {
                 Browse Businesses
               </Link>
               <Link href="/my-listings/new" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                Sell Your Business
+                {isBroker ? "List a Business" : "Sell Your Business"}
               </Link>
               <Link href="/brokers" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
                 Find a Broker
@@ -259,6 +271,9 @@ export function Header() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{user.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        {isBroker && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-0.5">Broker</Badge>
+                        )}
                       </div>
                     </div>
                     <Link href="/saved" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
@@ -278,10 +293,21 @@ export function Header() {
                     <Link href="/collections" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
                       Collections
                     </Link>
+                    {isBroker && (
+                      <Link href="/clients" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
+                        Clients
+                      </Link>
+                    )}
+                    <Link href="/saved-searches" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
+                      Saved Searches
+                    </Link>
                     <Link href="/profile" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
                       Profile Settings
                     </Link>
-                    {user.role === "ADMIN" && (
+                    <Link href="/public-profile" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
+                      Public Profile
+                    </Link>
+                    {isAdmin && (
                       <Link href="/admin" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
                         Admin Dashboard
                       </Link>

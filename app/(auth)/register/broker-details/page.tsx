@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import { BOROUGHS, BUSINESS_CATEGORIES } from "@/lib/constants";
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   const steps = ["Create Account", "Account Type", "Details"];
@@ -44,11 +45,25 @@ export default function BrokerDetailsPage() {
     facebookUrl: "",
     tiktokUrl: "",
   });
+  const [boroughsServed, setBoroughsServed] = useState<string[]>([]);
+  const [specialties, setSpecialties] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
+  const toggleBorough = (value: string) => {
+    setBoroughsServed((prev) =>
+      prev.includes(value) ? prev.filter((b) => b !== value) : [...prev, value]
+    );
+  };
+
+  const toggleSpecialty = (value: string) => {
+    setSpecialties((prev) =>
+      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,7 +82,12 @@ export default function BrokerDetailsPage() {
       const res = await fetch("/api/auth/complete-profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "BROKER", ...form }),
+        body: JSON.stringify({
+          role: "BROKER",
+          ...form,
+          boroughsServed,
+          specialties,
+        }),
       });
 
       if (!res.ok) {
@@ -90,7 +110,7 @@ export default function BrokerDetailsPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-lg">
         <CardHeader className="text-center space-y-2">
           <StepIndicator currentStep={2} />
           <CardTitle className="text-2xl font-bold">Set up your broker profile</CardTitle>
@@ -118,6 +138,52 @@ export default function BrokerDetailsPage() {
             <div className="space-y-2">
               <Label htmlFor="bio">About / Bio</Label>
               <Textarea id="bio" placeholder="Tell potential clients about your experience..." rows={3} value={form.bio} onChange={(e) => updateField("bio", e.target.value)} />
+            </div>
+
+            {/* Boroughs Served */}
+            <div className="space-y-2">
+              <Label>Boroughs You Serve</Label>
+              <div className="flex flex-wrap gap-2">
+                {BOROUGHS.map((b) => (
+                  <button
+                    key={b.value}
+                    type="button"
+                    onClick={() => toggleBorough(b.value)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      boroughsServed.includes(b.value)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    {boroughsServed.includes(b.value) && <Check className="h-3 w-3 inline mr-1" />}
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Specialties */}
+            <div className="space-y-2">
+              <Label>Specialties (select all that apply)</Label>
+              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                {BUSINESS_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleSpecialty(cat)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      specialties.includes(cat)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {specialties.length > 0 && (
+                <p className="text-xs text-muted-foreground">{specialties.length} selected</p>
+              )}
             </div>
 
             {/* Social links */}

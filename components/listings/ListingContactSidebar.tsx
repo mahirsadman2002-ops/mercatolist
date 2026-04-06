@@ -202,7 +202,7 @@ function AgentCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold">{displayName}</span>
+          <Link href={profileUrl} className="truncate text-sm font-semibold hover:underline">{displayName}</Link>
           {!isCoBroker && (
             <Badge
               variant={isBroker ? "default" : "secondary"}

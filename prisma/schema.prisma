@@ -149,6 +149,8 @@ model User {
   brokerageName    String?
   brokerageWebsite String?
   brokeragePhone   String?
+  boroughsServed   String[]
+  specialties      String[]
   instagramUrl     String?
   linkedinUrl      String?
   twitterUrl       String?

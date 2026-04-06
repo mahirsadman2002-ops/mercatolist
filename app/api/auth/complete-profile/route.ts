@@ -14,6 +14,7 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const { role, phone, bio, brokerageName, brokerageWebsite, brokeragePhone,
+      boroughsServed, specialties,
       linkedinUrl, instagramUrl, twitterUrl, facebookUrl, tiktokUrl } = body;
 
     const updateData: Record<string, any> = {};
@@ -28,6 +29,8 @@ export async function PUT(request: NextRequest) {
     if (brokerageName !== undefined) updateData.brokerageName = brokerageName;
     if (brokerageWebsite !== undefined) updateData.brokerageWebsite = brokerageWebsite;
     if (brokeragePhone !== undefined) updateData.brokeragePhone = brokeragePhone;
+    if (Array.isArray(boroughsServed)) updateData.boroughsServed = boroughsServed;
+    if (Array.isArray(specialties)) updateData.specialties = specialties;
     if (linkedinUrl !== undefined) updateData.linkedinUrl = linkedinUrl;
     if (instagramUrl !== undefined) updateData.instagramUrl = instagramUrl;
     if (twitterUrl !== undefined) updateData.twitterUrl = twitterUrl;

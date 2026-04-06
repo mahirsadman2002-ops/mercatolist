@@ -64,7 +64,7 @@ export default function BrokersPage() {
         sort,
       });
       if (debouncedSearch) params.set("search", debouncedSearch);
-      if (borough) params.set("borough", borough);
+      if (borough && borough !== "ALL") params.set("borough", borough);
 
       const res = await fetch(`/api/brokers?${params}`);
       const json = await res.json();
@@ -185,13 +185,17 @@ export default function BrokersPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">
+                      <Link href={`/brokers/${broker.id}`} className="font-semibold truncate block hover:underline">
                         {broker.name}
-                      </h3>
+                      </Link>
                       {broker.brokerageName && (
-                        <p className="text-sm text-muted-foreground truncate">
+                        <button
+                          type="button"
+                          onClick={() => setSearch(broker.brokerageName!)}
+                          className="text-sm text-muted-foreground truncate block hover:underline text-left"
+                        >
                           {broker.brokerageName}
-                        </p>
+                        </button>
                       )}
                       {/* Rating */}
                       <div className="flex items-center gap-1 mt-1">

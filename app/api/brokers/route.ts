@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Borough filter: filter brokers who have listings in the given borough
+    // Borough filter: filter brokers who serve the given borough
     if (borough) {
-      where.listings = {
-        some: { borough, isGhostListing: false },
+      where.boroughsServed = {
+        has: borough,
       };
     }
 
@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
         phone: true,
         brokerageName: true,
         brokeragePhone: true,
+        boroughsServed: true,
+        specialties: true,
         createdAt: true,
         listings: {
           where: { isGhostListing: false, status: "ACTIVE" },

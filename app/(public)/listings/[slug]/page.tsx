@@ -578,7 +578,6 @@ export default async function ListingDetailPage({
         isLoggedIn={isLoggedIn}
         hasCollections={false}
         listingSlug={slug}
-        onCreateCollection={() => {}}
       />
     </>
   );

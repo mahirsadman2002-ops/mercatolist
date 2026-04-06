@@ -27,7 +27,6 @@ interface CollectionDiscoveryPopupProps {
   isLoggedIn: boolean;
   hasCollections: boolean;
   listingSlug: string;
-  onCreateCollection: () => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -65,7 +64,6 @@ export function CollectionDiscoveryPopup({
   isLoggedIn,
   hasCollections,
   listingSlug,
-  onCreateCollection,
 }: CollectionDiscoveryPopupProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -99,9 +97,10 @@ export function CollectionDiscoveryPopup({
   };
 
   const handleCTA = () => {
+    setOpen(false);
     if (isLoggedIn) {
-      onCreateCollection();
-      setOpen(false);
+      // Navigate to collections page to create first collection
+      router.push("/collections");
     } else {
       router.push(
         `/signup-prompt?action=collection&callbackUrl=/listings/${encodeURIComponent(listingSlug)}`

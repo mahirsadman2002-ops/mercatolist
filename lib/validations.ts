@@ -135,8 +135,12 @@ export const profileUpdateSchema = z.object({
     })
     .optional()
     .nullable(),
-  // Broker-specific fields
+  // Advisor/Broker-specific fields
   brokerageName: z.string().max(200).optional().nullable(),
+  boroughsServed: z.array(z.string()).optional(),
+  specialties: z.array(z.string()).optional(),
+  yearsOfExperience: z.number().int().min(0).max(99).optional().nullable(),
+  hasLicenses: z.boolean().optional(),
   brokerageWebsite: z.string().url().optional().nullable().or(z.literal("")),
   brokeragePhone: z.string().max(20).optional().nullable(),
   instagramUrl: z.string().url().optional().nullable().or(z.literal("")),

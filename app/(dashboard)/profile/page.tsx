@@ -485,44 +485,44 @@ export default function ProfileSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Broker Fields */}
+      {/* Advisor Fields */}
       {isBroker && (
         <Card>
           <CardHeader>
-            <CardTitle>Broker Information</CardTitle>
+            <CardTitle>Advisor Information</CardTitle>
             <CardDescription>
-              Your brokerage details and social links.
+              Your company details and social links.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                Brokerage Name
+                Company Name
               </Label>
               <Input
                 value={brokerageName}
                 onChange={(e) => setBrokerageName(e.target.value)}
-                placeholder="Your Brokerage LLC"
+                placeholder="Your Company LLC"
               />
             </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                Brokerage Website
+                Company Website
               </Label>
               <Input
                 value={brokerageWebsite}
                 onChange={(e) => setBrokerageWebsite(e.target.value)}
-                placeholder="https://yourbrokerage.com"
+                placeholder="https://yourcompany.com"
               />
             </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                Brokerage Phone
+                Company Phone
               </Label>
               <Input
                 value={brokeragePhone}
@@ -541,7 +541,7 @@ export default function ProfileSettingsPage() {
               <Input
                 value={instagramUrl}
                 onChange={(e) => setInstagramUrl(e.target.value)}
-                placeholder="https://instagram.com/yourbrokerage"
+                placeholder="https://instagram.com/yourcompany"
               />
             </div>
 

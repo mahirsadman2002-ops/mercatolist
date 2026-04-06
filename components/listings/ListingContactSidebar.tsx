@@ -114,7 +114,7 @@ function formatPhoneDisplay(phone: string): string {
 
 function getProfileUrl(userId: string, role: string): string {
   if (role === "BROKER") {
-    return `/brokers/${userId}`;
+    return `/advisors/${userId}`;
   }
   return `/profile/${userId}`;
 }
@@ -208,7 +208,7 @@ function AgentCard({
               variant={isBroker ? "default" : "secondary"}
               className="text-[10px] px-1.5 py-0"
             >
-              {isBroker ? "Broker" : "Owner"}
+              {isBroker ? "Business Advisor" : "Owner"}
             </Badge>
           )}
         </div>

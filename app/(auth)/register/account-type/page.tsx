@@ -54,7 +54,7 @@ export default function AccountTypePage() {
       }
 
       if (selected === "BROKER") {
-        router.push("/register/broker-details");
+        router.push("/register/advisor-details");
       } else {
         toast.success("Account set up! Welcome to MercatoList.");
         router.push("/");
@@ -116,8 +116,8 @@ export default function AccountTypePage() {
                 <BadgeCheck className="h-6 w-6" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">Licensed Broker</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">I represent buyers and sellers as a licensed broker</p>
+                <h3 className="font-semibold text-lg">Business Advisor</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">I represent buyers and sellers as a business advisor</p>
               </div>
               {selected === "BROKER" && (
                 <div className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-accent-foreground">

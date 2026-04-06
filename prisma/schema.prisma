@@ -145,17 +145,20 @@ model User {
   ownedBusiness  String?
   buyBox         Json?
 
-  // Broker-specific
-  brokerageName    String?
-  brokerageWebsite String?
-  brokeragePhone   String?
-  boroughsServed   String[]
-  specialties      String[]
-  instagramUrl     String?
-  linkedinUrl      String?
-  twitterUrl       String?
-  facebookUrl      String?
-  tiktokUrl        String?
+  // Advisor/Broker-specific
+  brokerageName      String?
+  brokerageWebsite   String?
+  brokeragePhone     String?
+  boroughsServed     String[]
+  specialties        String[]
+  yearsOfExperience  Int?
+  hasLicenses        Boolean  @default(false)
+  profileCompleteness Int     @default(0)
+  instagramUrl       String?
+  linkedinUrl        String?
+  twitterUrl         String?
+  facebookUrl        String?
+  tiktokUrl          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -179,6 +182,8 @@ model User {
   reviewTokens            ReviewToken[]              @relation("ReviewTokens")
   blogPosts         BlogPost[]
   searchLogs        SearchLog[]
+  licenses          License[]
+  pastDeals         PastDeal[]
 
   // Admin: ban management
   isBanned     Boolean @default(false)
@@ -515,4 +520,37 @@ model SearchLog {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model License {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  issuingAuthority String?
+  licenseNumber    String?
+  expirationDate   DateTime?
+  documentUrl      String?
+  isVerified       Boolean   @default(false)
+  verifiedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PastDeal {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName  String
+  category      String?
+  borough       String?
+  neighborhood  String?
+  salePrice     Decimal?
+  dateSold      DateTime?
+  notes         String?   @db.Text
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
 }

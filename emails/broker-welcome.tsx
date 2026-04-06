@@ -14,7 +14,7 @@ export default function BrokerWelcome({ name, brokerageName }: BrokerWelcomeProp
       <Body style={{ fontFamily: "sans-serif", backgroundColor: "#f9fafb" }}>
         <Container style={{ maxWidth: "600px", margin: "0 auto", backgroundColor: "#ffffff", padding: "24px" }}>
           <EmailHeader />
-          <Text>Welcome to MercatoList, {name} from {brokerageName}!</Text>
+          <Text>Welcome to MercatoList, {name} from {brokerageName}! You&apos;re now registered as a business advisor.</Text>
           <Text>Start listing businesses and connecting with buyers across NYC.</Text>
           <EmailFooter />
         </Container>

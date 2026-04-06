@@ -95,8 +95,8 @@ export function Header() {
           <Link href="/my-listings/new" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
             {isBroker ? "List a Business" : "Sell Your Business"}
           </Link>
-          <Link href="/brokers" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
-            Find a Broker
+          <Link href="/advisors" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            Find an Advisor
           </Link>
           <Link href="/blog" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
             Blog
@@ -144,7 +144,7 @@ export function Header() {
                       <p className="text-sm font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                       {isBroker && (
-                        <Badge variant="secondary" className="w-fit text-[10px] px-1.5 py-0">Broker</Badge>
+                        <Badge variant="secondary" className="w-fit text-[10px] px-1.5 py-0">Advisor</Badge>
                       )}
                     </div>
                   </DropdownMenuLabel>
@@ -213,9 +213,9 @@ export function Header() {
             </>
           ) : (
             <>
-              <Link href="/register/broker">
+              <Link href="/register/advisor">
                 <Button size="sm" className="bg-amber-400 text-amber-950 hover:bg-amber-500 font-semibold shadow-sm">
-                  Register as Broker
+                  Register as Business Advisor
                 </Button>
               </Link>
               <Link href="/register">
@@ -251,8 +251,8 @@ export function Header() {
               <Link href="/my-listings/new" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
                 {isBroker ? "List a Business" : "Sell Your Business"}
               </Link>
-              <Link href="/brokers" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                Find a Broker
+              <Link href="/advisors" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
+                Find an Advisor
               </Link>
               <Link href="/blog" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
                 Blog
@@ -272,7 +272,7 @@ export function Header() {
                         <p className="text-sm font-semibold truncate">{user.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         {isBroker && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-0.5">Broker</Badge>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-0.5">Advisor</Badge>
                         )}
                       </div>
                     </div>
@@ -321,9 +321,9 @@ export function Header() {
                   </>
                 ) : (
                   <>
-                    <Link href="/register/broker" onClick={() => setMobileOpen(false)}>
+                    <Link href="/register/advisor" onClick={() => setMobileOpen(false)}>
                       <Button className="w-full bg-amber-400 text-amber-950 hover:bg-amber-500 font-semibold shadow-sm" size="lg">
-                        Register as Broker
+                        Register as Business Advisor
                       </Button>
                     </Link>
                     <Link href="/register" onClick={() => setMobileOpen(false)}>

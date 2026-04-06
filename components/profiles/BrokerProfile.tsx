@@ -77,7 +77,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
     if (!reviewRating || !reviewText) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/brokers/${broker.id}/reviews`, {
+      const res = await fetch(`/api/advisors/${broker.id}/reviews`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating: reviewRating, text: reviewText }),
@@ -121,7 +121,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
         <div className="flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-bold">{broker.name}</h1>
-            <Badge className="bg-teal-600 text-white">Licensed Broker</Badge>
+            <Badge className="bg-teal-600 text-white">Business Advisor</Badge>
           </div>
 
           {broker.brokerageName && (
@@ -437,7 +437,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
                     <Textarea
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
-                      placeholder="Share your experience working with this broker..."
+                      placeholder="Share your experience working with this advisor..."
                       rows={4}
                     />
                   </div>

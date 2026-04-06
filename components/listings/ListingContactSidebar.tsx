@@ -937,7 +937,7 @@ export function ListingContactSidebar({
   const handleCollectionButtonClick = useCallback(() => {
     if (!currentUser?.id) {
       router.push(
-        `/signup-prompt?action=collection&callbackUrl=/listings/${listing.slug}?autoAction=collection`
+        `/signup-prompt?action=collection&callbackUrl=${encodeURIComponent(`/listings/${listing.slug}?autoAction=collection`)}`
       );
       return;
     }

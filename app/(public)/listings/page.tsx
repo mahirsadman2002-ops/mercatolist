@@ -2,12 +2,18 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import {
   SlidersHorizontal,
   ArrowUpDown,
   X,
   MapPin,
   Search,
+  CheckSquare,
+  FolderPlus,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -269,9 +275,23 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 // Inner page component (uses useSearchParams)
 // ---------------------------------------------------------------------------
 
+interface ClientItem {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface CollectionItem {
+  id: string;
+  name: string;
+}
+
 function ListingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const isBroker = userRole === "BROKER";
 
   // -----------------------------------------------------------------------
   // State
@@ -301,6 +321,127 @@ function ListingsPageContent() {
   });
   const [loading, setLoading] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Multi-select state (BROKER only)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [brokerCollections, setBrokerCollections] = useState<CollectionItem[]>([]);
+  const [brokerClients, setBrokerClients] = useState<ClientItem[]>([]);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [isSendingToCollection, setIsSendingToCollection] = useState(false);
+  const [isSendingToClient, setIsSendingToClient] = useState(false);
+  const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  // Toggle selection for a listing
+  const handleSelectToggle = useCallback((listingId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(listingId)) {
+        next.delete(listingId);
+      } else {
+        next.add(listingId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Exit select mode
+  const handleExitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setShowCollectionDropdown(false);
+    setShowClientDropdown(false);
+  }, []);
+
+  // Fetch broker collections
+  const fetchBrokerCollections = useCallback(async () => {
+    setIsLoadingCollections(true);
+    try {
+      const res = await fetch("/api/collections");
+      if (res.ok) {
+        const data = await res.json();
+        setBrokerCollections(data.data || []);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoadingCollections(false);
+    }
+  }, []);
+
+  // Fetch broker clients
+  const fetchBrokerClients = useCallback(async () => {
+    setIsLoadingClients(true);
+    try {
+      const res = await fetch("/api/clients");
+      if (res.ok) {
+        const data = await res.json();
+        setBrokerClients(data.data || []);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoadingClients(false);
+    }
+  }, []);
+
+  // Add selected listings to a collection
+  const handleAddToCollection = useCallback(
+    async (collectionId: string, collectionName: string) => {
+      setIsSendingToCollection(true);
+      try {
+        const listingIds = Array.from(selectedIds);
+        const results = await Promise.allSettled(
+          listingIds.map((listingId) =>
+            fetch(`/api/collections/${collectionId}/listings`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ listingId }),
+            })
+          )
+        );
+        const successCount = results.filter(
+          (r) => r.status === "fulfilled" && (r.value as Response).ok
+        ).length;
+        toast.success(
+          `Added ${successCount} listing${successCount !== 1 ? "s" : ""} to "${collectionName}"`
+        );
+        setShowCollectionDropdown(false);
+      } catch {
+        toast.error("Failed to add listings to collection.");
+      } finally {
+        setIsSendingToCollection(false);
+      }
+    },
+    [selectedIds]
+  );
+
+  // Send selected listings to a client
+  const handleSendToClient = useCallback(
+    async (clientId: string, clientName: string) => {
+      setIsSendingToClient(true);
+      try {
+        const listingIds = Array.from(selectedIds);
+        const res = await fetch(`/api/clients/${clientId}/send-listings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingIds }),
+        });
+        if (!res.ok) throw new Error("Failed to send");
+        toast.success(
+          `Sent ${listingIds.length} listing${listingIds.length !== 1 ? "s" : ""} to ${clientName}`
+        );
+        setShowClientDropdown(false);
+      } catch {
+        toast.error("Failed to send listings to client.");
+      } finally {
+        setIsSendingToClient(false);
+      }
+    },
+    [selectedIds]
+  );
 
   // -----------------------------------------------------------------------
   // Build URL search params from current state
@@ -532,7 +673,13 @@ function ListingsPageContent() {
           }`}
         >
           {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              selectable={selectMode}
+              isSelected={selectedIds.has(listing.id)}
+              onSelectToggle={handleSelectToggle}
+            />
           ))}
         </div>
 
@@ -658,6 +805,27 @@ function ListingsPageContent() {
                 </SelectContent>
               </Select>
 
+              {/* Select Toggle - BROKER only */}
+              {isBroker && (
+                <Button
+                  variant={selectMode ? "default" : "outline"}
+                  size="sm"
+                  className="h-9 gap-1.5 hidden sm:flex"
+                  onClick={() => {
+                    if (selectMode) {
+                      handleExitSelectMode();
+                    } else {
+                      setSelectMode(true);
+                      fetchBrokerCollections();
+                      fetchBrokerClients();
+                    }
+                  }}
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  <span>{selectMode ? "Exit Select" : "Select"}</span>
+                </Button>
+              )}
+
               {/* View Toggle - Hidden on mobile */}
               <div className="hidden md:block">
                 <ViewToggle activeView={viewMode} onViewChange={setViewMode} />
@@ -770,6 +938,128 @@ function ListingsPageContent() {
           )}
         </div>
       </div>
+
+      {/* ================================================================= */}
+      {/* Floating Multi-Select Action Bar (BROKER only)                    */}
+      {/* ================================================================= */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-xl border bg-background/95 px-5 py-3 shadow-2xl backdrop-blur-sm">
+            <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+              {selectedIds.size} selected
+            </span>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Add to Collection */}
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={isSendingToCollection}
+                onClick={() => {
+                  setShowClientDropdown(false);
+                  setShowCollectionDropdown((prev) => !prev);
+                }}
+              >
+                {isSendingToCollection ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FolderPlus className="h-4 w-4" />
+                )}
+                Add to Collection
+              </Button>
+              {showCollectionDropdown && (
+                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-lg border bg-popover p-1 shadow-lg">
+                  {isLoadingCollections ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : brokerCollections.length === 0 ? (
+                    <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                      No collections yet
+                    </p>
+                  ) : (
+                    brokerCollections.map((col) => (
+                      <button
+                        key={col.id}
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left"
+                        onClick={() => handleAddToCollection(col.id, col.name)}
+                      >
+                        <FolderPlus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{col.name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Send to Client */}
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={isSendingToClient}
+                onClick={() => {
+                  setShowCollectionDropdown(false);
+                  setShowClientDropdown((prev) => !prev);
+                }}
+              >
+                {isSendingToClient ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Send to Client
+              </Button>
+              {showClientDropdown && (
+                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-lg border bg-popover p-1 shadow-lg">
+                  {isLoadingClients ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : brokerClients.length === 0 ? (
+                    <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                      No clients yet
+                    </p>
+                  ) : (
+                    brokerClients.map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left"
+                        onClick={() =>
+                          handleSendToClient(client.id, client.name)
+                        }
+                      >
+                        <Send className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{client.name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Clear */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

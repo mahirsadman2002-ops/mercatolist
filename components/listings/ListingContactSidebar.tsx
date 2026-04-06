@@ -649,7 +649,14 @@ export function ListingContactSidebar({
     | undefined;
   const isOwner = currentUser?.id === listing.listedBy.id;
   const isBroker = listing.listedBy.role === "BROKER";
+  const isCurrentUserBroker = (session?.user as { role?: string } | undefined)?.role === "BROKER";
   const phone = listing.listedBy.phone || listing.listedBy.brokeragePhone;
+
+  // Share with Client state
+  const [clients, setClients] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [sendingToClientId, setSendingToClientId] = useState<string | null>(null);
 
   // Track whether auto-action has been executed
   const autoActionExecuted = useRef(false);
@@ -944,6 +951,59 @@ export function ListingContactSidebar({
     setCollectionPopoverOpen(true);
   }, [currentUser?.id, listing.slug, router]);
 
+  // ---- Share with Client (broker only) ----
+  const fetchClients = useCallback(async () => {
+    if (!isCurrentUserBroker) return;
+    setIsLoadingClients(true);
+    try {
+      const res = await fetch("/api/clients");
+      if (res.ok) {
+        const data = await res.json();
+        setClients(data.data || []);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoadingClients(false);
+    }
+  }, [isCurrentUserBroker]);
+
+  const handleShareWithClient = useCallback(
+    async (clientId: string, clientName: string) => {
+      setSendingToClientId(clientId);
+      try {
+        const res = await fetch(`/api/clients/${clientId}/send-listing`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingId: listing.id }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to send listing");
+        }
+        toast.success(`Listing sent to ${clientName}`);
+        setClientPopoverOpen(false);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Something went wrong."
+        );
+      } finally {
+        setSendingToClientId(null);
+      }
+    },
+    [listing.id]
+  );
+
+  const handleClientPopoverOpen = useCallback(
+    (open: boolean) => {
+      setClientPopoverOpen(open);
+      if (open) {
+        fetchClients();
+      }
+    },
+    [fetchClients]
+  );
+
   // ---- Ghost listing share link ----
   const ghostShareUrl =
     listing.isGhostListing && listing.shareToken
@@ -1225,7 +1285,59 @@ export function ListingContactSidebar({
             </Popover>
           </div>
 
-          {/* 6. Report Link */}
+          {/* 6. Share with Client (BROKER only) */}
+          {isCurrentUserBroker && (
+            <Popover open={clientPopoverOpen} onOpenChange={handleClientPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
+                  <Send className="size-4" />
+                  Share with Client
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="center" className="w-64 p-0">
+                <div className="p-3 pb-2">
+                  <p className="text-sm font-semibold">Send to Client</p>
+                </div>
+                <Separator />
+                <div className="max-h-48 overflow-y-auto p-2">
+                  {isLoadingClients ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : clients.length === 0 ? (
+                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                      No clients yet. Add clients from your dashboard.
+                    </p>
+                  ) : (
+                    clients.map((client) => {
+                      const isSending = sendingToClientId === client.id;
+                      return (
+                        <button
+                          key={client.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent disabled:opacity-50"
+                          onClick={() => handleShareWithClient(client.id, client.name)}
+                          disabled={isSending}
+                        >
+                          {isSending ? (
+                            <Loader2 className="size-4 shrink-0 animate-spin" />
+                          ) : (
+                            <Send className="size-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <div className="flex flex-col items-start min-w-0">
+                            <span className="truncate text-sm">{client.name}</span>
+                            <span className="truncate text-xs text-muted-foreground">{client.email}</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* 7. Report Link */}
           <div className="flex justify-center pt-1">
             <ReportListingDialog listingId={listing.id} />
           </div>

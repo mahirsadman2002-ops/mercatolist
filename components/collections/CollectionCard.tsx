@@ -9,6 +9,8 @@ import {
   Trash2,
   Mail,
   User,
+  Users,
+  Globe,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +32,8 @@ interface CollectionCardProps {
     clientEmail?: string | null;
     listingCount: number;
     previewPhotos: { id?: string; url: string }[];
+    collaboratorCount?: number;
+    isPubliclyShared?: boolean;
     createdAt: string;
   };
   onEdit?: (id: string) => void;
@@ -43,7 +47,6 @@ export function CollectionCard({
   onDelete,
   onEmail,
 }: CollectionCardProps) {
-  // FIX: API returns previewPhotos, not listings with nested photos
   const photos = (collection.previewPhotos || []).slice(0, 4).map((p) => p.url);
 
   return (
@@ -77,6 +80,16 @@ export function CollectionCard({
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <FolderOpen className="size-12 text-muted-foreground/30" />
+            </div>
+          )}
+
+          {/* Shared badge */}
+          {collection.isPubliclyShared && (
+            <div className="absolute left-2 top-2 z-10">
+              <Badge className="bg-emerald-500/90 text-white text-[10px] border-0 backdrop-blur-sm">
+                <Globe className="size-3 mr-0.5" />
+                Shared
+              </Badge>
             </div>
           )}
 
@@ -139,12 +152,25 @@ export function CollectionCard({
             </p>
           )}
 
-          {collection.clientName && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <User className="size-3" />
-              <span>For: {collection.clientName}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {collection.clientName && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <User className="size-3" />
+                <span>For: {collection.clientName}</span>
+              </div>
+            )}
+
+            {collection.collaboratorCount != null &&
+              collection.collaboratorCount > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="size-3" />
+                  <span>
+                    {collection.collaboratorCount} collaborator
+                    {collection.collaboratorCount !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+          </div>
         </CardContent>
       </Card>
     </Link>

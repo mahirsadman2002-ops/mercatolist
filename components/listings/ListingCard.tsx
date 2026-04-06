@@ -40,6 +40,12 @@ interface ListingCardProps {
   isSaved?: boolean;
   savedAt?: string | Date | null;
   statusChanged?: boolean;
+  /** When true, show a selection checkbox overlay */
+  selectable?: boolean;
+  /** Whether this card is currently selected */
+  isSelected?: boolean;
+  /** Callback when the selection checkbox is toggled */
+  onSelectToggle?: (listingId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +88,9 @@ export function ListingCard({
   isSaved = false,
   savedAt,
   statusChanged,
+  selectable = false,
+  isSelected = false,
+  onSelectToggle,
 }: ListingCardProps) {
   const [saved, setSaved] = useState(isSaved);
   const [saving, setSaving] = useState(false);
@@ -157,16 +166,64 @@ export function ListingCard({
       ? ` \u00B7 ${listing.listedBy.brokerageName}`
       : "";
 
+  const handleSelectClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onSelectToggle?.(listing.id);
+    },
+    [listing.id, onSelectToggle]
+  );
+
+  const Wrapper = selectable ? "div" : Link;
+  const wrapperProps = selectable
+    ? {
+        className:
+          "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl cursor-pointer",
+        onClick: handleSelectClick,
+      }
+    : {
+        href: `/listings/${listing.slug}`,
+        className:
+          "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl",
+      };
+
   return (
-    <Link
-      href={`/listings/${listing.slug}`}
-      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
-    >
-      <Card className="overflow-hidden border border-border/60 bg-card p-0 gap-0 transition-shadow duration-300 ease-out group-hover:shadow-lg group-hover:shadow-black/8">
+    // @ts-expect-error - dynamic component type
+    <Wrapper {...wrapperProps}>
+      <Card className={`overflow-hidden border bg-card p-0 gap-0 transition-shadow duration-300 ease-out group-hover:shadow-lg group-hover:shadow-black/8 ${selectable && isSelected ? "border-primary ring-2 ring-primary/30" : "border-border/60"}`}>
         {/* ----------------------------------------------------------------- */}
         {/* Image Area — 16:10 aspect ratio                                   */}
         {/* ----------------------------------------------------------------- */}
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+          {/* Selection checkbox overlay */}
+          {selectable && (
+            <div className="absolute left-3 top-3 z-20">
+              <div
+                className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-all duration-150 ${
+                  isSelected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-white/80 bg-white/60 backdrop-blur-sm"
+                }`}
+              >
+                {isSelected && (
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                )}
+              </div>
+            </div>
+          )}
           {primaryPhoto ? (
             <Image
               src={primaryPhoto}
@@ -187,8 +244,8 @@ export function ListingCard({
           {/* Gradient overlay for readability of badges on image */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
 
-          {/* Top-left: Category badge */}
-          <div className="absolute left-3 top-3">
+          {/* Top-left: Category badge (shifts right when selectable to make room for checkbox) */}
+          <div className={`absolute top-3 ${selectable ? "left-12" : "left-3"}`}>
             <Badge
               variant="secondary"
               className="bg-white/90 text-foreground backdrop-blur-sm shadow-sm text-[11px] font-semibold tracking-wide uppercase px-2.5 py-1 rounded-md border-0"
@@ -326,7 +383,7 @@ export function ListingCard({
           </div>
         </CardContent>
       </Card>
-    </Link>
+    </Wrapper>
   );
 }
 

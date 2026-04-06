@@ -34,14 +34,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface ClientInfo {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
 interface CollectionData {
   id: string;
   name: string;
   description?: string | null;
-  clientName?: string | null;
-  clientEmail?: string | null;
+  shareToken?: string | null;
+  isPubliclyShared?: boolean;
+  clientId?: string | null;
+  client?: ClientInfo | null;
   listingCount: number;
-  previewPhotos: { id: string; url: string }[];
+  previewPhotos: { id?: string; url: string }[];
+  collaboratorCount?: number;
   createdAt: string;
 }
 
@@ -117,6 +127,8 @@ export default function CollectionsPage() {
     try {
       const res = await fetch(`/api/collections/${id}/email`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -171,7 +183,18 @@ export default function CollectionsPage() {
           {collections.map((col) => (
             <CollectionCard
               key={col.id}
-              collection={col}
+              collection={{
+                id: col.id,
+                name: col.name,
+                description: col.description,
+                clientName: col.client?.name || null,
+                clientEmail: col.client?.email || null,
+                listingCount: col.listingCount,
+                previewPhotos: col.previewPhotos,
+                collaboratorCount: col.collaboratorCount,
+                isPubliclyShared: col.isPubliclyShared,
+                createdAt: col.createdAt,
+              }}
               onEdit={(id) => router.push(`/collections/${id}`)}
               onDelete={setDeleteId}
               onEmail={handleEmail}

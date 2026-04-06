@@ -141,18 +141,22 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Account created! Check your email to verify.");
+      toast.success("Account created successfully!");
 
-      // Sign in immediately (they'll need to verify email before they can use credentials again)
-      // For now, redirect to account type selection
-      // We auto-sign them in so they can select account type
+      // Auto-sign in so user can proceed to account type selection
       const signInResult = await signIn("credentials", {
         email: email.trim(),
         password,
         redirect: false,
       });
 
-      // If sign-in fails (expected since email isn't verified), just redirect
+      if (signInResult?.error) {
+        // Sign-in failed — redirect to login so they can sign in manually
+        toast.error("Account created but auto-login failed. Please sign in.");
+        router.push("/login");
+        return;
+      }
+
       router.push("/register/account-type");
     } catch {
       toast.error("Something went wrong. Please try again.");

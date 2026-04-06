@@ -74,11 +74,7 @@ function LoginPageContent() {
       });
 
       if (result?.error) {
-        if (result.error.includes("EMAIL_NOT_VERIFIED")) {
-          setFormError("Please check your email to verify your account before signing in.");
-        } else {
-          setFormError("Invalid email or password");
-        }
+        setFormError("Invalid email or password");
       } else {
         router.push(callbackUrl);
         router.refresh();

@@ -52,10 +52,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!user || !user.hashedPassword) return null;
 
-        // Check if email is verified
-        if (!user.emailVerified) {
-          throw new Error("EMAIL_NOT_VERIFIED");
-        }
+        // TODO: Re-enable email verification check when Resend is fully configured with the domain
+        // if (!user.emailVerified) {
+        //   throw new Error("EMAIL_NOT_VERIFIED");
+        // }
 
         const isValid = await bcrypt.compare(password, user.hashedPassword);
         if (!isValid) return null;
@@ -71,19 +71,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // OAuth providers: auto-verify email
+      // OAuth providers: always allow sign-in, auto-verify email
       if (account?.provider === "google" || account?.provider === "apple") {
-        if (user.email) {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email },
-          });
-          if (existingUser && !existingUser.emailVerified) {
-            await prisma.user.update({
+        try {
+          if (user.email) {
+            const existingUser = await prisma.user.findUnique({
               where: { email: user.email },
-              data: { emailVerified: new Date() },
             });
+            if (existingUser && !existingUser.emailVerified) {
+              await prisma.user.update({
+                where: { email: user.email },
+                data: { emailVerified: new Date() },
+              });
+            }
           }
+        } catch (error) {
+          console.error("OAuth signIn callback error (non-blocking):", error);
         }
+        // Always allow OAuth sign-in regardless of DB errors
         return true;
       }
 
@@ -101,17 +106,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = session.role;
       }
 
-      // Fetch latest role and avatar from DB
+      // Always fetch latest role, name, and avatar from DB so session stays current
+      // (e.g., after user updates their profile or role changes to BROKER)
       if (token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          select: { id: true, role: true, name: true, avatarUrl: true },
-        });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role;
-          token.name = dbUser.name;
-          token.picture = dbUser.avatarUrl;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: token.email },
+            select: { id: true, role: true, name: true, avatarUrl: true },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+            token.name = dbUser.name;
+            token.picture = dbUser.avatarUrl;
+          }
+        } catch (error) {
+          console.error("JWT callback DB lookup failed (non-blocking):", error);
         }
       }
       return token;

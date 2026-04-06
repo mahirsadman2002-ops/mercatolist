@@ -8,6 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, ArrowRight, TrendingUp } from "lucide-react";
 
+// Revalidate every 60 seconds so new blog posts appear without a full rebuild
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "MercatoList Blog — Buying & Selling Businesses in NYC",
   description:

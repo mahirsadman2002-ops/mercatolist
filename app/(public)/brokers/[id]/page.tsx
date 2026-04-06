@@ -24,7 +24,7 @@ export async function generateMetadata({
   });
 
   if (!broker) {
-    return { title: "Broker Not Found | MercatoList" };
+    return { title: "Advisor Not Found | MercatoList" };
   }
 
   const name = broker.displayName || broker.name;
@@ -38,13 +38,13 @@ export async function generateMetadata({
 
   const description =
     broker.bio ||
-    `${name}${broker.brokerageName ? ` of ${broker.brokerageName}` : ""} — NYC Business Broker on MercatoList.${avgRating ? ` Rated ${avgRating}/5.` : ""}`;
+    `${name}${broker.brokerageName ? ` of ${broker.brokerageName}` : ""} — NYC Business Advisor on MercatoList.${avgRating ? ` Rated ${avgRating}/5.` : ""}`;
 
   return {
-    title: `${name} — NYC Business Broker | MercatoList`,
+    title: `${name} — NYC Business Advisor | MercatoList`,
     description,
     openGraph: {
-      title: `${name} — NYC Business Broker | MercatoList`,
+      title: `${name} — NYC Business Advisor | MercatoList`,
       description,
     },
   };

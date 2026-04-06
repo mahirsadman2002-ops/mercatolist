@@ -160,7 +160,7 @@ export default function PublicProfilePage() {
     setSendingReview(true);
     try {
       const res = await fetch(
-        `/api/brokers/${profile?.id}/review-request`,
+        `/api/advisors/${profile?.id}/review-request`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -421,21 +421,21 @@ export default function PublicProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Brokerage Name</Label>
+              <Label>Company Name</Label>
               <Input
                 value={brokerageName}
                 onChange={(e) => setBrokerageName(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Brokerage Website</Label>
+              <Label>Company Website</Label>
               <Input
                 value={brokerageWebsite}
                 onChange={(e) => setBrokerageWebsite(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Brokerage Phone</Label>
+              <Label>Company Phone</Label>
               <Input
                 value={brokeragePhone}
                 onChange={(e) => setBrokeragePhone(e.target.value)}

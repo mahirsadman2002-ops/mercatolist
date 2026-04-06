@@ -39,10 +39,10 @@ async function main() {
       hashedPassword: userPassword,
       role: "BROKER",
       emailVerified: new Date(),
-      brokerageName: "NYC Business Brokers",
-      brokerageWebsite: "https://nycbusinessbrokers.example.com",
+      brokerageName: "NYC Business Advisors",
+      brokerageWebsite: "https://nycbusinessadvisors.example.com",
       brokeragePhone: "(212) 555-0100",
-      bio: "Top-rated business broker specializing in restaurant and retail transactions across Manhattan and Brooklyn.",
+      bio: "Top-rated business advisor specializing in restaurant and retail transactions across Manhattan and Brooklyn.",
     },
   });
 

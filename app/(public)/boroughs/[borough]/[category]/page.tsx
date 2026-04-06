@@ -130,7 +130,7 @@ export async function generateMetadata({
 
   return {
     title: `${categoryName} for Sale in ${borough.label} | MercatoList`,
-    description: `Browse ${count} ${categoryName.toLowerCase()} businesses for sale in ${borough.label}, NYC. Find listings with pricing, financials, and broker details on MercatoList.`,
+    description: `Browse ${count} ${categoryName.toLowerCase()} businesses for sale in ${borough.label}, NYC. Find listings with pricing, financials, and advisor details on MercatoList.`,
     alternates: {
       canonical: `/boroughs/${boroughSlug}/${categorySlug}`,
     },

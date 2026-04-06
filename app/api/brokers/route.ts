@@ -112,9 +112,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching brokers:", error);
+    console.error("Error fetching advisors:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch brokers" },
+      { success: false, error: "Failed to fetch advisors" },
       { status: 500 }
     );
   }

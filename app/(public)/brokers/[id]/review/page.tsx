@@ -31,10 +31,10 @@ export default function ReviewPage() {
         if (json.success) {
           setBrokerName(json.data.name);
         } else {
-          setError("Broker not found");
+          setError("Advisor not found");
         }
       })
-      .catch(() => setError("Failed to load broker info"));
+      .catch(() => setError("Failed to load advisor info"));
   }, [brokerId]);
 
   async function handleSubmit() {
@@ -124,7 +124,7 @@ export default function ReviewPage() {
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value.slice(0, 2000))}
-              placeholder="Share your experience working with this broker... (minimum 20 characters)"
+              placeholder="Share your experience working with this advisor... (minimum 20 characters)"
               rows={6}
             />
             {text.length > 0 && text.length < 20 && (
@@ -144,7 +144,7 @@ export default function ReviewPage() {
 
           <p className="text-xs text-muted-foreground text-center">
             You must be signed in to submit a review. Your review will be
-            publicly visible on the broker&apos;s profile.
+            publicly visible on the advisor&apos;s profile.
           </p>
         </CardContent>
       </Card>

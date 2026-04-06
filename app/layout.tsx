@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     "buy a business New York",
     "sell a business NYC",
     "NYC business marketplace",
-    "business broker NYC",
+    "business advisor NYC",
   ],
   openGraph: {
     type: "website",

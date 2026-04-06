@@ -55,7 +55,7 @@ export async function POST(
         select: { name: true, displayName: true, brokerageName: true },
       });
 
-      const brokerName = broker?.displayName || broker?.name || "Your Broker";
+      const brokerName = broker?.displayName || broker?.name || "Your Advisor";
 
       try {
         await sendEmail({

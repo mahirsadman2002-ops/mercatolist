@@ -92,11 +92,11 @@ export default function BrokersPage() {
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold mb-2">
-          Find a Business Broker in NYC
+          Find a Business Advisor in NYC
         </h1>
         <p className="text-muted-foreground">
-          Browse verified business brokers across New York City. Find the
-          right broker to help you buy or sell a business.
+          Browse verified business advisors across New York City. Find the
+          right advisor to help you buy or sell a business.
         </p>
       </div>
 
@@ -107,7 +107,7 @@ export default function BrokersPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or brokerage..."
+            placeholder="Search by name or company..."
             className="pl-10"
           />
         </div>

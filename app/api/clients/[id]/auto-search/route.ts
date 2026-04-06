@@ -24,7 +24,7 @@ export async function POST(
 
     if (user?.role !== "BROKER") {
       return NextResponse.json(
-        { success: false, error: "Only brokers can create auto-searches for clients" },
+        { success: false, error: "Only advisors can create auto-searches for clients" },
         { status: 403 }
       );
     }

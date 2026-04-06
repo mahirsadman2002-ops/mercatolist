@@ -61,7 +61,7 @@ export async function GET(
 
     if (!broker) {
       return NextResponse.json(
-        { success: false, error: "Broker not found" },
+        { success: false, error: "Advisor not found" },
         { status: 404 }
       );
     }
@@ -119,9 +119,9 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error fetching broker:", error);
+    console.error("Error fetching advisor:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch broker" },
+      { success: false, error: "Failed to fetch advisor" },
       { status: 500 }
     );
   }

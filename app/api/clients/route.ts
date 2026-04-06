@@ -21,7 +21,7 @@ export async function GET() {
 
     if (user?.role !== "BROKER") {
       return NextResponse.json(
-        { success: false, error: "Only brokers can access client management" },
+        { success: false, error: "Only advisors can access client management" },
         { status: 403 }
       );
     }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     if (user?.role !== "BROKER") {
       return NextResponse.json(
-        { success: false, error: "Only brokers can create clients" },
+        { success: false, error: "Only advisors can create clients" },
         { status: 403 }
       );
     }

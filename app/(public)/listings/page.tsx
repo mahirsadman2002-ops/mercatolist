@@ -139,7 +139,7 @@ const MOCK_LISTINGS: ListingData[] = [
       name: "David Chen",
       displayName: "David C.",
       role: "BROKER",
-      brokerageName: "Manhattan Biz Brokers",
+      brokerageName: "Manhattan Biz Advisors",
     },
   },
   {

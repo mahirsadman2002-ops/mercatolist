@@ -133,12 +133,12 @@ export default function CompleteProfilePage() {
             <div className="space-y-4 border-t pt-4">
               <p className="text-sm font-semibold">Advisor Details</p>
               <div className="space-y-2">
-                <Label htmlFor="cp-brokerage">Brokerage Name *</Label>
+                <Label htmlFor="cp-brokerage">Company Name *</Label>
                 <Input id="cp-brokerage" placeholder="e.g., NYC Business Sales" value={brokerForm.brokerageName} onChange={(e) => updateBrokerField("brokerageName", e.target.value)} />
                 {errors.brokerageName && <p className="text-xs text-destructive">{errors.brokerageName}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cp-phone">Brokerage Phone *</Label>
+                <Label htmlFor="cp-phone">Company Phone *</Label>
                 <Input id="cp-phone" type="tel" placeholder="(212) 555-0100" value={brokerForm.brokeragePhone} onChange={(e) => updateBrokerField("brokeragePhone", e.target.value)} />
                 {errors.brokeragePhone && <p className="text-xs text-destructive">{errors.brokeragePhone}</p>}
               </div>

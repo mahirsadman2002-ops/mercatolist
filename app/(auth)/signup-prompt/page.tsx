@@ -88,7 +88,7 @@ const ACTION_MAP: Record<ActionKey, ActionConfig> = {
     subtext:
       "Create a free account to start a conversation about this business.",
     bullets: [
-      "Send and receive messages directly with sellers and brokers",
+      "Send and receive messages directly with sellers and advisors",
       "Keep all your conversations organized in one inbox",
       "Get notified instantly when you receive a reply",
     ],
@@ -124,7 +124,7 @@ const DEFAULT_ACTION: ActionConfig = {
     "Create a free account to access all features of NYC's premier business marketplace.",
   bullets: [
     "Browse and save businesses for sale across all five boroughs",
-    "Message sellers and brokers directly",
+    "Message sellers and advisors directly",
     "Organize your search with collections and saved searches",
   ],
 };

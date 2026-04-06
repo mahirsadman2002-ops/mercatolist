@@ -82,7 +82,7 @@ export async function POST(
     });
     if (!broker) {
       return NextResponse.json(
-        { success: false, error: "Broker not found" },
+        { success: false, error: "Advisor not found" },
         { status: 404 }
       );
     }
@@ -93,7 +93,7 @@ export async function POST(
     });
     if (existingReview) {
       return NextResponse.json(
-        { success: false, error: "You have already reviewed this broker" },
+        { success: false, error: "You have already reviewed this advisor" },
         { status: 400 }
       );
     }

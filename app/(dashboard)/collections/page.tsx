@@ -7,11 +7,13 @@ import {
   Plus,
   Loader2,
   Search,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { CollectionCard } from "@/components/collections/CollectionCard";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +55,9 @@ interface CollectionData {
   previewPhotos: { id?: string; url: string }[];
   collaboratorCount?: number;
   createdAt: string;
+  // For shared-with-you collections
+  isSharedWithMe?: boolean;
+  advisorName?: string | null;
 }
 
 export default function CollectionsPage() {
@@ -140,6 +145,74 @@ export default function CollectionsPage() {
     }
   };
 
+  const handleShare = async (id: string) => {
+    try {
+      const col = collections.find((c) => c.id === id);
+
+      // If already publicly shared with a token, just copy the link
+      if (col?.isPubliclyShared && col?.shareToken) {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.com";
+        const link = `${baseUrl}/collections/shared/${col.shareToken}`;
+        await navigator.clipboard.writeText(link);
+        toast.success("Share link copied!");
+        return;
+      }
+
+      // Otherwise, generate the share link first
+      const res = await fetch(`/api/collections/${id}/share`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      if (json.success && json.data.shareUrl) {
+        await navigator.clipboard.writeText(json.data.shareUrl);
+        // Update local state
+        setCollections((prev) =>
+          prev.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  isPubliclyShared: json.data.isPubliclyShared,
+                  shareToken: json.data.shareToken,
+                }
+              : c
+          )
+        );
+        toast.success("Share link copied!");
+      } else if (json.success && !json.data.isPubliclyShared) {
+        // Sharing was toggled off (it was already shared)
+        // Toggle it back on and copy
+        const res2 = await fetch(`/api/collections/${id}/share`, {
+          method: "POST",
+        });
+        if (!res2.ok) throw new Error();
+        const json2 = await res2.json();
+        if (json2.success && json2.data.shareUrl) {
+          await navigator.clipboard.writeText(json2.data.shareUrl);
+          setCollections((prev) =>
+            prev.map((c) =>
+              c.id === id
+                ? {
+                    ...c,
+                    isPubliclyShared: json2.data.isPubliclyShared,
+                    shareToken: json2.data.shareToken,
+                  }
+                : c
+            )
+          );
+          toast.success("Share link copied!");
+        }
+      }
+    } catch {
+      toast.error("Failed to generate share link");
+    }
+  };
+
+  // Separate own collections from shared-with-me collections
+  const myCollections = collections.filter((c) => !c.isSharedWithMe);
+  const sharedWithMe = collections.filter((c) => c.isSharedWithMe);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -164,7 +237,7 @@ export default function CollectionsPage() {
         </Button>
       </div>
 
-      {collections.length === 0 ? (
+      {myCollections.length === 0 && sharedWithMe.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-20 text-center">
           <FolderOpen className="size-14 text-muted-foreground/30" />
           <div>
@@ -179,28 +252,76 @@ export default function CollectionsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((col) => (
-            <CollectionCard
-              key={col.id}
-              collection={{
-                id: col.id,
-                name: col.name,
-                description: col.description,
-                clientName: col.client?.name || null,
-                clientEmail: col.client?.email || null,
-                listingCount: col.listingCount,
-                previewPhotos: col.previewPhotos,
-                collaboratorCount: col.collaboratorCount,
-                isPubliclyShared: col.isPubliclyShared,
-                createdAt: col.createdAt,
-              }}
-              onEdit={(id) => router.push(`/collections/${id}`)}
-              onDelete={setDeleteId}
-              onEmail={handleEmail}
-            />
-          ))}
-        </div>
+        <>
+          {/* Own collections */}
+          {myCollections.length > 0 && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {myCollections.map((col) => (
+                <CollectionCard
+                  key={col.id}
+                  collection={{
+                    id: col.id,
+                    name: col.name,
+                    description: col.description,
+                    clientName: col.client?.name || null,
+                    clientEmail: col.client?.email || null,
+                    listingCount: col.listingCount,
+                    previewPhotos: col.previewPhotos,
+                    collaboratorCount: col.collaboratorCount,
+                    isPubliclyShared: col.isPubliclyShared,
+                    createdAt: col.createdAt,
+                  }}
+                  onEdit={(id) => router.push(`/collections/${id}`)}
+                  onDelete={setDeleteId}
+                  onEmail={handleEmail}
+                  onShare={handleShare}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Shared with me collections */}
+          {sharedWithMe.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <UserCheck className="size-5 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Shared with You</h2>
+                <Badge variant="secondary" className="text-xs">
+                  {sharedWithMe.length}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {sharedWithMe.map((col) => (
+                  <div key={col.id} className="relative">
+                    {col.advisorName && (
+                      <div className="mb-1.5 text-xs text-muted-foreground">
+                        Shared by{" "}
+                        <span className="font-medium text-foreground">
+                          {col.advisorName}
+                        </span>
+                      </div>
+                    )}
+                    <CollectionCard
+                      collection={{
+                        id: col.id,
+                        name: col.name,
+                        description: col.description,
+                        clientName: null,
+                        clientEmail: null,
+                        listingCount: col.listingCount,
+                        previewPhotos: col.previewPhotos,
+                        collaboratorCount: col.collaboratorCount,
+                        isPubliclyShared: col.isPubliclyShared,
+                        createdAt: col.createdAt,
+                      }}
+                      onEdit={(id) => router.push(`/collections/${id}`)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Create Dialog */}

@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ChevronRight,
+  ChevronLeft,
   MapPin,
   Clock,
   Tag,
   CalendarDays,
   Store,
+  FolderOpen,
 } from "lucide-react";
 
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
@@ -25,6 +27,7 @@ import { ListingMap } from "@/components/listings/ListingMap";
 import { ListingContactSidebar } from "@/components/listings/ListingContactSidebar";
 import { ListingStatusBadge } from "@/components/listings/ListingStatusBadge";
 import { CollectionDiscoveryPopup } from "@/components/listings/CollectionDiscoveryPopup";
+import { CollectionNotesSection } from "@/components/collections/CollectionNotesSection";
 
 // Revalidate every 60 seconds so listing data stays fresh
 export const revalidate = 60;
@@ -298,6 +301,11 @@ export default async function ListingDetailPage({
   const sp = await searchParams;
   const token = typeof sp.token === "string" ? sp.token : undefined;
 
+  // Collection context from URL params
+  const collectionId = typeof sp.collectionId === "string" ? sp.collectionId : undefined;
+  const position = typeof sp.position === "string" ? parseInt(sp.position, 10) : undefined;
+  const total = typeof sp.total === "string" ? parseInt(sp.total, 10) : undefined;
+
   let listing;
   let session;
   try {
@@ -312,6 +320,45 @@ export default async function ListingDetailPage({
 
   if (!listing) {
     notFound();
+  }
+
+  // Fetch collection name and neighboring listings for navigation
+  let collectionName: string | null = null;
+  let prevSlug: string | null = null;
+  let nextSlug: string | null = null;
+  if (collectionId) {
+    try {
+      const col = await prisma.collection.findUnique({
+        where: { id: collectionId },
+        select: {
+          name: true,
+          collectionListings: {
+            select: {
+              listing: {
+                select: { slug: true },
+              },
+            },
+            orderBy: { addedAt: "desc" },
+          },
+        },
+      });
+      if (col) {
+        collectionName = col.name;
+        // Build prev/next navigation
+        if (position && total) {
+          const slugs = col.collectionListings.map((cl) => cl.listing.slug);
+          const currentIndex = position - 1;
+          if (currentIndex > 0) {
+            prevSlug = slugs[currentIndex - 1] ?? null;
+          }
+          if (currentIndex < slugs.length - 1) {
+            nextSlug = slugs[currentIndex + 1] ?? null;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching collection context:", error);
+    }
   }
 
   const isLoggedIn = !!session?.user;
@@ -368,6 +415,55 @@ export default async function ListingDetailPage({
             </nav>
           </div>
         </div>
+
+        {/* ================================================================
+            Collection Context Bar
+        ================================================================ */}
+        {collectionId && collectionName && (
+          <div className="border-b border-amber-200 bg-amber-50">
+            <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm min-w-0">
+                <FolderOpen className="h-4 w-4 text-amber-600 shrink-0" />
+                <span className="text-amber-800 truncate">
+                  Viewing from collection:{" "}
+                  <span className="font-semibold">{collectionName}</span>
+                  {position && total && (
+                    <span className="text-amber-600">
+                      {" "}
+                      &mdash; Listing {position} of {total}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {prevSlug && position && total && (
+                  <Link
+                    href={`/listings/${prevSlug}?collectionId=${collectionId}&position=${position - 1}&total=${total}`}
+                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-amber-300 bg-white text-amber-700 hover:bg-amber-100 transition-colors"
+                    title="Previous listing"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Link>
+                )}
+                {nextSlug && position && total && (
+                  <Link
+                    href={`/listings/${nextSlug}?collectionId=${collectionId}&position=${position + 1}&total=${total}`}
+                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-amber-300 bg-white text-amber-700 hover:bg-amber-100 transition-colors"
+                    title="Next listing"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
+                <Link
+                  href={`/collections/${collectionId}`}
+                  className="inline-flex items-center gap-1 ml-1 text-sm font-medium text-amber-700 hover:text-amber-900 transition-colors"
+                >
+                  Back to Collection
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ================================================================
             Photo Gallery / Map Hero (full width, above fold)
@@ -541,6 +637,19 @@ export default async function ListingDetailPage({
               <section aria-labelledby="business-details-heading">
                 <BusinessDetails listing={listing} />
               </section>
+
+              {/* ---- Collection Notes (shown when in collection context) ---- */}
+              {collectionId && (
+                <>
+                  <div className="my-8" />
+                  <section aria-labelledby="collection-notes-heading">
+                    <CollectionNotesSection
+                      collectionId={collectionId}
+                      listingId={listing.id}
+                    />
+                  </section>
+                </>
+              )}
 
               <div className="my-8" />
 

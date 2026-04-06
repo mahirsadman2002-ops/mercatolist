@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   Mail,
+  Share2,
   User,
   Users,
   Globe,
@@ -39,6 +40,7 @@ interface CollectionCardProps {
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEmail?: (id: string) => void;
+  onShare?: (id: string) => void;
 }
 
 export function CollectionCard({
@@ -46,6 +48,7 @@ export function CollectionCard({
   onEdit,
   onDelete,
   onEmail,
+  onShare,
 }: CollectionCardProps) {
   const photos = (collection.previewPhotos || []).slice(0, 4).map((p) => p.url);
 
@@ -113,6 +116,12 @@ export function CollectionCard({
                   <DropdownMenuItem onClick={() => onEdit(collection.id)}>
                     <Pencil className="size-3.5" />
                     Edit
+                  </DropdownMenuItem>
+                )}
+                {onShare && (
+                  <DropdownMenuItem onClick={() => onShare(collection.id)}>
+                    <Share2 className="size-3.5" />
+                    Share
                   </DropdownMenuItem>
                 )}
                 {onEmail && collection.clientEmail && (

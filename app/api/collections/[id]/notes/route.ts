@@ -2,6 +2,92 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// GET: Fetch notes for a collection, optionally filtered by listingId
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const listingId = searchParams.get("listingId");
+
+    // Verify collection access (owner or collaborator)
+    const collection = await prisma.collection.findUnique({
+      where: { id },
+      include: {
+        collaborators: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!collection) {
+      return NextResponse.json(
+        { success: false, error: "Collection not found" },
+        { status: 404 }
+      );
+    }
+
+    const isOwner = collection.userId === session.user.id;
+    const isCollaborator = collection.collaborators.some(
+      (c) => c.userId === session.user.id
+    );
+
+    if (!isOwner && !isCollaborator) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const where: Record<string, unknown> = { collectionId: id };
+    if (listingId) {
+      where.listingId = listingId;
+    }
+
+    const notes = await prisma.collectionNote.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: notes.map((note) => ({
+        id: note.id,
+        content: note.content,
+        listingId: note.listingId,
+        user: note.user,
+        createdAt: note.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching notes:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch notes" },
+      { status: 500 }
+    );
+  }
+}
+
 // POST: Add a note to a collection
 export async function POST(
   request: NextRequest,

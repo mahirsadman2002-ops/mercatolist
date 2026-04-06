@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 import {
   Heart,
   MessageCircle,
+  MessageSquare,
   FolderOpen,
   Eye,
   EyeOff,
@@ -66,7 +67,7 @@ function getPasswordStrength(password: string): {
 
 // ── Action config ───────────────────────────────────────────────────
 
-type ActionKey = "contact" | "save" | "collection";
+type ActionKey = "contact" | "save" | "collection" | "collection-interact";
 
 interface ActionConfig {
   icon: React.ElementType;
@@ -107,6 +108,17 @@ const ACTION_MAP: Record<ActionKey, ActionConfig> = {
       "Group listings into custom collections",
       "Share collections with your team or advisor",
       "Compare businesses side by side",
+    ],
+  },
+  "collection-interact": {
+    icon: MessageCircle,
+    heading: "Join the Conversation",
+    subtext:
+      "Create a free account to like or dislike listings, leave notes, and collaborate with your advisor on finding the right business.",
+    bullets: [
+      "React to listings your advisor shares with you",
+      "Leave notes and comments for your advisor to see",
+      "Track your preferences across all shared collections",
     ],
   },
 };

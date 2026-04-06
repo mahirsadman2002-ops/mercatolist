@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,6 +27,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Users,
+  Briefcase,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -169,6 +172,14 @@ interface CollectionDetail {
   notes: CollectionNote[];
   createdAt: string;
   updatedAt: string;
+  isAssignedClient?: boolean;
+  advisorName?: string | null;
+}
+
+interface ClientRecord {
+  id: string;
+  name: string;
+  email?: string | null;
 }
 
 interface CompareListingData {
@@ -250,10 +261,18 @@ type SortKey =
 export default function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { data: session } = useSession();
+  const userRole = (session?.user as { role?: string })?.role;
+  const isBroker = userRole === "BROKER";
 
   // Data
   const [collection, setCollection] = useState<CollectionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Client assignment (broker only)
+  const [brokerClients, setBrokerClients] = useState<ClientRecord[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [isAssigningClient, setIsAssigningClient] = useState(false);
 
   // Inline editing
   const [editingName, setEditingName] = useState(false);
@@ -323,6 +342,67 @@ export default function CollectionDetailPage() {
   useEffect(() => {
     fetchCollection();
   }, [fetchCollection]);
+
+  // Fetch broker clients when user is a broker
+  useEffect(() => {
+    if (!isBroker) return;
+    const fetchClients = async () => {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success) {
+          setBrokerClients(json.data.map((c: { id: string; name: string; email?: string | null }) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+          })));
+        }
+      } catch {
+        // silent fail
+      }
+    };
+    fetchClients();
+  }, [isBroker]);
+
+  // Sync selectedClientId when collection loads
+  useEffect(() => {
+    if (collection?.client?.id) {
+      setSelectedClientId(collection.client.id);
+    } else {
+      setSelectedClientId(null);
+    }
+  }, [collection?.client?.id]);
+
+  // Handle assigning a client to this collection (broker only)
+  const handleAssignClient = async (clientId: string | null) => {
+    setIsAssigningClient(true);
+    try {
+      const res = await fetch(`/api/collections/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: clientId || null }),
+      });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setSelectedClientId(clientId);
+      setCollection((prev) =>
+        prev
+          ? {
+              ...prev,
+              client: json.data.client || null,
+            }
+          : prev
+      );
+      toast.success(
+        clientId ? "Client assigned to collection" : "Client unassigned"
+      );
+    } catch {
+      toast.error("Failed to assign client");
+    } finally {
+      setIsAssigningClient(false);
+    }
+  };
 
   // -----------------------------------------------------------------------
   // Inline edit handlers
@@ -716,6 +796,10 @@ export default function CollectionDetailPage() {
     return map;
   }, [collection]);
 
+  // Determine if user is viewing as an assigned client
+  const isAssignedClient = collection?.isAssignedClient === true;
+  const advisorName = collection?.advisorName;
+
   // -----------------------------------------------------------------------
   // Loading / not found
   // -----------------------------------------------------------------------
@@ -751,11 +835,26 @@ export default function CollectionDetailPage() {
         Back to Collections
       </Link>
 
+      {/* Assigned client banner */}
+      {isAssignedClient && advisorName && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <Info className="size-5 text-blue-600 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-blue-900">
+              Shared with you by {advisorName}
+            </p>
+            <p className="text-xs text-blue-700">
+              You can view listings, mark your interest, and leave notes. Only the advisor can add or remove listings.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header with inline editing */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2 flex-1 min-w-0">
-          {/* Name - click to edit */}
-          {editingName ? (
+          {/* Name - click to edit (not for assigned clients) */}
+          {editingName && !isAssignedClient ? (
             <div className="flex items-center gap-2 max-w-md">
               <Input
                 value={editName}
@@ -788,19 +887,21 @@ export default function CollectionDetailPage() {
             </div>
           ) : (
             <h1
-              className="text-2xl font-bold cursor-pointer hover:text-primary/80 transition-colors"
+              className={`text-2xl font-bold ${!isAssignedClient ? "cursor-pointer hover:text-primary/80" : ""} transition-colors`}
               onClick={() => {
-                setEditName(collection.name);
-                setEditingName(true);
+                if (!isAssignedClient) {
+                  setEditName(collection.name);
+                  setEditingName(true);
+                }
               }}
-              title="Click to edit"
+              title={isAssignedClient ? undefined : "Click to edit"}
             >
               {collection.name}
             </h1>
           )}
 
-          {/* Description - click to edit */}
-          {editingDesc ? (
+          {/* Description - click to edit (not for assigned clients) */}
+          {editingDesc && !isAssignedClient ? (
             <div className="max-w-md space-y-2">
               <Textarea
                 value={editDesc}
@@ -840,14 +941,16 @@ export default function CollectionDetailPage() {
             </div>
           ) : (
             <p
-              className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+              className={`text-sm text-muted-foreground ${!isAssignedClient ? "cursor-pointer hover:text-foreground" : ""} transition-colors`}
               onClick={() => {
-                setEditDesc(collection.description || "");
-                setEditingDesc(true);
+                if (!isAssignedClient) {
+                  setEditDesc(collection.description || "");
+                  setEditingDesc(true);
+                }
               }}
-              title="Click to edit"
+              title={isAssignedClient ? undefined : "Click to edit"}
             >
-              {collection.description || "Add a description..."}
+              {collection.description || (isAssignedClient ? "No description" : "Add a description...")}
             </p>
           )}
 
@@ -873,14 +976,16 @@ export default function CollectionDetailPage() {
 
         {/* Action bar */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShareOpen(true)}
-          >
-            <Share2 className="size-3.5" />
-            Share
-          </Button>
+          {!isAssignedClient && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShareOpen(true)}
+            >
+              <Share2 className="size-3.5" />
+              Share
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -892,7 +997,7 @@ export default function CollectionDetailPage() {
             <GitCompare className="size-3.5" />
             {compareMode ? "Cancel Compare" : "Compare"}
           </Button>
-          {collection.client?.email && (
+          {!isAssignedClient && collection.client?.email && (
             <Button
               variant="outline"
               size="sm"
@@ -902,28 +1007,32 @@ export default function CollectionDetailPage() {
               Email to Client
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDuplicate}
-            disabled={isDuplicating}
-          >
-            {isDuplicating ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <CopyPlus className="size-3.5" />
-            )}
-            Duplicate
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="size-3.5" />
-            Delete
-          </Button>
+          {!isAssignedClient && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDuplicate}
+              disabled={isDuplicating}
+            >
+              {isDuplicating ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CopyPlus className="size-3.5" />
+              )}
+              Duplicate
+            </Button>
+          )}
+          {!isAssignedClient && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-3.5" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
 
@@ -987,7 +1096,7 @@ export default function CollectionDetailPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {sortedListings.map((cl) => (
+              {sortedListings.map((cl, index) => (
                 <CollectionListingCard
                   key={cl.id}
                   collectionListing={cl}
@@ -996,6 +1105,9 @@ export default function CollectionDetailPage() {
                   onToggleSelect={() => toggleSelect(cl.listing.id)}
                   onRemove={() => handleRemoveListing(cl.listing.id)}
                   onRate={(rating) => handleRate(cl.listing.id, rating)}
+                  collectionId={id}
+                  position={index + 1}
+                  totalListings={sortedListings.length}
                 />
               ))}
             </div>
@@ -1393,6 +1505,9 @@ function CollectionListingCard({
   onToggleSelect,
   onRemove,
   onRate,
+  collectionId,
+  position,
+  totalListings,
 }: {
   collectionListing: CollectionListing;
   compareMode: boolean;
@@ -1400,6 +1515,9 @@ function CollectionListingCard({
   onToggleSelect: () => void;
   onRemove: () => void;
   onRate: (rating: number) => void;
+  collectionId: string;
+  position: number;
+  totalListings: number;
 }) {
   const { listing, personalRating, clientInterested } = collectionListing;
   const sortedPhotos = [...listing.photos].sort((a, b) => a.order - b.order);
@@ -1457,7 +1575,7 @@ function CollectionListingCard({
         </div>
       )}
 
-      <Link href={`/listings/${listing.slug}`} className="block">
+      <Link href={`/listings/${listing.slug}?collectionId=${collectionId}&position=${position}&total=${totalListings}`} className="block">
         {/* Image */}
         <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-xl bg-muted">
           {primaryPhoto ? (

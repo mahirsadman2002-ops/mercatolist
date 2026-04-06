@@ -81,17 +81,45 @@ export async function GET(
       );
     }
 
-    // Check: user must be owner or collaborator
+    // Check: user must be owner, collaborator, or assigned client
     const isOwner = collection.userId === session.user.id;
     const isCollaborator = collection.collaborators.some(
       (c) => c.userId === session.user.id
     );
 
-    if (!isOwner && !isCollaborator) {
+    // Check if user is an assigned client
+    let isAssignedClient = false;
+    if (!isOwner && !isCollaborator && collection.clientId) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { email: true },
+      });
+      if (currentUser?.email) {
+        const clientRecord = await prisma.client.findUnique({
+          where: { id: collection.clientId },
+          select: { email: true },
+        });
+        if (clientRecord && clientRecord.email.toLowerCase() === currentUser.email.toLowerCase()) {
+          isAssignedClient = true;
+        }
+      }
+    }
+
+    if (!isOwner && !isCollaborator && !isAssignedClient) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }
       );
+    }
+
+    // Get advisor name for assigned clients
+    let advisorName: string | null = null;
+    if (isAssignedClient) {
+      const advisor = await prisma.user.findUnique({
+        where: { id: collection.userId },
+        select: { name: true, displayName: true },
+      });
+      advisorName = advisor?.displayName || advisor?.name || null;
     }
 
     return NextResponse.json({
@@ -147,6 +175,8 @@ export async function GET(
         })),
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
+        isAssignedClient,
+        advisorName,
       },
     });
   } catch (error) {

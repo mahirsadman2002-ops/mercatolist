@@ -64,7 +64,7 @@ export default async function AboutPage() {
       icon: ShoppingBag,
       title: "For Buyers",
       content:
-        "Whether you're a first-time entrepreneur or an experienced operator, MercatoList gives you the tools to find your next opportunity. Browse verified listings across all five boroughs, filter by category, price range, and neighborhood, and connect directly with sellers and brokers.",
+        "Whether you're a first-time entrepreneur or an experienced operator, MercatoList gives you the tools to find your next opportunity. Browse verified listings across all five boroughs, filter by category, price range, and neighborhood, and connect directly with sellers and advisors.",
     },
     {
       icon: Briefcase,
@@ -74,9 +74,9 @@ export default async function AboutPage() {
     },
     {
       icon: Handshake,
-      title: "For Brokers",
+      title: "For Advisors",
       content:
-        "MercatoList is built with brokers in mind. Manage multiple listings, organize buyers into collections, share curated opportunities with clients, and build your reputation through verified reviews. Our broker tools help you close more deals, faster.",
+        "MercatoList is built with business advisors in mind. Manage multiple listings, organize buyers into collections, share curated opportunities with clients, and build your reputation through verified reviews. Our advisor tools help you close more deals, faster.",
     },
     {
       icon: Building2,

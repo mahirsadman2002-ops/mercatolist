@@ -20,7 +20,7 @@ const categoryLinks = [
 ];
 
 const resourceLinks = [
-  { label: "Find a Broker", href: "/brokers" },
+  { label: "Find an Advisor", href: "/advisors" },
   { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
@@ -28,7 +28,7 @@ const resourceLinks = [
 
 const sellerBrokerLinks = [
   { label: "List Your Business", href: "/my-listings/new" },
-  { label: "Register as Broker", href: "/register/broker" },
+  { label: "Register as Advisor", href: "/register/advisor" },
 ];
 
 const socialLinks = [
@@ -109,7 +109,7 @@ export function Footer() {
 
           {/* For Sellers & Brokers */}
           <FooterLinkColumn
-            title="For Sellers & Brokers"
+            title="For Sellers & Advisors"
             links={sellerBrokerLinks}
           />
         </div>

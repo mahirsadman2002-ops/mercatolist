@@ -6,14 +6,14 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import {
   Heart,
-  MessageSquare,
-  Send,
+  MessageCircle,
   FolderOpen,
   Eye,
   EyeOff,
   Loader2,
   Check,
   X,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,42 +72,62 @@ function getPasswordStrength(password: string): {
 
 // ── Action config ───────────────────────────────────────────────────
 
-type ActionKey = "save" | "message" | "inquiry" | "collection";
+type ActionKey = "contact" | "save" | "collection";
 
 interface ActionConfig {
   icon: React.ElementType;
   heading: string;
-  description: string;
+  subtext: string;
+  bullets: string[];
 }
 
 const ACTION_MAP: Record<ActionKey, ActionConfig> = {
+  contact: {
+    icon: MessageCircle,
+    heading: "Connect with the Seller",
+    subtext:
+      "Create a free account to start a conversation about this business.",
+    bullets: [
+      "Send and receive messages directly with sellers and brokers",
+      "Keep all your conversations organized in one inbox",
+      "Get notified instantly when you receive a reply",
+    ],
+  },
   save: {
     icon: Heart,
-    heading: "Save Listings You Love",
-    description:
-      "Create a free account to save listings, track status changes, and get notified when similar businesses hit the market.",
-  },
-  message: {
-    icon: MessageSquare,
-    heading: "Connect with Business Advisors",
-    description:
-      "Sign up to message advisors directly, start conversations, and get answers about listings you're interested in.",
-  },
-  inquiry: {
-    icon: Send,
-    heading: "Get More Details on This Business",
-    description:
-      "Create a free account to send inquiries, track responses, and save your favorite listings all in one place.",
+    heading: "Save Listings You're Interested In",
+    subtext:
+      "Create a free account to save listings and never lose track of opportunities.",
+    bullets: [
+      "Save listings to revisit them anytime",
+      "Get alerts when a saved listing changes status or price",
+      "Track your favorites across all NYC boroughs",
+    ],
   },
   collection: {
     icon: FolderOpen,
-    heading: "Organize Your Search",
-    description:
-      "Sign up to create collections, organize listings, and share them with your team or advisor.",
+    heading: "Organize Your Business Search",
+    subtext:
+      "Create a free account to build collections and stay organized.",
+    bullets: [
+      "Group listings into custom collections",
+      "Share collections with your team or advisor",
+      "Compare businesses side by side",
+    ],
   },
 };
 
-const DEFAULT_ACTION = ACTION_MAP.save;
+const DEFAULT_ACTION: ActionConfig = {
+  icon: Sparkles,
+  heading: "Join MercatoList",
+  subtext:
+    "Create a free account to access all features of NYC's premier business marketplace.",
+  bullets: [
+    "Browse and save businesses for sale across all five boroughs",
+    "Message sellers and brokers directly",
+    "Organize your search with collections and saved searches",
+  ],
+};
 
 // ── Inner component (uses useSearchParams) ──────────────────────────
 
@@ -125,7 +145,6 @@ function SignupPromptContent() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
@@ -153,8 +172,6 @@ function SignupPromptContent() {
       newErrors.password = "Password must contain an uppercase letter";
     else if (!/[0-9]/.test(password))
       newErrors.password = "Password must contain a number";
-    if (password !== confirmPassword)
-      newErrors.confirmPassword = "Passwords don't match";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -238,7 +255,7 @@ function SignupPromptContent() {
             </span>
           </Link>
 
-          {/* Context-specific icon + heading */}
+          {/* Context-specific icon + heading + bullets */}
           <div className="flex flex-col items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
               <Icon className="h-7 w-7 text-accent" />
@@ -247,9 +264,19 @@ function SignupPromptContent() {
               {config.heading}
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground max-w-sm">
-              {config.description}
+              {config.subtext}
             </CardDescription>
           </div>
+
+          {/* Bullet points */}
+          <ul className="text-left space-y-2 text-sm text-muted-foreground">
+            {config.bullets.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                <span>{bullet}</span>
+              </li>
+            ))}
+          </ul>
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -402,26 +429,6 @@ function SignupPromptContent() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-              <Input
-                id="signup-confirm-password"
-                type="password"
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setErrors((p) => ({ ...p, confirmPassword: "" }));
-                }}
-                required
-              />
-              {errors.confirmPassword && (
-                <p className="text-xs text-destructive">
-                  {errors.confirmPassword}
-                </p>
-              )}
-            </div>
-
             <Button
               type="submit"
               className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
@@ -470,7 +477,6 @@ function SignupPromptFallback() {
           <div className="h-11 rounded bg-muted animate-pulse" />
           <div className="h-px bg-border" />
           <div className="space-y-3">
-            <div className="h-10 rounded bg-muted animate-pulse" />
             <div className="h-10 rounded bg-muted animate-pulse" />
             <div className="h-10 rounded bg-muted animate-pulse" />
             <div className="h-10 rounded bg-muted animate-pulse" />

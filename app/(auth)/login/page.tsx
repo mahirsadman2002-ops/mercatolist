@@ -212,8 +212,8 @@ function LoginPageContent() {
               </Link>
             </p>
             <p className="text-muted-foreground">
-              Are you a broker?{" "}
-              <Link href="/register/broker" className="font-medium text-foreground hover:underline">
+              Are you an advisor?{" "}
+              <Link href="/register/advisor" className="font-medium text-foreground hover:underline">
                 Register here
               </Link>
             </p>

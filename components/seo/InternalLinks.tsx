@@ -91,10 +91,10 @@ export function InternalLinks({
             </li>
             <li>
               <Link
-                href="/brokers"
+                href="/advisors"
                 className="text-sm text-foreground/80 hover:text-primary transition-colors"
               >
-                Find a Broker
+                Find an Advisor
               </Link>
             </li>
             <li>

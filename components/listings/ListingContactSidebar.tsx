@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, type FormEvent } from "react";
+import { useState, useCallback, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,6 @@ import {
   MessageSquare,
   Shield,
   Loader2,
-  CheckCircle2,
   Copy,
   Check,
   Twitter,
@@ -28,8 +27,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { cn, calculateDaysOnMarket, formatNumber } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn, calculateDaysOnMarket, formatNumber, formatCurrency } from "@/lib/utils";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +68,7 @@ interface ListingContactSidebarProps {
     id: string;
     slug: string;
     title: string;
+    askingPrice?: number | null;
     viewCount: number;
     saveCount: number;
     shareCount: number;
@@ -280,30 +280,47 @@ function AgentCard({
   );
 }
 
-/** Inline inquiry form */
-function InquirySection({
-  listingId,
-  listingTitle,
+/** Contact dialog for sending a message to the listing owner */
+function ContactDialog({
+  listing,
+  user,
+  onSuccess,
 }: {
-  listingId: string;
-  listingTitle: string;
+  listing: ListingContactSidebarProps["listing"];
+  user: { id: string; name?: string | null; email?: string | null; phone?: string | null } | null;
+  onSuccess: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    message: `Hi, I'm interested in "${listingTitle}". Could you provide more information?`,
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    message: "",
   });
+
+  // Update form when user session loads
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        name: prev.name || user.name || "",
+        email: prev.email || user.email || "",
+        phone: prev.phone || user.phone || "",
+      }));
+    }
+  }, [user]);
+
+  const isBroker = listing.listedBy.role === "BROKER";
+  const contactName = listing.listedBy.displayName || listing.listedBy.name;
+  const priceDisplay = listing.askingPrice ? formatCurrency(listing.askingPrice) : null;
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
 
-      if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
-        toast.error("Please fill in all required fields.");
+      if (!formData.message.trim()) {
+        toast.error("Please enter a message.");
         return;
       }
 
@@ -314,21 +331,24 @@ function InquirySection({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            listingId,
-            senderName: formData.name,
-            senderEmail: formData.email,
-            senderPhone: formData.phone || undefined,
+            listingId: listing.id,
             message: formData.message,
+            senderName: formData.name || undefined,
+            senderEmail: formData.email || undefined,
+            senderPhone: formData.phone || undefined,
+            type: "MESSAGE_THREAD",
           }),
         });
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to send inquiry");
+          throw new Error(data.error || "Failed to send message");
         }
 
-        setIsSuccess(true);
-        toast.success("Inquiry sent successfully! The seller will be in touch.");
+        toast.success("Message sent! The listing contact will be in touch.");
+        setIsOpen(false);
+        setFormData((prev) => ({ ...prev, message: "" }));
+        onSuccess();
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Something went wrong. Please try again."
@@ -337,120 +357,112 @@ function InquirySection({
         setIsSubmitting(false);
       }
     },
-    [formData, listingId]
+    [formData, listing.id, onSuccess]
   );
 
-  if (!isOpen) {
-    return (
-      <Button className="w-full" size="lg" onClick={() => setIsOpen(true)}>
-        <Send className="size-4" />
-        Send Inquiry
-      </Button>
-    );
-  }
-
-  if (isSuccess) {
-    return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-800 dark:bg-emerald-950/30">
-        <CheckCircle2 className="mx-auto mb-2 size-8 text-emerald-600 dark:text-emerald-400" />
-        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-          Inquiry sent successfully!
-        </p>
-        <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-          The listing contact will respond to your email.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">Send an Inquiry</h4>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={() => setIsOpen(false)}
-        >
-          Cancel
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" size="lg">
+          <Send className="size-4" />
+          {isBroker ? "Contact Advisor" : "Contact Seller"}
         </Button>
-      </div>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Contact {contactName}</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{listing.title}</span>
+              {priceDisplay && (
+                <span className="ml-1 text-muted-foreground">
+                  &mdash; {priceDisplay}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="inquiry-name">
-          Name <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="inquiry-name"
-          placeholder="Your full name"
-          value={formData.name}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, name: e.target.value }))
-          }
-          required
-        />
-      </div>
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-name">Name</Label>
+              <Input
+                id="contact-name"
+                placeholder="Your full name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="inquiry-email">
-          Email <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="inquiry-email"
-          type="email"
-          placeholder="you@example.com"
-          value={formData.email}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, email: e.target.value }))
-          }
-          required
-        />
-      </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-email">Email</Label>
+              <Input
+                id="contact-email"
+                type="email"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="inquiry-phone">Phone (optional)</Label>
-        <Input
-          id="inquiry-phone"
-          type="tel"
-          placeholder="(212) 555-0100"
-          value={formData.phone}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, phone: e.target.value }))
-          }
-        />
-      </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-phone">Phone (optional)</Label>
+              <Input
+                id="contact-phone"
+                type="tel"
+                placeholder="(212) 555-0100"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, phone: e.target.value }))
+                }
+              />
+            </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="inquiry-message">
-          Message <span className="text-destructive">*</span>
-        </Label>
-        <Textarea
-          id="inquiry-message"
-          placeholder="Write your message..."
-          rows={4}
-          value={formData.message}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, message: e.target.value }))
-          }
-          required
-        />
-      </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-message">
+                Message <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="contact-message"
+                placeholder={`Hi, I'm interested in "${listing.title}". Could you provide more details?`}
+                rows={4}
+                value={formData.message}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, message: e.target.value }))
+                }
+                required
+              />
+            </div>
+          </div>
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? (
-          <>
-            <Loader2 className="size-4 animate-spin" />
-            Sending...
-          </>
-        ) : (
-          <>
-            <Send className="size-4" />
-            Submit Inquiry
-          </>
-        )}
-      </Button>
-    </form>
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !formData.message.trim()}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  Send Message
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -592,10 +604,48 @@ export function ListingContactSidebar({
   const router = useRouter();
   const [isSaved, setIsSaved] = useState(initialIsSaved);
   const [isSaving, setIsSaving] = useState(false);
-  const [isMessaging, setIsMessaging] = useState(false);
+  const [hasExistingConversation, setHasExistingConversation] = useState(false);
+
+  const currentUser = session?.user as
+    | { id: string; name?: string | null; email?: string | null; phone?: string | null }
+    | undefined;
+  const isOwner = currentUser?.id === listing.listedBy.id;
+  const isBroker = listing.listedBy.role === "BROKER";
+  const phone = listing.listedBy.phone || listing.listedBy.brokeragePhone;
+
+  // Check if logged-in user already has a conversation for this listing
+  useEffect(() => {
+    if (!currentUser?.id || isOwner) return;
+
+    let cancelled = false;
+
+    async function checkExistingConversation() {
+      try {
+        const res = await fetch(`/api/inquiries?listingId=${listing.id}&type=MESSAGE_THREAD`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.data && data.data.length > 0) {
+            setHasExistingConversation(true);
+          }
+        }
+      } catch {
+        // Silently fail -- user can still use the contact button
+      }
+    }
+
+    checkExistingConversation();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, listing.id, isOwner]);
 
   // ---- Save / Unsave ----
   const handleToggleSave = useCallback(async () => {
+    if (!currentUser?.id) {
+      router.push(`/signup-prompt?action=save&callbackUrl=/listings/${listing.slug}`);
+      return;
+    }
+
     setIsSaving(true);
     const previousState = isSaved;
     setIsSaved(!isSaved);
@@ -612,7 +662,7 @@ export function ListingContactSidebar({
         throw new Error(data.error || "Failed to update save");
       }
 
-      toast.success(previousState ? "Listing unsaved" : "Listing saved!");
+      toast.success(previousState ? "Removed from saves" : "Listing saved!");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Could not save listing. Try again."
@@ -621,7 +671,7 @@ export function ListingContactSidebar({
     } finally {
       setIsSaving(false);
     }
-  }, [isSaved, listing.id]);
+  }, [isSaved, listing.id, listing.slug, currentUser?.id, router]);
 
   // ---- Share ----
   const [linkCopied, setLinkCopied] = useState(false);
@@ -642,10 +692,10 @@ export function ListingContactSidebar({
         });
         return;
       } catch {
-        // User cancelled or API failed — fall through
+        // User cancelled or API failed -- fall through
       }
     }
-  }, [listing.slug, listing.title, getShareUrl]);
+  }, [listing.title, getShareUrl]);
 
   const handleCopyLink = useCallback(async () => {
     const url = getShareUrl();
@@ -693,55 +743,15 @@ export function ListingContactSidebar({
     window.open(`https://wa.me/?text=${text}`, "_blank");
   }, [listing.title, getShareUrl]);
 
-  // ---- Message Seller ----
-  const handleMessageSeller = useCallback(async () => {
-    if (!session?.user?.id) {
-      toast.info("Login required to send messages", {
-        description: "Create an account or sign in to message the seller directly.",
-        action: {
-          label: "Sign in",
-          onClick: () => {
-            router.push(`/login?callbackUrl=/listings/${listing.slug}`);
-          },
-        },
-      });
-      return;
-    }
+  // ---- Contact button click for unauthenticated users ----
+  const handleUnauthContact = useCallback(() => {
+    router.push(`/signup-prompt?action=contact&callbackUrl=/listings/${listing.slug}`);
+  }, [listing.slug, router]);
 
-    // Can't message yourself
-    if (session.user.id === listing.listedBy.id) {
-      toast.error("You cannot message your own listing");
-      return;
-    }
-
-    setIsMessaging(true);
-
-    try {
-      const res = await fetch("/api/inquiries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listingId: listing.id,
-          message: `Hi, I'm interested in "${listing.title}". I'd like to learn more.`,
-          type: "MESSAGE_THREAD",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to start conversation");
-      }
-
-      toast.success("Message sent! Redirecting to your inbox...");
-      router.push("/inquiries");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Something went wrong. Please try again."
-      );
-    } finally {
-      setIsMessaging(false);
-    }
-  }, [session, listing.id, listing.title, listing.slug, listing.listedBy.id, router]);
+  // ---- Callback after successful contact ----
+  const handleContactSuccess = useCallback(() => {
+    setHasExistingConversation(true);
+  }, []);
 
   // ---- Ghost listing share link ----
   const ghostShareUrl =
@@ -785,7 +795,7 @@ export function ListingContactSidebar({
 
       {/* ---- Main Sidebar Card ---- */}
       <Card>
-        {/* Listing Stats */}
+        {/* 1. Listing Stats */}
         <CardHeader className="pb-0">
           <ListingStats
             viewCount={listing.viewCount}
@@ -795,7 +805,7 @@ export function ListingContactSidebar({
         </CardHeader>
 
         <CardContent className="space-y-5">
-          {/* ---- Listed By ---- */}
+          {/* 2. Agent Card (Listed By) */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Listed By
@@ -806,7 +816,7 @@ export function ListingContactSidebar({
             />
           </div>
 
-          {/* ---- Co-Brokers ---- */}
+          {/* Co-Brokers */}
           {listing.coBrokers && listing.coBrokers.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -825,34 +835,51 @@ export function ListingContactSidebar({
             </div>
           )}
 
-          {/* ---- Contact Buttons ---- */}
-          <div className="space-y-2 pt-1">
-            <InquirySection
-              listingId={listing.id}
-              listingTitle={listing.title}
-            />
-            <Button
-              variant="outline"
-              className="w-full"
-              size="lg"
-              onClick={handleMessageSeller}
-              disabled={isMessaging}
-            >
-              {isMessaging ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
+          {/* 3. Contact Button (single, dynamic) */}
+          {!isOwner && (
+            <div className="space-y-2 pt-1">
+              {!currentUser?.id ? (
+                /* Not logged in: redirect to signup prompt */
+                <Button className="w-full" size="lg" onClick={handleUnauthContact}>
+                  <Send className="size-4" />
+                  {isBroker ? "Contact Advisor" : "Contact Seller"}
+                </Button>
+              ) : hasExistingConversation ? (
+                /* Already contacted: link to inbox */
+                <Button
+                  className="w-full"
+                  size="lg"
+                  variant="outline"
+                  onClick={() => router.push("/inquiries")}
+                >
                   <MessageSquare className="size-4" />
-                  Message Seller
-                </>
+                  Continue Conversation
+                </Button>
+              ) : (
+                /* Logged in, no existing conversation: open contact dialog */
+                <ContactDialog
+                  listing={listing}
+                  user={currentUser}
+                  onSuccess={handleContactSuccess}
+                />
               )}
-            </Button>
-          </div>
 
-          {/* ---- Action Buttons Row ---- */}
+              {/* 4. Phone fallback */}
+              {listing.showPhoneNumber && phone && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Or call directly:{" "}
+                  <a
+                    href={`tel:${phone}`}
+                    className="font-medium text-foreground hover:underline"
+                  >
+                    {formatPhoneDisplay(phone)}
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 5. Action Buttons Row: Save | Share */}
           <div className="flex items-center gap-2">
             <Button
               variant={isSaved ? "default" : "outline"}
@@ -881,6 +908,10 @@ export function ListingContactSidebar({
                   <Mail className="size-4" />
                   Share via Email
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareOnWhatsApp}>
+                  <MessageSquare className="size-4" />
+                  Share via WhatsApp
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleShareOnTwitter}>
                   <Twitter className="size-4" />
                   Share on X
@@ -893,15 +924,11 @@ export function ListingContactSidebar({
                   <Linkedin className="size-4" />
                   Share on LinkedIn
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleShareOnWhatsApp}>
-                  <MessageSquare className="size-4" />
-                  Share via WhatsApp
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          {/* ---- Report Link ---- */}
+          {/* 6. Report Link */}
           <div className="flex justify-center pt-1">
             <ReportListingDialog listingId={listing.id} />
           </div>

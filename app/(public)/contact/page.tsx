@@ -25,14 +25,14 @@ const faqs = [
   {
     question: "How do I contact a seller?",
     answer:
-      "Visit any listing page and use the contact form or message button to reach the seller or their broker directly. Anonymous inquiries are also supported.",
+      "Visit any listing page and use the contact form or message button to reach the seller or their advisor directly. Anonymous inquiries are also supported.",
     link: { href: "/listings", label: "Browse listings" },
   },
   {
-    question: "I'm a broker — how do I register?",
+    question: "I'm a business advisor — how do I register?",
     answer:
-      "Brokers can register through our dedicated broker registration page. You'll get access to additional tools like collections, client management, and review requests.",
-    link: { href: "/register/broker", label: "Register as a broker" },
+      "Business advisors can register through our dedicated advisor registration page. You'll get access to additional tools like collections, client management, and review requests.",
+    link: { href: "/register/advisor", label: "Register as an advisor" },
   },
 ];
 

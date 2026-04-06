@@ -70,7 +70,7 @@ export default function BrokerDetailsPage() {
     e.preventDefault();
 
     const newErrors: Record<string, string> = {};
-    if (!form.brokerageName.trim()) newErrors.brokerageName = "Brokerage name is required";
+    if (!form.brokerageName.trim()) newErrors.brokerageName = "Company name is required";
     if (!form.brokeragePhone.trim()) newErrors.brokeragePhone = "Phone number is required";
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -98,11 +98,11 @@ export default function BrokerDetailsPage() {
         throw new Error();
       }
 
-      toast.success("Broker profile created! Welcome to MercatoList.");
+      toast.success("Advisor profile created! Welcome to MercatoList.");
       router.push("/");
       router.refresh();
     } catch {
-      toast.error("Failed to save broker details. Please try again.");
+      toast.error("Failed to save advisor details. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -119,19 +119,19 @@ export default function BrokerDetailsPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="brokerageName">Brokerage Name *</Label>
+              <Label htmlFor="brokerageName">Company Name *</Label>
               <Input id="brokerageName" placeholder="e.g., NYC Business Sales" value={form.brokerageName} onChange={(e) => updateField("brokerageName", e.target.value)} />
               {errors.brokerageName && <p className="text-xs text-destructive">{errors.brokerageName}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brokeragePhone">Brokerage Phone *</Label>
+              <Label htmlFor="brokeragePhone">Company Phone *</Label>
               <Input id="brokeragePhone" type="tel" placeholder="(212) 555-0100" value={form.brokeragePhone} onChange={(e) => updateField("brokeragePhone", e.target.value)} />
               {errors.brokeragePhone && <p className="text-xs text-destructive">{errors.brokeragePhone}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brokerageWebsite">Brokerage Website</Label>
+              <Label htmlFor="brokerageWebsite">Company Website</Label>
               <Input id="brokerageWebsite" type="url" placeholder="https://example.com" value={form.brokerageWebsite} onChange={(e) => updateField("brokerageWebsite", e.target.value)} />
             </div>
 

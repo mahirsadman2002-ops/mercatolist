@@ -32,7 +32,7 @@ function AppleIcon({ className }: { className?: string }) {
 }
 
 function BrokerStepIndicator({ currentStep }: { currentStep: number }) {
-  const steps = ["Create Account", "Broker Details"];
+  const steps = ["Create Account", "Advisor Details"];
   return (
     <div className="flex items-center justify-center gap-2 mb-6">
       {steps.map((step, i) => (
@@ -131,16 +131,16 @@ export default function BrokerRegisterPage() {
       });
       if (res.status === 401) {
         // Not authenticated — that's expected since email isn't verified yet
-        toast.success("Broker profile saved! Please verify your email to sign in.");
+        toast.success("Advisor profile saved! Please verify your email to sign in.");
         router.push("/login");
         return;
       }
       if (!res.ok) throw new Error();
-      toast.success("Broker profile created! Welcome to MercatoList.");
+      toast.success("Advisor profile created! Welcome to MercatoList.");
       router.push("/");
       router.refresh();
     } catch {
-      toast.error("Failed to save broker details.");
+      toast.error("Failed to save advisor details.");
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +165,7 @@ export default function BrokerRegisterPage() {
           </Link>
           <BrokerStepIndicator currentStep={step} />
           <CardTitle className="text-2xl font-bold">
-            {step === 0 ? "Register as a Broker" : "Set up your broker profile"}
+            {step === 0 ? "Register as an Advisor" : "Set up your advisor profile"}
           </CardTitle>
           <CardDescription>
             {step === 0 ? "List businesses, manage clients, and grow your practice" : "Help clients find and trust you"}
@@ -195,7 +195,7 @@ export default function BrokerRegisterPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="b-email">Email</Label>
-                  <Input id="b-email" type="email" placeholder="you@brokerage.com" value={email} onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({...p, email: ""})); }} required />
+                  <Input id="b-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({...p, email: ""})); }} required />
                   {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
@@ -215,7 +215,7 @@ export default function BrokerRegisterPage() {
                 </div>
                 <Button type="submit" className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold" disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create Broker Account
+                  Create Advisor Account
                 </Button>
               </form>
               <p className="text-center text-sm text-muted-foreground">
@@ -225,17 +225,17 @@ export default function BrokerRegisterPage() {
           ) : (
             <form onSubmit={handleStep2} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="bd-name">Brokerage Name *</Label>
+                <Label htmlFor="bd-name">Company Name *</Label>
                 <Input id="bd-name" placeholder="e.g., NYC Business Sales" value={brokerForm.brokerageName} onChange={(e) => updateBrokerField("brokerageName", e.target.value)} />
                 {errors.brokerageName && <p className="text-xs text-destructive">{errors.brokerageName}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bd-phone">Brokerage Phone *</Label>
+                <Label htmlFor="bd-phone">Company Phone *</Label>
                 <Input id="bd-phone" type="tel" placeholder="(212) 555-0100" value={brokerForm.brokeragePhone} onChange={(e) => updateBrokerField("brokeragePhone", e.target.value)} />
                 {errors.brokeragePhone && <p className="text-xs text-destructive">{errors.brokeragePhone}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bd-website">Website</Label>
+                <Label htmlFor="bd-website">Company Website</Label>
                 <Input id="bd-website" type="url" placeholder="https://example.com" value={brokerForm.brokerageWebsite} onChange={(e) => updateBrokerField("brokerageWebsite", e.target.value)} />
               </div>
               <div className="space-y-2">

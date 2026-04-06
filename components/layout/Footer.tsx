@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Twitter, Linkedin, Instagram, Facebook } from "lucide-react";
 
 const browseLinks = [
@@ -67,6 +70,14 @@ function FooterLinkColumn({
 }
 
 export function Footer() {
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
+
+  // FIX BUG I: Hide "Register as Advisor" and "List Your Business" auth-specific links when logged in
+  const visibleSellerLinks = isLoggedIn
+    ? sellerBrokerLinks.filter((l) => l.href !== "/register/advisor")
+    : sellerBrokerLinks;
+
   return (
     <footer className="border-t bg-primary text-primary-foreground">
       <div className="container mx-auto px-4 py-14 lg:py-16">
@@ -110,7 +121,7 @@ export function Footer() {
           {/* For Sellers & Brokers */}
           <FooterLinkColumn
             title="For Sellers & Advisors"
-            links={sellerBrokerLinks}
+            links={visibleSellerLinks}
           />
         </div>
 

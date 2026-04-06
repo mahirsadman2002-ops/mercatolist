@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -22,81 +24,8 @@ import { ListingMap } from "@/components/listings/ListingMap";
 import { ListingContactSidebar } from "@/components/listings/ListingContactSidebar";
 import { ListingStatusBadge } from "@/components/listings/ListingStatusBadge";
 
-// =============================================================================
-// Mock Data
-// =============================================================================
-
-const MOCK_LISTINGS: Record<string, any> = {
-  "joes-pizza-astoria": {
-    id: "1",
-    slug: "joes-pizza-astoria",
-    status: "ACTIVE",
-    isGhostListing: false,
-    shareToken: null,
-    title: "Joe's Pizza -- Established Neighborhood Pizzeria",
-    description:
-      "Well-established neighborhood pizzeria in the heart of Astoria, Queens. This beloved local institution has been serving authentic New York-style pizza for over 15 years. Located on a high-traffic corner with excellent visibility and foot traffic. The restaurant features a fully equipped commercial kitchen, a spacious dining area seating 45, and a popular takeout/delivery operation. The business has built a loyal customer base and maintains strong relationships with local delivery platforms. Current owner is relocating and willing to provide comprehensive training and transition support.",
-    category: "Restaurants",
-    askingPrice: 450000,
-    annualRevenue: 850000,
-    cashFlowSDE: 180000,
-    netIncome: 145000,
-    profitMargin: 17.06,
-    askingMultiple: 2.5,
-    monthlyRent: 8500,
-    rentEscalation: "3% annually",
-    annualPayroll: 220000,
-    totalExpenses: 705000,
-    inventoryValue: 15000,
-    inventoryIncluded: true,
-    ffeValue: 120000,
-    ffeIncluded: true,
-    sellerFinancing: true,
-    sbaFinancingAvailable: true,
-    yearEstablished: 2010,
-    numberOfEmployees: 12,
-    employeesWillingToStay: true,
-    ownerInvolvement: "OWNER_OPERATED",
-    ownerHoursPerWeek: 45,
-    squareFootage: 2200,
-    leaseTerms: "7 years remaining",
-    leaseRenewalOption: true,
-    reasonForSelling: "Owner relocating out of state",
-    licensesPermits:
-      "NYC Food Service License, Health Department Certificate, Liquor License (Beer & Wine)",
-    trainingSupport: "4 weeks of hands-on training included",
-    address: "30-12 Steinway Street",
-    hideAddress: false,
-    neighborhood: "Astoria",
-    borough: "QUEENS",
-    city: "New York",
-    state: "NY",
-    zipCode: "11103",
-    latitude: 40.7592,
-    longitude: -73.9196,
-    showPhoneNumber: true,
-    viewCount: 342,
-    saveCount: 28,
-    shareCount: 5,
-    photos: [] as { id: string; url: string; order: number }[],
-    createdAt: "2026-01-15T00:00:00Z",
-    listedBy: {
-      id: "u1",
-      name: "Michael Torres",
-      displayName: null,
-      avatarUrl: null,
-      role: "BROKER",
-      brokerageName: "NYC Business Sales",
-      brokeragePhone: "(212) 555-0101",
-      phone: "(212) 555-0102",
-      email: "michael@nycbizsales.com",
-    },
-    coBrokers: [],
-  },
-};
-
-// Default fallback listing for unknown slugs (used during development)
-const DEFAULT_MOCK_LISTING = MOCK_LISTINGS["joes-pizza-astoria"];
+// Revalidate every 60 seconds so listing data stays fresh
+export const revalidate = 60;
 
 // =============================================================================
 // View Count Incrementer (Client Component)
@@ -129,26 +58,46 @@ function ViewCountIncrementerScript({ listingId }: { listingId: string }) {
 }
 
 // =============================================================================
-// Helper: Look up listing from mock data
+// Helper: Look up listing from the database by slug
+// FIX: Previously used mock data which caused fake IDs, wrong titles,
+// and broken save/contact/inquiry flows. Now queries the real database.
 // =============================================================================
 
 async function getListingBySlug(
   slug: string,
   token?: string | null
 ): Promise<any | null> {
-  // In production, this would fetch from the database via Prisma.
-  // For now, use mock data.
-  const listing = MOCK_LISTINGS[slug] ?? null;
+  const listing = await prisma.businessListing.findUnique({
+    where: { slug },
+    include: {
+      photos: { orderBy: { order: "asc" } },
+      listedBy: {
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          avatarUrl: true,
+          role: true,
+          brokerageName: true,
+          brokeragePhone: true,
+          phone: true,
+          email: true,
+        },
+      },
+      coBrokers: {
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          avatarUrl: true,
+          brokerageName: true,
+          phone: true,
+        },
+      },
+    },
+  });
 
-  if (!listing) {
-    // Fall back to default mock listing for any unknown slug during development
-    // Format slug into a readable title: "joes-pizza-astoria" → "Joes Pizza Astoria"
-    const formattedTitle = slug
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-    return { ...DEFAULT_MOCK_LISTING, slug, title: formattedTitle };
-  }
+  if (!listing) return null;
 
   // Ghost listing access check
   if (listing.isGhostListing && listing.shareToken) {
@@ -157,7 +106,31 @@ async function getListingBySlug(
     }
   }
 
-  return listing;
+  // Convert Decimal fields to numbers for client rendering
+  const serialized = {
+    ...listing,
+    askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
+    annualRevenue: listing.annualRevenue ? Number(listing.annualRevenue) : null,
+    cashFlowSDE: listing.cashFlowSDE ? Number(listing.cashFlowSDE) : null,
+    netIncome: listing.netIncome ? Number(listing.netIncome) : null,
+    profitMargin: listing.profitMargin ? Number(listing.profitMargin) : null,
+    askingMultiple: listing.askingMultiple ? Number(listing.askingMultiple) : null,
+    monthlyRent: listing.monthlyRent ? Number(listing.monthlyRent) : null,
+    annualPayroll: listing.annualPayroll ? Number(listing.annualPayroll) : null,
+    totalExpenses: listing.totalExpenses ? Number(listing.totalExpenses) : null,
+    inventoryValue: listing.inventoryValue ? Number(listing.inventoryValue) : null,
+    ffeValue: listing.ffeValue ? Number(listing.ffeValue) : null,
+    soldPrice: listing.soldPrice ? Number(listing.soldPrice) : null,
+    latitude: listing.latitude ? Number(listing.latitude) : 40.7128,
+    longitude: listing.longitude ? Number(listing.longitude) : -74.006,
+    createdAt: listing.createdAt.toISOString(),
+    updatedAt: listing.updatedAt.toISOString(),
+    photos: listing.photos.map((p) => ({ id: p.id, url: p.url, order: p.order })),
+  };
+
+  // Apply address privacy for non-owner views (server component can't check session easily,
+  // so the API layer handles owner exemption — here we apply it for all public views)
+  return listing.hideAddress ? applyAddressPrivacy(serialized) : serialized;
 }
 
 // =============================================================================

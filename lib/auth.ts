@@ -126,6 +126,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
+    // FIX BUG B: Allow internal callbackUrl redirects after OAuth login/signup.
+    // Without this, Auth.js blocks redirects to anything other than the homepage.
+    async redirect({ url, baseUrl }) {
+      // Allow relative URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allow URLs on the same origin
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;

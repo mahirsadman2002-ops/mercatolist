@@ -156,7 +156,7 @@ export default function BrokersPage() {
       ) : brokers.length === 0 ? (
         <div className="text-center py-16">
           <User className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No brokers found</h3>
+          <h3 className="text-lg font-semibold mb-2">No advisors found</h3>
           <p className="text-muted-foreground">
             Try adjusting your search or filters.
           </p>
@@ -185,7 +185,7 @@ export default function BrokersPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <Link href={`/brokers/${broker.id}`} className="font-semibold truncate block hover:underline">
+                      <Link href={`/advisors/${broker.id}`} className="font-semibold truncate block hover:underline">
                         {broker.name}
                       </Link>
                       {broker.brokerageName && (
@@ -245,7 +245,7 @@ export default function BrokersPage() {
                   </div>
 
                   <Button asChild className="w-full" variant="outline">
-                    <Link href={`/brokers/${broker.id}`}>
+                    <Link href={`/advisors/${broker.id}`}>
                       View Profile
                     </Link>
                   </Button>

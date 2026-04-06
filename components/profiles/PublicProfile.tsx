@@ -65,7 +65,7 @@ export function PublicProfile({ profile }: PublicProfileProps) {
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{profile.name}</h1>
             {isBroker && (
-              <Badge className="bg-teal-600 text-white">Broker</Badge>
+              <Badge className="bg-teal-600 text-white">Business Advisor</Badge>
             )}
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

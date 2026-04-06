@@ -1,0 +1,19 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /my-listings/
+Disallow: /inquiries
+Disallow: /saved
+Disallow: /collections/
+Disallow: /saved-searches
+Disallow: /profile
+Disallow: /admin/
+Disallow: /login
+Disallow: /register/
+
+# Host
+Host: http://localhost:3000
+
+# Sitemaps
+Sitemap: http://localhost:3000/sitemap.xml

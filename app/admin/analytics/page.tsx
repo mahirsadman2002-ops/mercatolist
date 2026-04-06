@@ -252,10 +252,10 @@ export default function AdminAnalyticsPage() {
           </Card>
         </div>
 
-        {/* Top Brokers */}
+        {/* Top Advisors */}
         {usersData?.topBrokers?.length > 0 && (
           <Card>
-            <CardHeader><CardTitle className="text-sm">Top Brokers</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Top Advisors</CardTitle></CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>

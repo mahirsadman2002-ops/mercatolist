@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyAddressPrivacyToList } from "@/lib/address-privacy";
 
 export async function GET() {
   try {
@@ -21,7 +22,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ success: true, data: listings });
+    return NextResponse.json({ success: true, data: applyAddressPrivacyToList(listings as any[]) });
   } catch (error) {
     console.error("Error fetching featured listings:", error);
     return NextResponse.json({ success: true, data: [] });

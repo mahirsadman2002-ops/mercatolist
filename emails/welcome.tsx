@@ -49,7 +49,7 @@ export default function WelcomeEmail({
               </Text>
               <Text style={listItem}>
                 <strong>Contact sellers</strong> — Send inquiries directly to
-                business owners and brokers
+                business owners and advisors
               </Text>
               <Text style={listItem}>
                 <strong>Set up alerts</strong> — Get notified when new listings

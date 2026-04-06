@@ -19,9 +19,9 @@ interface ReviewRequestEmailProps {
 }
 
 export default function ReviewRequestEmail({
-  brokerName = "Your Broker",
+  brokerName = "Your Advisor",
   brokerageName,
-  reviewUrl = "https://mercatolist.com/brokers/example/review?token=example",
+  reviewUrl = "https://mercatolist.com/advisors/example/review?token=example",
 }: ReviewRequestEmailProps) {
   return (
     <Html>
@@ -45,7 +45,7 @@ export default function ReviewRequestEmail({
               <strong>{brokerName}</strong>
               {brokerageName ? ` of ${brokerageName}` : ""} has requested
               your review on MercatoList. Your feedback helps other buyers
-              and sellers find the right broker.
+              and sellers find the right advisor.
             </Text>
             <Section style={buttonContainer}>
               <Button style={button} href={reviewUrl}>
@@ -54,7 +54,7 @@ export default function ReviewRequestEmail({
             </Section>
             <Text style={paragraph}>
               This link will expire in <strong>30 days</strong>. Your review
-              will be publicly visible on the broker&apos;s profile.
+              will be publicly visible on the advisor&apos;s profile.
             </Text>
             <Text style={smallText}>
               If the button doesn&apos;t work, copy and paste this link into

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { listingCreateSchema } from "@/lib/validations";
 import { slugify, generateShareToken } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
+import { applyAddressPrivacyToList } from "@/lib/address-privacy";
 
 export async function GET(request: NextRequest) {
   try {
@@ -166,9 +167,12 @@ export async function GET(request: NextRequest) {
       prisma.businessListing.count({ where }),
     ]);
 
+    // Apply address privacy to listings with hideAddress=true
+    const sanitizedListings = applyAddressPrivacyToList(listings as any[]);
+
     return NextResponse.json({
       success: true,
-      data: listings,
+      data: sanitizedListings,
       pagination: {
         page,
         limit,

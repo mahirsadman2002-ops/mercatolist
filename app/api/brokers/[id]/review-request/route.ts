@@ -46,7 +46,7 @@ export async function POST(
     });
 
     const baseUrl = process.env.NEXTAUTH_URL || "https://mercatolist.com";
-    const reviewUrl = `${baseUrl}/brokers/${id}/review?token=${token}`;
+    const reviewUrl = `${baseUrl}/advisors/${id}/review?token=${token}`;
 
     // If client email provided, send email
     if (clientEmail) {

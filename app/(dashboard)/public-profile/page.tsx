@@ -417,7 +417,7 @@ export default function PublicProfilePage() {
       {isBroker && (
         <Card>
           <CardHeader>
-            <CardTitle>Broker Details</CardTitle>
+            <CardTitle>Advisor Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">

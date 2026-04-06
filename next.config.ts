@@ -9,13 +9,8 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/brokers/:id",
-        destination: "/advisors/:id",
-        permanent: true,
-      },
-      {
-        source: "/brokers/:id/review",
-        destination: "/advisors/:id/review",
+        source: "/brokers/:path*",
+        destination: "/advisors/:path*",
         permanent: true,
       },
       {

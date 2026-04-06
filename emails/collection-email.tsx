@@ -46,10 +46,10 @@ export function CollectionEmail({
   personalMessage,
   listings = [],
   sender = {
-    name: "Jane Broker",
+    name: "Jane Advisor",
     email: "jane@example.com",
     phone: "(212) 555-0100",
-    brokerageName: "NYC Business Brokers",
+    brokerageName: "NYC Business Advisors",
   },
 }: CollectionEmailProps) {
   return (
@@ -138,7 +138,7 @@ export function CollectionEmail({
             {/* Broker contact info */}
             <Hr style={divider} />
             <Section style={brokerSection}>
-              <Text style={brokerHeading}>Your Broker</Text>
+              <Text style={brokerHeading}>Your Advisor</Text>
               <Text style={brokerName}>{sender.name}</Text>
               {sender.brokerageName && (
                 <Text style={brokerDetail}>{sender.brokerageName}</Text>

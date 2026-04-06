@@ -82,7 +82,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Broker profile pages
   const brokerPages: MetadataRoute.Sitemap = brokers.map((b) => ({
-    url: `${BASE_URL}/brokers/${b.id}`,
+    url: `${BASE_URL}/advisors/${b.id}`,
     lastModified: b.updatedAt,
     changeFrequency: "weekly" as const,
     priority: 0.7,

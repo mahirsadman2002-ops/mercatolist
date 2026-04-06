@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -63,7 +64,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ success: true, data: listing });
+    // Apply address privacy — but skip for the listing owner
+    const session = await auth();
+    const isOwner = session?.user?.id === listing.listedById;
+    const sanitizedListing = isOwner ? listing : applyAddressPrivacy(listing as any);
+
+    return NextResponse.json({ success: true, data: sanitizedListing });
   } catch (error) {
     console.error("Error fetching listing:", error);
     return NextResponse.json(

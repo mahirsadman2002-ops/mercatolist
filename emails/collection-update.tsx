@@ -81,7 +81,7 @@ export default function CollectionUpdate({
 
             {brokerName && (
               <Text style={brokerNote}>
-                Shared by your broker, <strong>{brokerName}</strong>
+                Shared by your advisor, <strong>{brokerName}</strong>
               </Text>
             )}
 
@@ -122,7 +122,7 @@ export default function CollectionUpdate({
 
             <Text style={smallText}>
               You&apos;re receiving this because you have listings in this
-              collection. Contact your broker for details.
+              collection. Contact your advisor for details.
             </Text>
           </Section>
 

@@ -193,7 +193,7 @@ export default function AdminUsersPage() {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="USER">User</SelectItem>
-                <SelectItem value="BROKER">Broker</SelectItem>
+                <SelectItem value="BROKER">Business Advisor</SelectItem>
                 <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>

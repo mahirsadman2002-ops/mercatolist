@@ -20,6 +20,11 @@ import {
   Shield,
   Loader2,
   CheckCircle2,
+  Copy,
+  Check,
+  Twitter,
+  Facebook,
+  Linkedin,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +52,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -146,22 +158,45 @@ function ListingStats({
   );
 
   return (
-    <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
-      <div className="flex items-center gap-1" title="Views">
-        <Eye className="size-3.5" />
-        <span>{formatNumber(viewCount)}</span>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex cursor-help items-center gap-1 transition-colors hover:text-foreground">
+              <Eye className="size-3.5" />
+              <span>{formatNumber(viewCount)}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Total number of times this listing has been viewed</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex cursor-help items-center gap-1 transition-colors hover:text-foreground">
+              <Heart className="size-3.5" />
+              <span>{formatNumber(saveCount)}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Number of users who saved this listing to their favorites</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex cursor-help items-center gap-1 transition-colors hover:text-foreground">
+              <Calendar className="size-3.5" />
+              <span>
+                {daysOnMarket} {daysOnMarket === 1 ? "day" : "days"}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Number of days since this listing was first published</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
-      <div className="flex items-center gap-1" title="Saves">
-        <Heart className="size-3.5" />
-        <span>{formatNumber(saveCount)}</span>
-      </div>
-      <div className="flex items-center gap-1" title="Days on market">
-        <Calendar className="size-3.5" />
-        <span>
-          {daysOnMarket} {daysOnMarket === 1 ? "day" : "days"}
-        </span>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -214,10 +249,13 @@ function AgentCard({
         </div>
 
         {isBroker && user.brokerageName && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Link
+            href={`/advisors/company/${encodeURIComponent(user.brokerageName)}`}
+            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
+          >
             <Building2 className="size-3 shrink-0" />
             <span className="truncate">{user.brokerageName}</span>
-          </div>
+          </Link>
         )}
 
         {showPhoneNumber && phone && (
@@ -586,23 +624,74 @@ export function ListingContactSidebar({
   }, [isSaved, listing.id]);
 
   // ---- Share ----
-  const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/listings/${listing.slug}`;
+  const [linkCopied, setLinkCopied] = useState(false);
 
+  const getShareUrl = useCallback(() => {
+    return `${window.location.origin}/listings/${listing.slug}`;
+  }, [listing.slug]);
+
+  const handleShare = useCallback(async () => {
+    const url = getShareUrl();
+
+    // Use Web Share API on mobile if available
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: listing.title,
+          url,
+        });
+        return;
+      } catch {
+        // User cancelled or API failed — fall through
+      }
+    }
+  }, [listing.slug, listing.title, getShareUrl]);
+
+  const handleCopyLink = useCallback(async () => {
+    const url = getShareUrl();
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copied!");
     } catch {
-      // Fallback for older browsers
       const input = document.createElement("input");
       input.value = url;
       document.body.appendChild(input);
       input.select();
       document.execCommand("copy");
       document.body.removeChild(input);
-      toast.success("Link copied!");
     }
-  }, [listing.slug]);
+    setLinkCopied(true);
+    toast.success("Link copied!");
+    setTimeout(() => setLinkCopied(false), 2000);
+  }, [getShareUrl]);
+
+  const handleShareViaEmail = useCallback(() => {
+    const url = getShareUrl();
+    const subject = encodeURIComponent(`Check out: ${listing.title} on MercatoList`);
+    const body = encodeURIComponent(`I found this listing on MercatoList and thought you might be interested:\n\n${listing.title}\n${url}`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, "_self");
+  }, [listing.title, getShareUrl]);
+
+  const handleShareOnTwitter = useCallback(() => {
+    const url = getShareUrl();
+    const text = encodeURIComponent(`Check out "${listing.title}" on MercatoList`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, "_blank");
+  }, [listing.title, getShareUrl]);
+
+  const handleShareOnFacebook = useCallback(() => {
+    const url = getShareUrl();
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank");
+  }, [getShareUrl]);
+
+  const handleShareOnLinkedIn = useCallback(() => {
+    const url = getShareUrl();
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, "_blank");
+  }, [getShareUrl]);
+
+  const handleShareOnWhatsApp = useCallback(() => {
+    const url = getShareUrl();
+    const text = encodeURIComponent(`Check out "${listing.title}" on MercatoList: ${url}`);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  }, [listing.title, getShareUrl]);
 
   // ---- Message Seller ----
   const handleMessageSeller = useCallback(async () => {
@@ -776,10 +865,40 @@ export function ListingContactSidebar({
               />
               {isSaved ? "Saved" : "Save"}
             </Button>
-            <Button variant="outline" className="flex-1" onClick={handleShare}>
-              <Share2 className="size-4" />
-              Share
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex-1" onClick={handleShare}>
+                  <Share2 className="size-4" />
+                  Share
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  {linkCopied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
+                  {linkCopied ? "Copied!" : "Copy Link"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareViaEmail}>
+                  <Mail className="size-4" />
+                  Share via Email
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareOnTwitter}>
+                  <Twitter className="size-4" />
+                  Share on X
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareOnFacebook}>
+                  <Facebook className="size-4" />
+                  Share on Facebook
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareOnLinkedIn}>
+                  <Linkedin className="size-4" />
+                  Share on LinkedIn
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareOnWhatsApp}>
+                  <MessageSquare className="size-4" />
+                  Share via WhatsApp
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* ---- Report Link ---- */}

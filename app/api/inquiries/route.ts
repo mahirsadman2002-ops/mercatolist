@@ -131,17 +131,48 @@ export async function POST(request: NextRequest) {
 
     // For anonymous form, validate with schema
     if (!isMessageThread) {
-      const validated = inquiryFormSchema.parse(body);
-      body.senderName = validated.senderName;
-      body.senderEmail = validated.senderEmail;
-      body.senderPhone = validated.senderPhone;
-      body.message = validated.message;
-      body.listingId = validated.listingId;
+      const parsed = inquiryFormSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Validation failed",
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+      body.senderName = parsed.data.senderName;
+      body.senderEmail = parsed.data.senderEmail;
+      body.senderPhone = parsed.data.senderPhone;
+      body.message = parsed.data.message;
+      body.listingId = parsed.data.listingId;
+    } else {
+      // For message threads, validate required fields manually
+      if (!body.listingId || typeof body.listingId !== "string") {
+        return NextResponse.json(
+          { success: false, error: "Listing ID is required" },
+          { status: 400 }
+        );
+      }
+      if (!body.message || typeof body.message !== "string" || body.message.trim().length < 1) {
+        return NextResponse.json(
+          { success: false, error: "Message is required" },
+          { status: 400 }
+        );
+      }
     }
 
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: body.listingId },
+    // Look up listing by id first, then fall back to slug
+    const listing = await prisma.businessListing.findFirst({
+      where: {
+        OR: [
+          { id: body.listingId },
+          { slug: body.listingId },
+        ],
+      },
       select: {
+        id: true,
         title: true,
         slug: true,
         listedById: true,
@@ -158,6 +189,9 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Normalize listingId to the actual database ID (in case slug was passed)
+    const resolvedListingId = listing.id;
 
     // Can't message yourself
     if (session?.user?.id === listing.listedById) {
@@ -191,7 +225,7 @@ export async function POST(request: NextRequest) {
     if (isMessageThread && session?.user?.id) {
       const existing = await prisma.inquiry.findFirst({
         where: {
-          listingId: body.listingId,
+          listingId: resolvedListingId,
           senderId: session.user.id,
           type: "MESSAGE_THREAD",
         },
@@ -254,7 +288,7 @@ export async function POST(request: NextRequest) {
         senderPhone:
           isMessageThread ? null : body.senderPhone || null,
         message: body.message,
-        listingId: body.listingId,
+        listingId: resolvedListingId,
         senderId: session?.user?.id || null,
         receiverId: listing.listedById,
       },
@@ -335,12 +369,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", details: error },
-        { status: 400 }
-      );
-    }
     console.error("Error creating inquiry:", error);
     return NextResponse.json(
       { success: false, error: "Failed to send inquiry" },

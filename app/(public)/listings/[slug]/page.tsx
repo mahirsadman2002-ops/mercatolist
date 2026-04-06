@@ -142,7 +142,12 @@ async function getListingBySlug(
 
   if (!listing) {
     // Fall back to default mock listing for any unknown slug during development
-    return { ...DEFAULT_MOCK_LISTING, slug, title: `Listing: ${slug}` };
+    // Format slug into a readable title: "joes-pizza-astoria" → "Joes Pizza Astoria"
+    const formattedTitle = slug
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+    return { ...DEFAULT_MOCK_LISTING, slug, title: formattedTitle };
   }
 
   // Ghost listing access check
@@ -379,15 +384,28 @@ export default async function ListingDetailPage({
         </div>
 
         {/* ================================================================
-            Photo Gallery (full width, above fold)
+            Photo Gallery / Map Hero (full width, above fold)
         ================================================================ */}
         <div className="container mx-auto px-4 pt-6">
-          <PhotoGallery
-            photos={listing.photos}
-            title={listing.title}
-            latitude={listing.latitude}
-            longitude={listing.longitude}
-          />
+          {listing.photos && listing.photos.length > 0 ? (
+            <PhotoGallery
+              photos={listing.photos}
+              title={listing.title}
+              latitude={listing.latitude}
+              longitude={listing.longitude}
+            />
+          ) : (
+            <div className="h-[400px] w-full overflow-hidden rounded-xl">
+              <ListingMap
+                latitude={listing.latitude}
+                longitude={listing.longitude}
+                hideAddress={listing.hideAddress}
+                address={listing.hideAddress ? undefined : listing.address}
+                neighborhood={listing.neighborhood}
+                borough={listing.borough}
+              />
+            </div>
+          )}
         </div>
 
         {/* ================================================================

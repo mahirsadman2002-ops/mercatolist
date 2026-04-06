@@ -113,7 +113,7 @@ export default function BrokerDetailsPage() {
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center space-y-2">
           <StepIndicator currentStep={2} />
-          <CardTitle className="text-2xl font-bold">Set up your broker profile</CardTitle>
+          <CardTitle className="text-2xl font-bold">Set up your advisor profile</CardTitle>
           <CardDescription>Help clients find and trust you</CardDescription>
         </CardHeader>
         <CardContent>

@@ -27,7 +27,7 @@ interface SendListingProps {
 }
 
 export default function SendListing({
-  brokerName = "Jane Broker",
+  brokerName = "Jane Advisor",
   brokerageName,
   clientName,
   listingTitle = "Joe's Pizza - Astoria",

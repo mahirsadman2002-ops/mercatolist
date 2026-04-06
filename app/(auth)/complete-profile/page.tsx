@@ -122,7 +122,7 @@ export default function CompleteProfilePage() {
               </button>
               <button onClick={() => setSelectedType("BROKER")} className={`relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-all ${selectedType === "BROKER" ? "border-accent bg-accent/5" : "border-border hover:border-border/80"}`}>
                 <BadgeCheck className={`h-5 w-5 mt-0.5 ${selectedType === "BROKER" ? "text-accent" : "text-muted-foreground"}`} />
-                <div><h3 className="font-semibold">Licensed Broker</h3><p className="text-sm text-muted-foreground">I represent buyers and sellers</p></div>
+                <div><h3 className="font-semibold">Business Advisor</h3><p className="text-sm text-muted-foreground">I represent buyers and sellers</p></div>
                 {selectedType === "BROKER" && <Check className="absolute top-3 right-3 h-5 w-5 text-accent" />}
               </button>
             </div>
@@ -131,7 +131,7 @@ export default function CompleteProfilePage() {
           {/* Broker details (expanded inline) */}
           {selectedType === "BROKER" && (
             <div className="space-y-4 border-t pt-4">
-              <p className="text-sm font-semibold">Broker Details</p>
+              <p className="text-sm font-semibold">Advisor Details</p>
               <div className="space-y-2">
                 <Label htmlFor="cp-brokerage">Brokerage Name *</Label>
                 <Input id="cp-brokerage" placeholder="e.g., NYC Business Sales" value={brokerForm.brokerageName} onChange={(e) => updateBrokerField("brokerageName", e.target.value)} />

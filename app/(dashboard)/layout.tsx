@@ -129,7 +129,7 @@ export default function DashboardLayout({
               className="text-[10px] font-medium mt-0.5"
             >
               {user.role === "BROKER"
-                ? "Broker"
+                ? "Business Advisor"
                 : user.role === "ADMIN"
                   ? "Admin"
                   : "Member"}

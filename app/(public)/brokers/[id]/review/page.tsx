@@ -78,7 +78,7 @@ export default function ReviewPage() {
           Your review for {brokerName} has been submitted.
         </p>
         <Button className="mt-6" asChild>
-          <a href={`/brokers/${brokerId}`}>View Broker Profile</a>
+          <a href={`/advisors/${brokerId}`}>View Advisor Profile</a>
         </Button>
       </div>
     );

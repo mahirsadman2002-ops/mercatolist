@@ -18,6 +18,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
+    // Verify the listing exists
+    const listingExists = await prisma.businessListing.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!listingExists) {
+      return NextResponse.json(
+        { success: false, error: "Listing not found" },
+        { status: 404 }
+      );
+    }
+
     // Check if already saved
     const existing = await prisma.savedListing.findUnique({
       where: {

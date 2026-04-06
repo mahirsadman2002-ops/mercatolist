@@ -148,7 +148,7 @@ export default function ClientsPage() {
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Users className="size-14 text-muted-foreground/30" />
         <p className="text-muted-foreground">
-          Client management is available for brokers only.
+          Client management is available for business advisors only.
         </p>
       </div>
     );

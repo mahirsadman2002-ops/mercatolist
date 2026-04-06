@@ -40,8 +40,8 @@ interface CollectionData {
   description?: string | null;
   clientName?: string | null;
   clientEmail?: string | null;
-  _count: { listings: number };
-  listings: { photos: { url: string }[] }[];
+  listingCount: number;
+  previewPhotos: { id: string; url: string }[];
   createdAt: string;
 }
 

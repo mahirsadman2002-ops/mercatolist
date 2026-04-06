@@ -742,7 +742,8 @@ export function ListingContactSidebar({
   // ---- Save / Unsave ----
   const handleToggleSave = useCallback(async () => {
     if (!currentUser?.id) {
-      router.push(`/signup-prompt?action=save&callbackUrl=/listings/${listing.slug}`);
+      // FIX: Include autoAction=save so the listing auto-saves after signup redirect
+      router.push(`/signup-prompt?action=save&callbackUrl=${encodeURIComponent(`/listings/${listing.slug}?autoAction=save`)}`);
       return;
     }
 
@@ -845,7 +846,8 @@ export function ListingContactSidebar({
 
   // ---- Contact button click for unauthenticated users ----
   const handleUnauthContact = useCallback(() => {
-    router.push(`/signup-prompt?action=contact&callbackUrl=/listings/${listing.slug}`);
+    // FIX: Include autoAction=contact so the contact modal auto-opens after signup redirect
+    router.push(`/signup-prompt?action=contact&callbackUrl=${encodeURIComponent(`/listings/${listing.slug}?autoAction=contact`)}`);
   }, [listing.slug, router]);
 
   // ---- Callback after successful contact ----

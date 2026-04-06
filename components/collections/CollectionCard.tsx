@@ -28,8 +28,8 @@ interface CollectionCardProps {
     description?: string | null;
     clientName?: string | null;
     clientEmail?: string | null;
-    _count: { listings: number };
-    listings: { photos: { url: string }[] }[];
+    listingCount: number;
+    previewPhotos: { id?: string; url: string }[];
     createdAt: string;
   };
   onEdit?: (id: string) => void;
@@ -43,10 +43,8 @@ export function CollectionCard({
   onDelete,
   onEmail,
 }: CollectionCardProps) {
-  const photos = collection.listings
-    .flatMap((l) => l.photos)
-    .slice(0, 4)
-    .map((p) => p.url);
+  // FIX: API returns previewPhotos, not listings with nested photos
+  const photos = (collection.previewPhotos || []).slice(0, 4).map((p) => p.url);
 
   return (
     <Link href={`/collections/${collection.id}`}>
@@ -130,8 +128,8 @@ export function CollectionCard({
               {collection.name}
             </h3>
             <Badge variant="secondary" className="text-[10px] shrink-0">
-              {collection._count.listings} listing
-              {collection._count.listings !== 1 ? "s" : ""}
+              {collection.listingCount} listing
+              {collection.listingCount !== 1 ? "s" : ""}
             </Badge>
           </div>
 

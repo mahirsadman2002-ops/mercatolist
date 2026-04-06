@@ -81,6 +81,7 @@ export async function GET(
         collectionListings: collection.collectionListings.map((cl) => ({
           id: cl.id,
           personalRating: cl.personalRating,
+          clientInterested: cl.clientInterested ?? null,
           addedAt: cl.addedAt,
           listing: {
             id: cl.listing.id,

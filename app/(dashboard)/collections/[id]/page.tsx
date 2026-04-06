@@ -1108,6 +1108,7 @@ export default function CollectionDetailPage() {
                   collectionId={id}
                   position={index + 1}
                   totalListings={sortedListings.length}
+                  readOnly={isAssignedClient}
                 />
               ))}
             </div>
@@ -1169,7 +1170,8 @@ export default function CollectionDetailPage() {
             </Card>
           )}
 
-          {/* Collaborators */}
+          {/* Collaborators (hidden for assigned client view) */}
+          {!isAssignedClient && (
           <Card>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -1222,6 +1224,7 @@ export default function CollectionDetailPage() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Notes */}
           <Card>
@@ -1390,9 +1393,13 @@ export default function CollectionDetailPage() {
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Share Collection</DialogTitle>
+            <DialogTitle>
+              {isBroker ? "Share & Assign Collection" : "Share Collection"}
+            </DialogTitle>
             <DialogDescription>
-              Share this collection publicly or invite collaborators.
+              {isBroker
+                ? "Share this collection publicly, invite collaborators, or assign to a client."
+                : "Share this collection publicly or invite collaborators."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-2">
@@ -1432,10 +1439,69 @@ export default function CollectionDetailPage() {
               </div>
             )}
 
+            {/* Assign to Client (Broker only) */}
+            {isBroker && (
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Briefcase className="size-3.5" />
+                  Assign to Client
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  The assigned client will see this collection on their dashboard if they have a MercatoList account.
+                </p>
+                {brokerClients.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    No clients yet. Add clients from the{" "}
+                    <Link href="/clients" className="underline text-primary">
+                      Clients
+                    </Link>{" "}
+                    page.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {brokerClients.map((client) => (
+                      <div
+                        key={client.id}
+                        className={`flex items-center gap-3 rounded-md border p-2.5 cursor-pointer transition-colors ${
+                          selectedClientId === client.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-muted-foreground/30"
+                        }`}
+                        onClick={() => {
+                          const newId =
+                            selectedClientId === client.id ? null : client.id;
+                          handleAssignClient(newId);
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedClientId === client.id}
+                          disabled={isAssigningClient}
+                          className="pointer-events-none"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {client.name}
+                          </p>
+                          {client.email && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {client.email}
+                            </p>
+                          )}
+                        </div>
+                        {isAssigningClient && selectedClientId === client.id && (
+                          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Invite collaborator */}
             <div className="border-t pt-4 space-y-3">
               <Label className="text-sm font-medium">
-                Invite Collaborator
+                {isBroker ? "Invite Collaborators" : "Invite Collaborator"}
               </Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -1508,6 +1574,7 @@ function CollectionListingCard({
   collectionId,
   position,
   totalListings,
+  readOnly = false,
 }: {
   collectionListing: CollectionListing;
   compareMode: boolean;
@@ -1518,6 +1585,7 @@ function CollectionListingCard({
   collectionId: string;
   position: number;
   totalListings: number;
+  readOnly?: boolean;
 }) {
   const { listing, personalRating, clientInterested } = collectionListing;
   const sortedPhotos = [...listing.photos].sort((a, b) => a.order - b.order);
@@ -1544,19 +1612,21 @@ function CollectionListingCard({
         </div>
       )}
 
-      {/* Remove button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="absolute right-3 top-3 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/90 text-white opacity-0 group-hover/card:opacity-100 transition-opacity backdrop-blur-sm shadow"
-        title="Remove from collection"
-      >
-        <X className="size-3.5" />
-      </button>
+      {/* Remove button (hidden for read-only / assigned client view) */}
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute right-3 top-3 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/90 text-white opacity-0 group-hover/card:opacity-100 transition-opacity backdrop-blur-sm shadow"
+          title="Remove from collection"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
 
       {/* Client interest badge */}
       {clientInterested != null && (

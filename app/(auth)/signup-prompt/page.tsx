@@ -111,7 +111,7 @@ const ACTION_MAP: Record<ActionKey, ActionConfig> = {
     ],
   },
   "collection-interact": {
-    icon: MessageCircle,
+    icon: MessageSquare,
     heading: "Join the Conversation",
     subtext:
       "Create a free account to like or dislike listings, leave notes, and collaborate with your advisor on finding the right business.",

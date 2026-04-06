@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatCurrency } from "@/lib/utils";
+import { SharedListingInterest } from "@/components/collections/SharedListingInterest";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,6 +52,7 @@ interface SharedListing {
 interface SharedCollectionListing {
   id: string;
   personalRating: number | null;
+  clientInterested?: boolean | null;
   addedAt: string;
   listing: SharedListing;
 }
@@ -360,6 +362,14 @@ export default async function SharedCollectionPage({
                           ))}
                         </div>
                       )}
+
+                      {/* Like / Dislike buttons */}
+                      <SharedListingInterest
+                        collectionId={collection.id}
+                        listingId={listing.id}
+                        initialInterest={cl.clientInterested ?? null}
+                        sharedToken={token}
+                      />
                     </CardContent>
                   </Card>
                 </Link>

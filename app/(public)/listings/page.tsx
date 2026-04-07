@@ -38,6 +38,7 @@ import { SearchBar } from "@/components/search/SearchBar";
 import { FilterSidebar } from "@/components/search/FilterSidebar";
 import { ViewToggle } from "@/components/search/ViewToggle";
 import { ListingCard } from "@/components/listings/ListingCard";
+import { MapView } from "@/components/search/MapView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,6 +62,9 @@ interface ListingData {
   viewCount: number;
   saveCount: number;
   isGhostListing: boolean;
+  hideAddress?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   photos: { url: string; order: number }[];
   listedBy: {
     name: string;
@@ -951,7 +955,20 @@ function ListingsPageContent() {
           {/* Map View                                                      */}
           {/* ------------------------------------------------------------- */}
           {viewMode === "map" && (
-            <MapPlaceholder className="h-[calc(100vh-12rem)] w-full" />
+            <div className="h-[calc(100vh-12rem)] w-full">
+              <MapView
+                listings={listings
+                  .filter((l) => l.latitude && l.longitude && !l.hideAddress && !l.isGhostListing)
+                  .map((l) => ({
+                    id: l.id,
+                    slug: l.slug,
+                    title: l.title,
+                    latitude: Number(l.latitude),
+                    longitude: Number(l.longitude),
+                    askingPrice: Number(l.askingPrice),
+                  }))}
+              />
+            </div>
           )}
 
           {/* ------------------------------------------------------------- */}
@@ -972,10 +989,21 @@ function ListingsPageContent() {
               {/* Left: Scrollable listing grid (~60%) */}
               <div className="flex-1 min-w-0">{renderListingGrid()}</div>
 
-              {/* Right: Sticky map placeholder (~40%) */}
+              {/* Right: Sticky map (~40%) */}
               <div className="hidden md:block w-[40%] shrink-0">
                 <div className="sticky top-20 h-[calc(100vh-6rem)]">
-                  <MapPlaceholder className="h-full w-full" />
+                  <MapView
+                    listings={listings
+                      .filter((l) => l.latitude && l.longitude && !l.hideAddress && !l.isGhostListing)
+                      .map((l) => ({
+                        id: l.id,
+                        slug: l.slug,
+                        title: l.title,
+                        latitude: Number(l.latitude),
+                        longitude: Number(l.longitude),
+                        askingPrice: Number(l.askingPrice),
+                      }))}
+                  />
                 </div>
               </div>
             </div>

@@ -67,7 +67,7 @@ export default function InquiryConfirmation({
             </Section>
 
             <Text style={replyNote}>
-              You can reply directly to this email — your response will be added to the conversation on MercatoList. Or visit the site to respond there.
+              This is a no-reply email. To respond, visit MercatoList and continue the conversation there.
             </Text>
           </Section>
 

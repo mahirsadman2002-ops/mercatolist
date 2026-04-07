@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { to, subject, message, replyTo } = body;
+    const { to, subject, message, template, listing } = body;
 
     if (!to || !subject || !message) {
       return NextResponse.json(
@@ -29,21 +29,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send via Resend
+    // Send via Resend — use listing-share template if listing data is provided
     try {
       const { sendEmail } = await import("@/lib/email");
-      const GenericEmail = (await import("@/emails/generic-email")).default;
+      const senderName = session.user.name || "A MercatoList user";
 
-      await sendEmail({
-        to,
-        subject,
-        react: GenericEmail({
-          senderName: session.user.name || "A MercatoList user",
+      let emailReact;
+      if (template === "listing-share" && listing) {
+        const ListingShareEmail = (await import("@/emails/listing-share")).default;
+        emailReact = ListingShareEmail({
+          senderName,
+          listingTitle: listing.title || "Business Listing",
+          listingPrice: listing.price || "",
+          listingCategory: listing.category || "",
+          listingNeighborhood: listing.neighborhood || "",
+          listingBorough: listing.borough || "",
+          listingPhotoUrl: listing.photoUrl || undefined,
+          listingUrl: listing.url || "https://mercatolist.com",
+          personalMessage: message || undefined,
+        });
+      } else {
+        const GenericEmail = (await import("@/emails/generic-email")).default;
+        emailReact = GenericEmail({
+          senderName,
           subject,
           message,
-          replyTo: replyTo || session.user.email || undefined,
-        }),
-      });
+        });
+      }
+
+      await sendEmail({ to, subject, react: emailReact });
 
       return NextResponse.json({ success: true });
     } catch (emailError) {

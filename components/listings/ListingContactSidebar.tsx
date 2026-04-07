@@ -1496,9 +1496,18 @@ export function ListingContactSidebar({
         open={emailDialogOpen}
         onOpenChange={setEmailDialogOpen}
         defaultSubject={`Check out: ${listing.title} on MercatoList`}
-        defaultMessage={`I found this listing on MercatoList and thought you might be interested:\n\n${listing.title}\n${typeof window !== "undefined" ? window.location.href : `https://mercatolist.com/listings/${listing.slug}`}`}
+        defaultMessage={`I found this listing on MercatoList and thought you might be interested!`}
         title="Share Listing via Email"
         description="Send this listing to someone via MercatoList"
+        listing={{
+          title: listing.title,
+          price: listing.askingPrice ? `$${Number(listing.askingPrice).toLocaleString()}` : "Price TBD",
+          category: (listing as any).category || "",
+          neighborhood: (listing as any).neighborhood || "",
+          borough: (listing as any).borough || "",
+          photoUrl: (listing as any).photos?.[0]?.url || undefined,
+          url: typeof window !== "undefined" ? window.location.href : `https://mercatolist.com/listings/${listing.slug}`,
+        }}
       />
     </div>
   );

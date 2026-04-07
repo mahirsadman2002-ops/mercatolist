@@ -30,6 +30,16 @@ interface SendEmailDialogProps {
   title?: string;
   /** Dialog description */
   description?: string;
+  /** Listing data for rich listing-share template */
+  listing?: {
+    title: string;
+    price: string;
+    category: string;
+    neighborhood: string;
+    borough: string;
+    photoUrl?: string;
+    url: string;
+  };
   /** Called after successful send */
   onSuccess?: () => void;
 }
@@ -40,6 +50,7 @@ export function SendEmailDialog({
   defaultTo = "",
   defaultSubject = "",
   defaultMessage = "",
+  listing,
   title = "Send Email",
   description = "Send an email through MercatoList",
   onSuccess,
@@ -77,7 +88,12 @@ export function SendEmailDialog({
       const res = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject, message }),
+        body: JSON.stringify({
+          to,
+          subject,
+          message,
+          ...(listing ? { template: "listing-share", listing } : {}),
+        }),
       });
 
       const data = await res.json();

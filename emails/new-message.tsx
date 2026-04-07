@@ -57,8 +57,8 @@ export default function NewMessage({
             </Section>
 
             <Text style={smallText}>
-              Reply directly from your MercatoList inbox to keep the
-              conversation going.
+              You can also reply directly to this email — your response will be
+              added to the conversation on MercatoList.
             </Text>
           </Section>
 

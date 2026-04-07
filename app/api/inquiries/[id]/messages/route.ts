@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { generateReplyToAddress } from "@/lib/email-reply";
 import NewMessage from "@/emails/new-message";
 
 export async function GET(
@@ -167,6 +168,7 @@ export async function POST(
         await sendEmail({
           to: recipient.email,
           subject: `New message about ${inquiry.listing.title}`,
+          replyTo: generateReplyToAddress(id),
           react: NewMessage({
             senderName: session.user.name || "Someone",
             listingTitle: inquiry.listing.title,

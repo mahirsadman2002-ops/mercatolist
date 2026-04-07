@@ -7,14 +7,16 @@ interface SendEmailOptions {
   subject: string;
   react: React.ReactElement;
   from?: string;
+  replyTo?: string;
 }
 
-export async function sendEmail({ to, subject, react, from }: SendEmailOptions) {
+export async function sendEmail({ to, subject, react, from, replyTo }: SendEmailOptions) {
   const { data, error } = await resend.emails.send({
     from: from ?? "MercatoList <notifications@mercatolist.com>",
     to: Array.isArray(to) ? to : [to],
     subject,
     react,
+    ...(replyTo ? { replyTo } : {}),
   });
 
   if (error) {

@@ -123,7 +123,7 @@ export const profileUpdateSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   bio: z.string().max(1000).optional().nullable(),
   avatarUrl: z.string().url().optional().nullable().or(z.literal("")),
-  ownedBusiness: z.string().max(200).optional().nullable(),
+  ownedBusiness: z.string().max(2000).optional().nullable(),
   buyBox: z
     .object({
       categories: z.array(z.string()).optional(),

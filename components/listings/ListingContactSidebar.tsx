@@ -691,9 +691,6 @@ function CollectionStarRating({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Your Rating
-      </h3>
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => {
           const isFilled = star <= (hoveredStar ?? rating ?? 0);
@@ -1209,30 +1206,6 @@ export function ListingContactSidebar({
             </div>
           )}
 
-          {/* Collection Notes (when viewing from collection context) */}
-          {collectionId && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <StickyNote className="size-3.5 text-amber-600" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Collection Notes
-                </h3>
-              </div>
-              <CollectionNotesSection
-                collectionId={collectionId}
-                listingId={listing.id}
-              />
-            </div>
-          )}
-
-          {/* Collection Rating (when viewing from collection context) */}
-          {collectionId && (
-            <CollectionStarRating
-              collectionId={collectionId}
-              listingId={listing.id}
-            />
-          )}
-
           {/* 3. Contact Button (single, dynamic) */}
           {!isOwner && (
             <div className="space-y-2 pt-1">
@@ -1490,6 +1463,42 @@ export function ListingContactSidebar({
           </div>
         </CardContent>
       </Card>
+
+      {/* ---- Collection Star Rating Card ---- */}
+      {collectionId && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <Star className="size-4 text-amber-500" />
+              <h3 className="text-sm font-semibold">Your Rating</h3>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <CollectionStarRating
+              collectionId={collectionId}
+              listingId={listing.id}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ---- Collection Notes Card ---- */}
+      {collectionId && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <StickyNote className="size-4 text-amber-600" />
+              <h3 className="text-sm font-semibold">Collection Notes</h3>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <CollectionNotesSection
+              collectionId={collectionId}
+              listingId={listing.id}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Email Dialog for sharing listings via platform */}
       <SendEmailDialog

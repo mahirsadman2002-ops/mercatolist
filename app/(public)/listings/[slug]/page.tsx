@@ -420,43 +420,57 @@ export default async function ListingDetailPage({
             Collection Context Bar
         ================================================================ */}
         {collectionId && collectionName && (
-          <div className="border-b border-amber-200 bg-amber-50">
-            <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm min-w-0">
-                <FolderOpen className="h-4 w-4 text-amber-600 shrink-0" />
-                <span className="text-amber-800 truncate">
-                  Viewing from collection:{" "}
-                  <span className="font-semibold">{collectionName}</span>
-                  {position && total && (
-                    <span className="text-amber-600">
-                      {" "}
-                      &mdash; Listing {position} of {total}
-                    </span>
-                  )}
+          <div className="bg-amber-400 text-amber-950">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+              {/* Left: Collection name */}
+              <div className="flex items-center gap-2.5 text-sm min-w-0">
+                <FolderOpen className="h-4.5 w-4.5 shrink-0" />
+                <span className="truncate">
+                  Viewing from:{" "}
+                  <span className="font-bold">{collectionName}</span>
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {prevSlug && position && total && (
-                  <Link
-                    href={`/listings/${prevSlug}?collectionId=${collectionId}&position=${position - 1}&total=${total}`}
-                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-amber-300 bg-white text-amber-700 hover:bg-amber-100 transition-colors"
-                    title="Previous listing"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Link>
-                )}
-                {nextSlug && position && total && (
-                  <Link
-                    href={`/listings/${nextSlug}?collectionId=${collectionId}&position=${position + 1}&total=${total}`}
-                    className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-amber-300 bg-white text-amber-700 hover:bg-amber-100 transition-colors"
-                    title="Next listing"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                )}
+
+              {/* Center: Navigation arrows with position */}
+              {position && total && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {prevSlug ? (
+                    <Link
+                      href={`/listings/${prevSlug}?collectionId=${collectionId}&position=${position - 1}&total=${total}`}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-amber-600 bg-amber-500/50 text-amber-950 hover:bg-amber-500 transition-colors"
+                      title="Previous listing"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-amber-500/40 text-amber-700 opacity-50 cursor-not-allowed">
+                      <ChevronLeft className="h-4 w-4" />
+                    </span>
+                  )}
+                  <span className="px-2 text-sm font-semibold whitespace-nowrap">
+                    Listing {position} of {total}
+                  </span>
+                  {nextSlug ? (
+                    <Link
+                      href={`/listings/${nextSlug}?collectionId=${collectionId}&position=${position + 1}&total=${total}`}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-amber-600 bg-amber-500/50 text-amber-950 hover:bg-amber-500 transition-colors"
+                      title="Next listing"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-amber-500/40 text-amber-700 opacity-50 cursor-not-allowed">
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Right: Back button */}
+              <div className="shrink-0">
                 <Link
                   href={`/collections/${collectionId}`}
-                  className="inline-flex items-center gap-1 ml-1 text-sm font-medium text-amber-700 hover:text-amber-900 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-md border border-amber-600 bg-amber-500/50 hover:bg-amber-500 transition-colors"
                 >
                   Back to Collection
                 </Link>

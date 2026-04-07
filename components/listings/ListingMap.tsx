@@ -64,7 +64,7 @@ export function ListingMap({
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const token = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim() || null;
   const displayBorough = formatBorough(borough);
 
   useEffect(() => {

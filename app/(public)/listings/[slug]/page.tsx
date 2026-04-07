@@ -27,7 +27,7 @@ import { ListingMap } from "@/components/listings/ListingMap";
 import { ListingContactSidebar } from "@/components/listings/ListingContactSidebar";
 import { ListingStatusBadge } from "@/components/listings/ListingStatusBadge";
 import { CollectionDiscoveryPopup } from "@/components/listings/CollectionDiscoveryPopup";
-import { CollectionNotesSection } from "@/components/collections/CollectionNotesSection";
+
 
 // Revalidate every 60 seconds so listing data stays fresh
 export const revalidate = 60;
@@ -638,19 +638,6 @@ export default async function ListingDetailPage({
                 <BusinessDetails listing={listing} />
               </section>
 
-              {/* ---- Collection Notes (shown when in collection context) ---- */}
-              {collectionId && (
-                <>
-                  <div className="my-8" />
-                  <section aria-labelledby="collection-notes-heading">
-                    <CollectionNotesSection
-                      collectionId={collectionId}
-                      listingId={listing.id}
-                    />
-                  </section>
-                </>
-              )}
-
               <div className="my-8" />
 
               {/* ---- Location ---- */}
@@ -682,7 +669,7 @@ export default async function ListingDetailPage({
             ============================================================== */}
             <aside className="w-full shrink-0 lg:w-[380px]">
               <div className="lg:sticky lg:top-24">
-                <ListingContactSidebar listing={listing} />
+                <ListingContactSidebar listing={listing} collectionId={collectionId} />
               </div>
             </aside>
           </div>

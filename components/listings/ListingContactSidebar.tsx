@@ -26,6 +26,8 @@ import {
   Linkedin,
   FolderPlus,
   Plus,
+  Star,
+  StickyNote,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,6 +69,7 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { CollectionNotesSection } from "@/components/collections/CollectionNotesSection";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +108,7 @@ interface ListingContactSidebarProps {
       phone?: string | null;
     }[];
   };
+  collectionId?: string;
   isSaved?: boolean;
 }
 
@@ -607,6 +611,123 @@ function ReportListingDialog({ listingId }: { listingId: string }) {
   );
 }
 
+/** Star rating for a listing within a collection */
+function CollectionStarRating({
+  collectionId,
+  listingId,
+}: {
+  collectionId: string;
+  listingId: string;
+}) {
+  const [rating, setRating] = useState<number | null>(null);
+  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch current rating
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchRating() {
+      try {
+        const res = await fetch(
+          `/api/collections/${collectionId}/listings/${listingId}/rate`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) {
+            setRating(data.data?.personalRating ?? null);
+          }
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    fetchRating();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, listingId]);
+
+  const handleRate = useCallback(
+    async (newRating: number) => {
+      const prevRating = rating;
+      setRating(newRating);
+      setIsSaving(true);
+      try {
+        const res = await fetch(
+          `/api/collections/${collectionId}/listings/${listingId}/rate`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rating: newRating }),
+          }
+        );
+        if (!res.ok) {
+          setRating(prevRating);
+          throw new Error("Failed to save rating");
+        }
+        toast.success(`Rated ${newRating} star${newRating !== 1 ? "s" : ""}`);
+      } catch {
+        toast.error("Could not save rating. Try again.");
+        setRating(prevRating);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [collectionId, listingId, rating]
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2">
+        <Star className="size-3.5 text-amber-500" />
+        <span className="text-xs text-muted-foreground">Loading rating...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Your Rating
+      </h3>
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFilled = star <= (hoveredStar ?? rating ?? 0);
+          return (
+            <button
+              key={star}
+              type="button"
+              disabled={isSaving}
+              className="p-0.5 transition-transform hover:scale-110 disabled:opacity-50"
+              onMouseEnter={() => setHoveredStar(star)}
+              onMouseLeave={() => setHoveredStar(null)}
+              onClick={() => handleRate(star)}
+              aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
+            >
+              <Star
+                className={cn(
+                  "size-5 transition-colors",
+                  isFilled
+                    ? "fill-amber-400 text-amber-400"
+                    : "fill-none text-gray-300"
+                )}
+              />
+            </button>
+          );
+        })}
+        {rating && (
+          <span className="ml-1.5 text-xs text-muted-foreground">
+            {rating}/5
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Collection types
 // ---------------------------------------------------------------------------
@@ -623,6 +744,7 @@ interface CollectionItem {
 
 export function ListingContactSidebar({
   listing,
+  collectionId,
   isSaved: initialIsSaved = false,
 }: ListingContactSidebarProps) {
   const { data: session } = useSession();
@@ -1084,6 +1206,30 @@ export function ListingContactSidebar({
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Collection Notes (when viewing from collection context) */}
+          {collectionId && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <StickyNote className="size-3.5 text-amber-600" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Collection Notes
+                </h3>
+              </div>
+              <CollectionNotesSection
+                collectionId={collectionId}
+                listingId={listing.id}
+              />
+            </div>
+          )}
+
+          {/* Collection Rating (when viewing from collection context) */}
+          {collectionId && (
+            <CollectionStarRating
+              collectionId={collectionId}
+              listingId={listing.id}
+            />
           )}
 
           {/* 3. Contact Button (single, dynamic) */}

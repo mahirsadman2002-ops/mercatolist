@@ -31,7 +31,7 @@ export function MapView({ listings }: MapViewProps) {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [, setMapReady] = useState(false);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const token = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim() || null;
 
   useEffect(() => {
     if (!token || !mapContainer.current) return;
@@ -133,7 +133,10 @@ export function MapView({ listings }: MapViewProps) {
             <MapPin className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm font-medium text-muted-foreground">
-            Map view requires configuration
+            Map view is currently unavailable
+          </p>
+          <p className="text-xs text-muted-foreground/70">
+            Please try again later
           </p>
         </div>
       </div>

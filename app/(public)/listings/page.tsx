@@ -14,8 +14,11 @@ import {
   FolderPlus,
   Send,
   Loader2,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -333,6 +336,9 @@ function ListingsPageContent() {
   const [isSendingToClient, setIsSendingToClient] = useState(false);
   const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [showNewEmailInput, setShowNewEmailInput] = useState(false);
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [clientPersonalMessage, setClientPersonalMessage] = useState("");
 
   // Toggle selection for a listing
   const handleSelectToggle = useCallback((listingId: string) => {
@@ -353,6 +359,9 @@ function ListingsPageContent() {
     setSelectedIds(new Set());
     setShowCollectionDropdown(false);
     setShowClientDropdown(false);
+    setShowNewEmailInput(false);
+    setNewClientEmail("");
+    setClientPersonalMessage("");
   }, []);
 
   // Fetch broker collections
@@ -427,21 +436,56 @@ function ListingsPageContent() {
         const res = await fetch(`/api/clients/${clientId}/send-listings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingIds }),
+          body: JSON.stringify({
+            listingIds,
+            personalMessage: clientPersonalMessage.trim() || undefined,
+          }),
         });
         if (!res.ok) throw new Error("Failed to send");
         toast.success(
           `Sent ${listingIds.length} listing${listingIds.length !== 1 ? "s" : ""} to ${clientName}`
         );
         setShowClientDropdown(false);
+        setClientPersonalMessage("");
       } catch {
         toast.error("Failed to send listings to client.");
       } finally {
         setIsSendingToClient(false);
       }
     },
-    [selectedIds]
+    [selectedIds, clientPersonalMessage]
   );
+
+  // Send selected listings to a new email via mailto
+  const handleSendToNewEmail = useCallback(() => {
+    if (!newClientEmail.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+    const listingIds = Array.from(selectedIds);
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://mercatolist.com";
+    const listingLinks = listingIds
+      .map((id) => {
+        const listing = listings.find((l) => l.id === id);
+        return listing
+          ? `${listing.title}: ${baseUrl}/listings/${listing.slug}`
+          : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+    const subject = encodeURIComponent(
+      `${listingIds.length} Business Listing${listingIds.length !== 1 ? "s" : ""} from MercatoList`
+    );
+    const body = encodeURIComponent(
+      `${clientPersonalMessage.trim() ? clientPersonalMessage.trim() + "\n\n" : ""}I wanted to share these listings with you:\n\n${listingLinks}\n\nView all listings at ${baseUrl}/listings`
+    );
+    window.open(`mailto:${newClientEmail.trim()}?subject=${subject}&body=${body}`, "_blank");
+    setShowClientDropdown(false);
+    setShowNewEmailInput(false);
+    setNewClientEmail("");
+    setClientPersonalMessage("");
+    toast.success("Email client opened");
+  }, [selectedIds, newClientEmail, clientPersonalMessage, listings]);
 
   // -----------------------------------------------------------------------
   // Build URL search params from current state
@@ -1017,30 +1061,97 @@ function ListingsPageContent() {
                 Send to Client
               </Button>
               {showClientDropdown && (
-                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-lg border bg-popover p-1 shadow-lg">
-                  {isLoadingClients ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : brokerClients.length === 0 ? (
-                    <p className="px-3 py-3 text-center text-xs text-muted-foreground">
-                      No clients yet
-                    </p>
-                  ) : (
-                    brokerClients.map((client) => (
+                <div className="absolute bottom-full left-0 mb-2 w-72 rounded-lg border bg-popover shadow-lg">
+                  {/* Personal message textarea */}
+                  <div className="p-2 border-b">
+                    <Textarea
+                      value={clientPersonalMessage}
+                      onChange={(e) => setClientPersonalMessage(e.target.value)}
+                      placeholder="Add a personal message (optional)..."
+                      rows={2}
+                      className="text-xs resize-none"
+                    />
+                  </div>
+
+                  <div className="p-1">
+                    {isLoadingClients ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : brokerClients.length === 0 ? (
+                      <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                        No clients yet
+                      </p>
+                    ) : (
+                      brokerClients.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left"
+                          onClick={() =>
+                            handleSendToClient(client.id, client.name)
+                          }
+                        >
+                          <Send className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{client.name}</span>
+                        </button>
+                      ))
+                    )}
+
+                    {/* Divider */}
+                    <div className="h-px bg-border my-1" />
+
+                    {/* Send to new email */}
+                    {showNewEmailInput ? (
+                      <div className="px-3 py-2 space-y-2">
+                        <Input
+                          type="email"
+                          value={newClientEmail}
+                          onChange={(e) => setNewClientEmail(e.target.value)}
+                          placeholder="Enter email address..."
+                          className="h-8 text-xs"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSendToNewEmail();
+                            if (e.key === "Escape") {
+                              setShowNewEmailInput(false);
+                              setNewClientEmail("");
+                            }
+                          }}
+                        />
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs flex-1"
+                            onClick={handleSendToNewEmail}
+                          >
+                            <Mail className="h-3 w-3" />
+                            Send
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            onClick={() => {
+                              setShowNewEmailInput(false);
+                              setNewClientEmail("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
                       <button
-                        key={client.id}
                         type="button"
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left"
-                        onClick={() =>
-                          handleSendToClient(client.id, client.name)
-                        }
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left text-muted-foreground"
+                        onClick={() => setShowNewEmailInput(true)}
                       >
-                        <Send className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{client.name}</span>
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        <span>Send to new email</span>
                       </button>
-                    ))
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             </div>

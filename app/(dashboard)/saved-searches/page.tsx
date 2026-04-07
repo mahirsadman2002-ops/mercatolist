@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Search,
   Bell,
@@ -14,6 +15,9 @@ import {
   ExternalLink,
   Clock,
   Mail,
+  Briefcase,
+  UserPlus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,12 +67,20 @@ interface SavedSearchData {
     revenueMax?: number;
     keyword?: string;
     clientEmail?: string;
+    clientName?: string;
+    clientId?: string;
   };
   checkFrequency: string;
   emailFrequency: string;
   isActive: boolean;
   lastCheckedAt: string | null;
   createdAt: string;
+}
+
+interface ClientRecord {
+  id: string;
+  name: string;
+  email?: string | null;
 }
 
 function buildSearchName(criteria: SavedSearchData["criteria"]): string {
@@ -101,11 +113,20 @@ function frequencyLabel(freq: string): string {
 
 export default function SavedSearchesPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const isBroker = userRole === "BROKER";
+
   const [searches, setSearches] = useState<SavedSearchData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Broker client state
+  const [brokerClients, setBrokerClients] = useState<ClientRecord[]>([]);
+  const [assigningSearchId, setAssigningSearchId] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   // Create form state
   const [formName, setFormName] = useState("");
@@ -132,6 +153,73 @@ export default function SavedSearchesPage() {
   useEffect(() => {
     fetchSearches();
   }, [fetchSearches]);
+
+  // Fetch broker clients
+  useEffect(() => {
+    if (!isBroker) return;
+    const fetchClients = async () => {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success) {
+          setBrokerClients(
+            json.data.map((c: { id: string; name: string; email?: string | null }) => ({
+              id: c.id,
+              name: c.name,
+              email: c.email,
+            }))
+          );
+        }
+      } catch {
+        // silent fail
+      }
+    };
+    fetchClients();
+  }, [isBroker]);
+
+  // Assign saved search to a client
+  const handleAssignClient = async (searchId: string, client: ClientRecord | null) => {
+    setIsAssigning(true);
+    try {
+      const search = searches.find((s) => s.id === searchId);
+      if (!search) return;
+
+      const updatedCriteria = { ...search.criteria };
+      if (client) {
+        updatedCriteria.clientId = client.id;
+        updatedCriteria.clientName = client.name;
+        updatedCriteria.clientEmail = client.email || undefined;
+      } else {
+        delete updatedCriteria.clientId;
+        delete updatedCriteria.clientName;
+        delete updatedCriteria.clientEmail;
+      }
+
+      const res = await fetch(`/api/saved-searches/${searchId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ criteria: updatedCriteria }),
+      });
+      if (!res.ok) throw new Error();
+
+      setSearches((prev) =>
+        prev.map((s) =>
+          s.id === searchId ? { ...s, criteria: updatedCriteria } : s
+        )
+      );
+      setAssigningSearchId(null);
+      toast.success(
+        client
+          ? `Search assigned to ${client.name}`
+          : "Client unassigned from search"
+      );
+    } catch {
+      toast.error("Failed to assign client");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   const handleToggle = async (id: string) => {
     try {
@@ -275,7 +363,8 @@ export default function SavedSearchesPage() {
                       )}
                       {search.criteria.clientEmail && (
                         <Badge variant="outline" className="text-[10px]">
-                          Client Search
+                          <Briefcase className="size-2.5 mr-0.5" />
+                          {search.criteria.clientName || "Client Search"}
                         </Badge>
                       )}
                     </div>
@@ -315,6 +404,86 @@ export default function SavedSearchesPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Assign to Client (broker only) */}
+                    {isBroker && (
+                      <div className="relative">
+                        <Button
+                          variant={search.criteria.clientId ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={() =>
+                            setAssigningSearchId(
+                              assigningSearchId === search.id ? null : search.id
+                            )
+                          }
+                        >
+                          <Briefcase className="size-3.5" />
+                          {search.criteria.clientName
+                            ? search.criteria.clientName
+                            : "Assign"}
+                        </Button>
+                        {assigningSearchId === search.id && (
+                          <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border bg-popover shadow-lg z-50">
+                            <div className="p-1">
+                              {brokerClients.length === 0 ? (
+                                <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                                  No clients yet
+                                </p>
+                              ) : (
+                                <>
+                                  {search.criteria.clientId && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left text-muted-foreground"
+                                        onClick={() =>
+                                          handleAssignClient(search.id, null)
+                                        }
+                                        disabled={isAssigning}
+                                      >
+                                        <X className="size-3.5 shrink-0" />
+                                        <span>Unassign client</span>
+                                      </button>
+                                      <div className="h-px bg-border my-1" />
+                                    </>
+                                  )}
+                                  {brokerClients.map((client) => (
+                                    <button
+                                      key={client.id}
+                                      type="button"
+                                      className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent text-left ${
+                                        search.criteria.clientId === client.id
+                                          ? "bg-primary/5 text-primary font-medium"
+                                          : ""
+                                      }`}
+                                      onClick={() =>
+                                        handleAssignClient(search.id, client)
+                                      }
+                                      disabled={isAssigning}
+                                    >
+                                      <UserPlus className="size-3.5 shrink-0 text-muted-foreground" />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="truncate block">
+                                          {client.name}
+                                        </span>
+                                        {client.email && (
+                                          <span className="text-[10px] text-muted-foreground truncate block">
+                                            {client.email}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {isAssigning &&
+                                        search.criteria.clientId === client.id && (
+                                          <Loader2 className="size-3 animate-spin" />
+                                        )}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

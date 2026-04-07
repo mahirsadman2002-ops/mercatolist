@@ -2,6 +2,85 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// GET: Fetch current rating for a listing in a collection
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; listingId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id, listingId } = await params;
+
+    // Verify collection access (owner or collaborator)
+    const collection = await prisma.collection.findUnique({
+      where: { id },
+      include: {
+        collaborators: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!collection) {
+      return NextResponse.json(
+        { success: false, error: "Collection not found" },
+        { status: 404 }
+      );
+    }
+
+    const isOwner = collection.userId === session.user.id;
+    const isCollaborator = collection.collaborators.some(
+      (c) => c.userId === session.user.id
+    );
+
+    if (!isOwner && !isCollaborator) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const collectionListing = await prisma.collectionListing.findUnique({
+      where: {
+        collectionId_listingId: {
+          collectionId: id,
+          listingId,
+        },
+      },
+      select: {
+        personalRating: true,
+      },
+    });
+
+    if (!collectionListing) {
+      return NextResponse.json(
+        { success: false, error: "Listing is not in this collection" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        personalRating: collectionListing.personalRating,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching listing rating:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch rating" },
+      { status: 500 }
+    );
+  }
+}
+
 // PUT: Rate a listing in a collection
 export async function PUT(
   request: NextRequest,

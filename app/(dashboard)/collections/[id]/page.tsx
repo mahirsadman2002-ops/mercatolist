@@ -962,8 +962,14 @@ export default function CollectionDetailPage() {
             {collection.collaborators.length > 0 && (
               <Badge variant="secondary">
                 <Users className="size-3 mr-1" />
-                {collection.collaborators.length} collaborator
+                {collection.collaborators.length} {isBroker ? "collaborator" : "collaborator"}
                 {collection.collaborators.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
+            {isBroker && collection.client && (
+              <Badge variant="secondary">
+                <Briefcase className="size-3 mr-1" />
+                Client: {collection.client.name}
               </Badge>
             )}
             {collection.isPubliclyShared && (
@@ -1073,7 +1079,7 @@ export default function CollectionDetailPage() {
             <SelectItem value="priceLow">Price: Low to High</SelectItem>
             <SelectItem value="priceHigh">Price: High to Low</SelectItem>
             <SelectItem value="revenue">Revenue</SelectItem>
-            <SelectItem value="rating">Personal Rating</SelectItem>
+            <SelectItem value="rating">Highest Rated</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1170,8 +1176,90 @@ export default function CollectionDetailPage() {
             </Card>
           )}
 
-          {/* Collaborators (hidden for assigned client view) */}
-          {!isAssignedClient && (
+          {/* Shared with Clients (broker view) */}
+          {!isAssignedClient && isBroker && (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Briefcase className="size-3.5" />
+                  Shared with Clients
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setShareOpen(true)}
+                >
+                  <UserPlus className="size-3" />
+                  Assign
+                </Button>
+              </div>
+              {collection.client ? (
+                <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-2.5">
+                  <Avatar size="sm">
+                    <AvatarFallback>
+                      {initials(collection.client.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {collection.client.name}
+                    </p>
+                    {collection.client.email && (
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {collection.client.email}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    Assigned
+                  </Badge>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No client assigned yet. Click &quot;Assign&quot; to share this collection with a client.
+                </p>
+              )}
+              {/* Also show collaborators if any */}
+              {collection.collaborators.length > 0 && (
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Collaborators
+                  </p>
+                  {collection.collaborators.map((collab) => (
+                    <div
+                      key={collab.id}
+                      className="flex items-center gap-2"
+                    >
+                      <Avatar size="sm">
+                        {collab.user.avatarUrl && (
+                          <AvatarImage src={collab.user.avatarUrl} />
+                        )}
+                        <AvatarFallback>
+                          {initials(
+                            collab.user.displayName || collab.user.name
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">
+                          {collab.user.displayName || collab.user.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground capitalize">
+                          {collab.role}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          )}
+
+          {/* Collaborators for regular users (non-broker) */}
+          {!isAssignedClient && !isBroker && (
           <Card>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">

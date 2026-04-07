@@ -143,8 +143,20 @@ export function SearchBar({
 
   const handleSuggestionClick = (suggestion: Suggestion) => {
     setShowSuggestions(false);
-    setKeyword("");
-    router.push(suggestion.url);
+
+    if (onSearch) {
+      // Extract keyword/category from suggestion URL and use the onSearch callback
+      // so the browse page updates in-place instead of navigating
+      const url = new URL(suggestion.url, "http://localhost");
+      const sugKeyword = url.searchParams.get("keyword") || url.searchParams.get("neighborhood") || "";
+      const sugCategory = url.searchParams.get("category") || "";
+      setKeyword(sugKeyword);
+      setCategory(sugCategory);
+      onSearch(sugKeyword, sugCategory);
+    } else {
+      setKeyword("");
+      router.push(suggestion.url);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

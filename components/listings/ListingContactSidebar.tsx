@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, type FormEvent } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { SendEmailDialog } from "@/components/email/SendEmailDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
@@ -944,12 +945,12 @@ export function ListingContactSidebar({
     setTimeout(() => setLinkCopied(false), 2000);
   }, [getShareUrl]);
 
+  // Email dialog state for sharing via platform email
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+
   const handleShareViaEmail = useCallback(() => {
-    const url = getShareUrl();
-    const subject = encodeURIComponent(`Check out: ${listing.title} on MercatoList`);
-    const body = encodeURIComponent(`I found this listing on MercatoList and thought you might be interested:\n\n${listing.title}\n${url}`);
-    window.open(`mailto:?subject=${subject}&body=${body}`, "_self");
-  }, [listing.title, getShareUrl]);
+    setEmailDialogOpen(true);
+  }, []);
 
   const handleShareOnTwitter = useCallback(() => {
     const url = getShareUrl();
@@ -1489,6 +1490,16 @@ export function ListingContactSidebar({
           </div>
         </CardContent>
       </Card>
+
+      {/* Email Dialog for sharing listings via platform */}
+      <SendEmailDialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        defaultSubject={`Check out: ${listing.title} on MercatoList`}
+        defaultMessage={`I found this listing on MercatoList and thought you might be interested:\n\n${listing.title}\n${typeof window !== "undefined" ? window.location.href : `https://mercatolist.com/listings/${listing.slug}`}`}
+        title="Share Listing via Email"
+        description="Send this listing to someone via MercatoList"
+      />
     </div>
   );
 }

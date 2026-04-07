@@ -66,6 +66,10 @@ export default function CollectionInvite({
               </Button>
             </Section>
 
+            <Text style={replyNote}>
+              You can reply directly to this email — your response will be added to the conversation on MercatoList. Or visit the site to respond there.
+            </Text>
+
             <Text style={smallText}>
               If you don&apos;t want to join this collection, you can simply
               ignore this email. The invitation will expire in 7 days.
@@ -177,6 +181,15 @@ const button: React.CSSProperties = {
   textDecoration: "none",
   textAlign: "center" as const,
   display: "inline-block",
+};
+
+const replyNote: React.CSSProperties = {
+  fontSize: "13px",
+  lineHeight: "20px",
+  color: "#718096",
+  margin: "16px 0 0 0",
+  textAlign: "center" as const,
+  fontStyle: "italic" as const,
 };
 
 const smallText: React.CSSProperties = {

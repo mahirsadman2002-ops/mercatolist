@@ -74,10 +74,8 @@ export default function InquiryReceived({
               </Button>
             </Section>
 
-            <Text style={smallText}>
-              You can reply directly to {senderName} at{" "}
-              <strong>{senderEmail}</strong>
-              {senderPhone ? ` or call ${senderPhone}` : ""}.
+            <Text style={replyNote}>
+              You can reply directly to this email — your response will be added to the conversation on MercatoList. Or visit the site to respond there.
             </Text>
           </Section>
 
@@ -192,11 +190,13 @@ const button: React.CSSProperties = {
   display: "inline-block",
 };
 
-const smallText: React.CSSProperties = {
+const replyNote: React.CSSProperties = {
   fontSize: "13px",
-  color: "#718096",
-  marginTop: "16px",
   lineHeight: "20px",
+  color: "#718096",
+  margin: "16px 0 0 0",
+  textAlign: "center" as const,
+  fontStyle: "italic" as const,
 };
 
 const hr: React.CSSProperties = {

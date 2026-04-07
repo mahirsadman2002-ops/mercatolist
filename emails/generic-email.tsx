@@ -43,11 +43,9 @@ export default function GenericEmail({
             <Section style={messageBox}>
               <Text style={messageText}>{message}</Text>
             </Section>
-            {replyTo && (
-              <Text style={replyText}>
-                You can reply directly to this email to respond to {senderName}.
-              </Text>
-            )}
+            <Text style={replyNote}>
+              You can reply directly to this email — your response will be added to the conversation on MercatoList. Or visit the site to respond there.
+            </Text>
           </Section>
 
           <Hr style={hr} />
@@ -127,10 +125,13 @@ const messageText: React.CSSProperties = {
   whiteSpace: "pre-wrap" as const,
 };
 
-const replyText: React.CSSProperties = {
+const replyNote: React.CSSProperties = {
   fontSize: "13px",
+  lineHeight: "20px",
   color: "#718096",
   margin: "16px 0 0 0",
+  textAlign: "center" as const,
+  fontStyle: "italic" as const,
 };
 
 const hr: React.CSSProperties = {

@@ -106,6 +106,10 @@ export default function ListingShareEmail({
                 View Listing on MercatoList
               </Button>
             </Section>
+
+            <Text style={replyNote}>
+              You can reply directly to this email — your response will be added to the conversation on MercatoList. Or visit the site to respond there.
+            </Text>
           </Section>
 
           {/* Footer */}
@@ -245,6 +249,15 @@ const button: React.CSSProperties = {
   textDecoration: "none",
   textAlign: "center" as const,
   display: "inline-block",
+};
+
+const replyNote: React.CSSProperties = {
+  fontSize: "13px",
+  lineHeight: "20px",
+  color: "#718096",
+  margin: "16px 0 0 0",
+  textAlign: "center" as const,
+  fontStyle: "italic" as const,
 };
 
 const hr: React.CSSProperties = { borderColor: "#e2e8f0", margin: "0" };

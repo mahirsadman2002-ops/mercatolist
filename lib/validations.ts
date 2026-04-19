@@ -1,6 +1,36 @@
 import { z } from "zod";
 import { BUSINESS_CATEGORIES } from "./constants";
 
+const SOCIAL_DOMAINS = {
+  instagram: ["instagram.com", "instagr.am"],
+  linkedin: ["linkedin.com", "lnkd.in"],
+  twitter: ["twitter.com", "x.com"],
+  facebook: ["facebook.com", "fb.com", "fb.me"],
+  tiktok: ["tiktok.com"],
+} as const;
+
+function socialUrl(platform: keyof typeof SOCIAL_DOMAINS) {
+  const domains = SOCIAL_DOMAINS[platform];
+  const label = platform.charAt(0).toUpperCase() + platform.slice(1);
+  return z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+      (val) => {
+        if (!val) return true;
+        try {
+          const u = new URL(val);
+          const host = u.hostname.toLowerCase().replace(/^www\./, "");
+          return domains.some((d) => host === d || host.endsWith("." + d));
+        } catch {
+          return false;
+        }
+      },
+      { message: `Must be a valid ${label} URL (e.g. https://${domains[0]}/yourhandle)` },
+    );
+}
+
 export const listingCreateSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(150),
   description: z.string().min(50, "Description must be at least 50 characters"),
@@ -56,11 +86,11 @@ export const brokerDetailsSchema = z.object({
   brokerageName: z.string().min(2).optional(),
   brokerageWebsite: z.string().url().optional().or(z.literal("")),
   brokeragePhone: z.string().optional(),
-  instagramUrl: z.string().url().optional().or(z.literal("")),
-  linkedinUrl: z.string().url().optional().or(z.literal("")),
-  twitterUrl: z.string().url().optional().or(z.literal("")),
-  facebookUrl: z.string().url().optional().or(z.literal("")),
-  tiktokUrl: z.string().url().optional().or(z.literal("")),
+  instagramUrl: socialUrl("instagram"),
+  linkedinUrl: socialUrl("linkedin"),
+  twitterUrl: socialUrl("twitter"),
+  facebookUrl: socialUrl("facebook"),
+  tiktokUrl: socialUrl("tiktok"),
 });
 
 export const inquiryFormSchema = z.object({
@@ -143,11 +173,11 @@ export const profileUpdateSchema = z.object({
   hasLicenses: z.boolean().optional(),
   brokerageWebsite: z.string().url().optional().nullable().or(z.literal("")),
   brokeragePhone: z.string().max(20).optional().nullable(),
-  instagramUrl: z.string().url().optional().nullable().or(z.literal("")),
-  linkedinUrl: z.string().url().optional().nullable().or(z.literal("")),
-  twitterUrl: z.string().url().optional().nullable().or(z.literal("")),
-  facebookUrl: z.string().url().optional().nullable().or(z.literal("")),
-  tiktokUrl: z.string().url().optional().nullable().or(z.literal("")),
+  instagramUrl: socialUrl("instagram"),
+  linkedinUrl: socialUrl("linkedin"),
+  twitterUrl: socialUrl("twitter"),
+  facebookUrl: socialUrl("facebook"),
+  tiktokUrl: socialUrl("tiktok"),
 });
 
 export const passwordChangeSchema = z

@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { BOROUGHS, BUSINESS_CATEGORIES } from "@/lib/constants";
+import { BOROUGHS } from "@/lib/constants";
+import { CategoryMultiCombobox } from "@/components/ui/category-combobox";
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   const steps = ["Create Account", "Account Type", "Details"];
@@ -57,12 +58,6 @@ export default function BrokerDetailsPage() {
   const toggleBorough = (value: string) => {
     setBoroughsServed((prev) =>
       prev.includes(value) ? prev.filter((b) => b !== value) : [...prev, value]
-    );
-  };
-
-  const toggleSpecialty = (value: string) => {
-    setSpecialties((prev) =>
-      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]
     );
   };
 
@@ -165,25 +160,11 @@ export default function BrokerDetailsPage() {
             {/* Specialties */}
             <div className="space-y-2">
               <Label>Specialties (select all that apply)</Label>
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-                {BUSINESS_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => toggleSpecialty(cat)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      specialties.includes(cat)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-              {specialties.length > 0 && (
-                <p className="text-xs text-muted-foreground">{specialties.length} selected</p>
-              )}
+              <CategoryMultiCombobox
+                values={specialties}
+                onValuesChange={setSpecialties}
+                placeholder="Search categories..."
+              />
             </div>
 
             {/* Social links */}

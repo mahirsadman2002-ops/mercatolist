@@ -19,18 +19,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { CategoryCombobox } from "@/components/ui/category-combobox";
 
 import {
-  BUSINESS_CATEGORIES,
   BOROUGHS,
   NEIGHBORHOODS,
 } from "@/lib/constants";
@@ -503,21 +501,12 @@ function StepBasicInfo({
           <Label htmlFor="category">
             Category <span className="text-destructive">*</span>
           </Label>
-          <Select
+          <CategoryCombobox
+            id="category"
             value={data.category}
             onValueChange={(val) => onChange("category", val)}
-          >
-            <SelectTrigger id="category" className="w-full" aria-invalid={!!errors.category}>
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              {BUSINESS_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Search or select a category"
+          />
           <FieldError message={errors.category} />
         </div>
 

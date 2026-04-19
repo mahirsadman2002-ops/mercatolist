@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { BUSINESS_CATEGORIES, BOROUGHS, PRICE_RANGES } from "@/lib/constants";
+import { BOROUGHS, PRICE_RANGES } from "@/lib/constants";
+import { CategoryCombobox } from "@/components/ui/category-combobox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -530,15 +531,12 @@ export default function SavedSearchesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Category</Label>
-                <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Any Category</SelectItem>
-                    {BUSINESS_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CategoryCombobox
+                  value={formCategory === "__all__" ? "" : formCategory}
+                  onValueChange={(val) => setFormCategory(val || "__all__")}
+                  allowAll
+                  allLabel="Any Category"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Borough</Label>

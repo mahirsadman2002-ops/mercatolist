@@ -25,6 +25,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { BOROUGHS, BUSINESS_CATEGORIES } from "@/lib/constants";
+import { CategoryCombobox } from "@/components/ui/category-combobox";
 
 interface AdvisorData {
   id: string;
@@ -128,19 +129,14 @@ export default function AdvisorsPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={specialty} onValueChange={setSpecialty}>
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="All Specialties" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Specialties</SelectItem>
-            {BUSINESS_CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-full sm:w-52">
+          <CategoryCombobox
+            value={specialty === "ALL" ? "" : specialty}
+            onValueChange={(val) => setSpecialty(val || "ALL")}
+            allowAll
+            allLabel="All Specialties"
+          />
+        </div>
         <Select value={sort} onValueChange={setSort}>
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue />

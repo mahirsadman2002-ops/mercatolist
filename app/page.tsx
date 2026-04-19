@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search/SearchBar";
 import { ListingCarousel } from "@/components/home/ListingCarousel";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
-import { BUSINESS_CATEGORIES } from "@/lib/constants";
 import { slugify } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 
@@ -185,7 +184,23 @@ export default async function HomePage() {
     boroughCountMap,
   } = await getHomePageData();
 
-  const top15Categories = BUSINESS_CATEGORIES.slice(0, 15);
+  const top15Categories = [
+    "Restaurants",
+    "Bars & Nightclubs",
+    "Cafes & Coffee Shops",
+    "Bakeries",
+    "Delis & Grocery Stores",
+    "Food Trucks & Carts",
+    "Retail Stores",
+    "Clothing & Fashion",
+    "Electronics",
+    "Convenience Stores",
+    "Pharmacies",
+    "Laundromats & Dry Cleaners",
+    "Salons & Barbershops",
+    "Spas & Wellness",
+    "Nail Salons",
+  ];
 
   return (
     <div className="flex flex-col">

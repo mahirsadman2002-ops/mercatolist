@@ -82,6 +82,10 @@ interface ListingContactSidebarProps {
     slug: string;
     title: string;
     askingPrice?: number | null;
+    category?: string | null;
+    neighborhood?: string | null;
+    borough?: string | null;
+    photos?: { url: string }[] | null;
     viewCount: number;
     saveCount: number;
     shareCount: number;
@@ -1511,10 +1515,10 @@ export function ListingContactSidebar({
         listing={{
           title: listing.title,
           price: listing.askingPrice ? `$${Number(listing.askingPrice).toLocaleString()}` : "Price TBD",
-          category: (listing as any).category || "",
-          neighborhood: (listing as any).neighborhood || "",
-          borough: (listing as any).borough || "",
-          photoUrl: (listing as any).photos?.[0]?.url || undefined,
+          category: listing.category || "",
+          neighborhood: listing.neighborhood || "",
+          borough: listing.borough || "",
+          photoUrl: listing.photos?.[0]?.url || undefined,
           url: typeof window !== "undefined" ? window.location.href : `https://mercatolist.com/listings/${listing.slug}`,
         }}
       />

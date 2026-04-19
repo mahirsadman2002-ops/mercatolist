@@ -21,7 +21,8 @@ import {
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
-import { BUSINESS_CATEGORIES, BOROUGHS } from "@/lib/constants";
+import { BOROUGHS } from "@/lib/constants";
+import { CategoryMultiCombobox } from "@/components/ui/category-combobox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,8 +134,7 @@ export default function ClientsPage() {
   const [isSendingListing, setIsSendingListing] = useState(false);
   const [sendMessage, setSendMessage] = useState("");
 
-  // Category picker state
-  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  // Borough picker state
   const [boroughPickerOpen, setBoroughPickerOpen] = useState(false);
 
   const isBroker = session?.user?.role === "BROKER";
@@ -362,12 +362,6 @@ export default function ClientsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send invitation");
     }
-  };
-
-  const toggleCategory = (cat: string) => {
-    setFormCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    );
   };
 
   const toggleBorough = (val: string) => {
@@ -622,59 +616,11 @@ export default function ClientsPage() {
             {/* Preferred Categories */}
             <div className="space-y-1.5">
               <Label>Preferred Categories</Label>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                  onClick={() => setCategoryPickerOpen(!categoryPickerOpen)}
-                >
-                  {formCategories.length === 0 ? (
-                    <span className="text-muted-foreground">Select categories...</span>
-                  ) : (
-                    <span className="truncate">
-                      {formCategories.length} selected
-                    </span>
-                  )}
-                </Button>
-                {categoryPickerOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-y-auto">
-                    {BUSINESS_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => toggleCategory(cat)}
-                      >
-                        <div
-                          className={`size-4 rounded border flex items-center justify-center ${
-                            formCategories.includes(cat)
-                              ? "bg-primary border-primary text-primary-foreground"
-                              : "border-input"
-                          }`}
-                        >
-                          {formCategories.includes(cat) && <Check className="size-3" />}
-                        </div>
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {formCategories.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {formCategories.map((cat) => (
-                    <Badge
-                      key={cat}
-                      className="text-[10px] cursor-pointer bg-teal-50 text-teal-700 hover:bg-teal-100 border-0"
-                      onClick={() => toggleCategory(cat)}
-                    >
-                      {cat}
-                      <X className="size-2.5 ml-0.5" />
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              <CategoryMultiCombobox
+                values={formCategories}
+                onValuesChange={setFormCategories}
+                placeholder="Search categories..."
+              />
             </div>
 
             {/* Preferred Boroughs */}

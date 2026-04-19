@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { BOROUGHS, BUSINESS_CATEGORIES } from "@/lib/constants";
+import { BOROUGHS } from "@/lib/constants";
+import { CategoryMultiCombobox } from "@/components/ui/category-combobox";
 
 const LICENSE_OPTIONS = [
   "NY Real Estate Broker License",
@@ -72,13 +73,6 @@ export default function AdvisorDetailsPage() {
       prev.includes(value) ? prev.filter((b) => b !== value) : [...prev, value]
     );
     setErrors((prev) => ({ ...prev, boroughsServed: "" }));
-  };
-
-  const toggleSpecialty = (value: string) => {
-    setSpecialties((prev) =>
-      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]
-    );
-    setErrors((prev) => ({ ...prev, specialties: "" }));
   };
 
   const handleEssentialsNext = () => {
@@ -257,25 +251,14 @@ export default function AdvisorDetailsPage() {
               {/* Specialties */}
               <div className="space-y-2">
                 <Label>Specialties *</Label>
-                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-                  {BUSINESS_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => toggleSpecialty(cat)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        specialties.includes(cat)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:bg-muted"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-                {specialties.length > 0 && (
-                  <p className="text-xs text-muted-foreground">{specialties.length} selected</p>
-                )}
+                <CategoryMultiCombobox
+                  values={specialties}
+                  onValuesChange={(next) => {
+                    setSpecialties(next);
+                    setErrors((prev) => ({ ...prev, specialties: "" }));
+                  }}
+                  placeholder="Search categories..."
+                />
                 {errors.specialties && <p className="text-xs text-destructive">{errors.specialties}</p>}
               </div>
 

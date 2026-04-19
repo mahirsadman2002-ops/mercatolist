@@ -13,8 +13,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { CategoryMultiCombobox } from "@/components/ui/category-combobox";
 import {
-  BUSINESS_CATEGORIES,
   BOROUGHS,
   NEIGHBORHOODS,
 } from "@/lib/constants";
@@ -206,23 +206,23 @@ export function FilterSidebar({
           <AccordionItem value="category">
             <AccordionTrigger>Category</AccordionTrigger>
             <AccordionContent>
-              <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-                {BUSINESS_CATEGORIES.map((cat) => (
-                  <div key={cat} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`cat-${cat}`}
-                      checked={selectedCategories.includes(cat)}
-                      onCheckedChange={() => toggleInList("category", cat)}
-                    />
-                    <Label
-                      htmlFor={`cat-${cat}`}
-                      className="cursor-pointer text-sm font-normal"
-                    >
-                      {cat}
-                    </Label>
-                  </div>
-                ))}
-              </div>
+              <CategoryMultiCombobox
+                values={selectedCategories}
+                onValuesChange={(next) => {
+                  setFilters((prev) => {
+                    const list = toList(next);
+                    const updated = { ...prev };
+                    if (list) {
+                      updated.category = list;
+                    } else {
+                      delete (updated as Record<string, string>).category;
+                    }
+                    emitFilters(updated);
+                    return updated;
+                  });
+                }}
+                placeholder="Search categories..."
+              />
             </AccordionContent>
           </AccordionItem>
 

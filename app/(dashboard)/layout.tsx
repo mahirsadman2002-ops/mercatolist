@@ -9,10 +9,8 @@ import {
   MessageSquare,
   Heart,
   FolderOpen,
-  Bell,
   Users,
   Settings,
-  User,
   Shield,
   Search,
   LogOut,
@@ -31,8 +29,7 @@ const mainLinks = [
 ];
 
 const settingsLinks = [
-  { label: "Profile Settings", href: "/profile", icon: Settings },
-  { label: "Public Profile", href: "/public-profile", icon: User },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 export default function DashboardLayout({

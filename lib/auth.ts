@@ -70,79 +70,141 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      // OAuth providers: always allow sign-in, auto-verify email
-      if (account?.provider === "google" || account?.provider === "apple") {
-        try {
-          if (user.email) {
-            const existingUser = await prisma.user.findUnique({
-              where: { email: user.email },
-            });
-            if (existingUser && !existingUser.emailVerified) {
-              await prisma.user.update({
+    async signIn({ user, account, profile }) {
+      const ctx = {
+        provider: account?.provider,
+        email: user?.email,
+        userId: user?.id,
+        hasProfile: !!profile,
+      };
+      try {
+        // OAuth providers: always allow sign-in, auto-verify email
+        if (account?.provider === "google" || account?.provider === "apple") {
+          try {
+            if (user.email) {
+              const existingUser = await prisma.user.findUnique({
                 where: { email: user.email },
-                data: { emailVerified: new Date() },
               });
+              if (existingUser && !existingUser.emailVerified) {
+                await prisma.user.update({
+                  where: { email: user.email },
+                  data: { emailVerified: new Date() },
+                });
+              }
             }
+          } catch (innerError) {
+            console.error(
+              "[auth][signIn] inner DB error (non-blocking):",
+              ctx,
+              innerError,
+            );
           }
-        } catch (error) {
-          console.error("OAuth signIn callback error (non-blocking):", error);
+          return true;
         }
-        // Always allow OAuth sign-in regardless of DB errors
         return true;
+      } catch (error) {
+        console.error("[auth][signIn] FATAL:", ctx, error);
+        throw error;
       }
-
-      // Credentials: already handled in authorize
-      return true;
     },
+
     async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id as string;
-      }
-
-      // Update token when session is updated
-      if (trigger === "update" && session) {
-        token.name = session.name;
-        token.role = session.role;
-      }
-
-      // Always fetch latest role, name, and avatar from DB so session stays current
-      // (e.g., after user updates their profile or role changes to BROKER)
-      if (token.email) {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: token.email },
-            select: { id: true, role: true, name: true, avatarUrl: true },
-          });
-          if (dbUser) {
-            token.id = dbUser.id;
-            token.role = dbUser.role;
-            token.name = dbUser.name;
-            token.picture = dbUser.avatarUrl;
-          }
-        } catch (error) {
-          console.error("JWT callback DB lookup failed (non-blocking):", error);
+      const ctx = {
+        hasUser: !!user,
+        tokenEmail: token?.email,
+        trigger,
+      };
+      try {
+        if (user) {
+          token.id = user.id as string;
         }
+
+        if (trigger === "update" && session) {
+          token.name = session.name;
+          token.role = session.role;
+        }
+
+        if (token.email) {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { email: token.email },
+              select: { id: true, role: true, name: true, avatarUrl: true },
+            });
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.role = dbUser.role;
+              token.name = dbUser.name;
+              // Strip data: URLs to prevent JWT cookie bloat (>4KB cookies break sessions).
+              // Real CDN/S3 URLs are fine, but base64 fallbacks would balloon the cookie.
+              if (
+                dbUser.avatarUrl &&
+                !dbUser.avatarUrl.startsWith("data:")
+              ) {
+                token.picture = dbUser.avatarUrl;
+              } else {
+                token.picture = null;
+              }
+            }
+          } catch (innerError) {
+            console.error(
+              "[auth][jwt] inner DB error (non-blocking):",
+              ctx,
+              innerError,
+            );
+          }
+        }
+        return token;
+      } catch (error) {
+        console.error("[auth][jwt] FATAL:", ctx, error);
+        throw error;
       }
-      return token;
     },
-    // FIX BUG B: Allow internal callbackUrl redirects after OAuth login/signup.
-    // Without this, Auth.js blocks redirects to anything other than the homepage.
+
     async redirect({ url, baseUrl }) {
-      // Allow relative URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allow URLs on the same origin
-      if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.name = token.name as string;
-        session.user.image = (token.picture as string) || null;
+      try {
+        if (url.startsWith("/")) return `${baseUrl}${url}`;
+        if (new URL(url).origin === baseUrl) return url;
+        return baseUrl;
+      } catch (error) {
+        console.error("[auth][redirect] FATAL:", { url, baseUrl }, error);
+        return baseUrl;
       }
-      return session;
+    },
+
+    async session({ session, token }) {
+      try {
+        if (session.user) {
+          session.user.id = token.id as string;
+          session.user.role = token.role as string;
+          session.user.name = token.name as string;
+          session.user.image = (token.picture as string) || null;
+        }
+        return session;
+      } catch (error) {
+        console.error(
+          "[auth][session] FATAL:",
+          { sessionUserId: session?.user?.id, tokenId: token?.id },
+          error,
+        );
+        throw error;
+      }
+    },
+  },
+  events: {
+    async signIn({ user, account, isNewUser }) {
+      console.log("[auth][event:signIn]", {
+        provider: account?.provider,
+        email: user?.email,
+        isNewUser,
+      });
+    },
+  },
+  logger: {
+    error(error) {
+      console.error("[auth][next-auth-error]", error);
+    },
+    warn(code) {
+      console.warn("[auth][next-auth-warn]", code);
     },
   },
 });

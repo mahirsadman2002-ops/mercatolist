@@ -101,12 +101,34 @@ export async function POST(
     const body = await request.json();
     const validated = reviewFormSchema.parse({ ...body, brokerId: id });
 
+    const isTransaction =
+      validated.experienceType === "BOUGHT" ||
+      validated.experienceType === "SOLD";
+
     const review = await prisma.review.create({
       data: {
         rating: validated.rating,
-        text: validated.text,
+        text: validated.text || null,
         reviewerId: session.user.id,
         brokerId: id,
+        experienceType: validated.experienceType,
+        businessCategory: isTransaction
+          ? validated.businessCategory || null
+          : null,
+        businessName: isTransaction
+          ? validated.businessName || null
+          : null,
+        businessAddress: isTransaction
+          ? validated.businessAddress || null
+          : null,
+        transactionYear: isTransaction
+          ? validated.transactionYear ?? null
+          : null,
+        transactionPrice: isTransaction
+          ? validated.transactionPrice ?? null
+          : null,
+        transactionStatus:
+          isTransaction && validated.businessCategory ? "PENDING" : null,
       },
       include: {
         reviewer: {

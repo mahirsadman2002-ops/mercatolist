@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Menu,
   X,
+  Handshake,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 interface BadgeCounts {
   pendingReports: number;
   overdueConfirmations: number;
+  pendingTransactions: number;
 }
 
 const navItems = [
@@ -32,6 +34,7 @@ const navItems = [
   { href: "/admin/listings", label: "Listings", icon: Building2 },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/reports", label: "Reports", icon: Flag, badgeKey: "pendingReports" as const },
+  { href: "/admin/transactions", label: "Transactions", icon: Handshake, badgeKey: "pendingTransactions" as const },
   { href: "/admin/confirmations", label: "Confirmations", icon: CheckCircle2, badgeKey: "overdueConfirmations" as const },
   { href: "/admin/blog", label: "Blog", icon: FileText },
 ];
@@ -41,7 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [badges, setBadges] = useState<BadgeCounts>({ pendingReports: 0, overdueConfirmations: 0 });
+  const [badges, setBadges] = useState<BadgeCounts>({ pendingReports: 0, overdueConfirmations: 0, pendingTransactions: 0 });
 
   useEffect(() => {
     if (status === "loading") return;
@@ -58,6 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           setBadges({
             pendingReports: data.data?.pendingReports ?? 0,
             overdueConfirmations: data.data?.overdueConfirmations ?? 0,
+            pendingTransactions: data.data?.pendingTransactions ?? 0,
           });
         }
       })

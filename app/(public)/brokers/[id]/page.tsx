@@ -168,8 +168,18 @@ export default async function BrokerProfilePage({
       .filter((l) => l.status === "SOLD")
       .map(serializeListing),
     reviews: reviews.map((r) => ({
-      ...r,
+      id: r.id,
+      rating: r.rating,
+      text: r.text,
+      experienceType: r.experienceType,
+      businessCategory: r.businessCategory,
+      businessName: r.businessName,
+      transactionYear: r.transactionYear,
+      transactionPrice: r.transactionPrice ? Number(r.transactionPrice) : null,
+      response: r.response,
+      responseAt: r.responseAt?.toISOString() || null,
       createdAt: r.createdAt.toISOString(),
+      reviewer: r.reviewer,
     })),
   };
 

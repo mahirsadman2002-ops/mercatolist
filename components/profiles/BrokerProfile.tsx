@@ -18,11 +18,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { ReviewCard } from "@/components/profiles/ReviewCard";
+import { ReviewForm } from "@/components/forms/ReviewForm";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 
@@ -59,10 +63,7 @@ interface BrokerProfileProps {
 }
 
 export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
-  const [reviewRating, setReviewRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
-  const [reviewText, setReviewText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
 
   const initials = broker.name
     .split(" ")
@@ -71,31 +72,44 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
     .toUpperCase()
     .slice(0, 2);
 
-  const canReview = currentUserId && currentUserId !== broker.id;
+  const isOwnProfile = currentUserId === broker.id;
+  const isLoggedIn = !!currentUserId;
+  const canReview = isLoggedIn && !isOwnProfile;
+  const loginCallback = `/login?callbackUrl=${encodeURIComponent(`/advisors/${broker.id}#reviews`)}`;
 
-  async function handleSubmitReview() {
-    if (!reviewRating || !reviewText) return;
-    setSubmitting(true);
+  function jumpToReviews() {
+    setActiveTab("reviews");
+    // Scroll the tab content into view in case of a long page
+    setTimeout(() => {
+      document
+        .getElementById("reviews-tab-anchor")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
+  async function handleReport(reviewId: string) {
+    if (!isLoggedIn) {
+      toast.error("Please sign in to report a review");
+      return;
+    }
     try {
-      const res = await fetch(`/api/advisors/${broker.id}/reviews`, {
+      const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: reviewRating, text: reviewText }),
+        body: JSON.stringify({
+          type: "REVIEW",
+          reason: "OTHER",
+          reviewId,
+        }),
       });
-      const json = await res.json();
       if (res.ok) {
-        toast.success("Review submitted");
-        setReviewRating(0);
-        setReviewText("");
-        // Refresh page to show new review
-        window.location.reload();
+        toast.success("Review reported. Our team will look into it.");
       } else {
-        toast.error(json.error || "Failed to submit review");
+        const json = await res.json();
+        toast.error(json.error || "Failed to report review");
       }
     } catch {
-      toast.error("Failed to submit review");
-    } finally {
-      setSubmitting(false);
+      toast.error("Failed to report review");
     }
   }
 
@@ -103,9 +117,47 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
   const monthsOnPlatform = Math.max(
     1,
     Math.floor(
-      (Date.now() - memberDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-    )
+      (Date.now() - memberDate.getTime()) / (1000 * 60 * 60 * 24 * 30),
+    ),
   );
+
+  const LeaveReviewButton = (() => {
+    if (isOwnProfile) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button variant="outline" disabled>
+                  <Star className="mr-2 h-4 w-4" />
+                  Leave a Review
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>You can&apos;t review your own profile</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    if (!isLoggedIn) {
+      return (
+        <Button asChild variant="default">
+          <Link href={loginCallback}>
+            <Star className="mr-2 h-4 w-4" />
+            Sign in to Leave a Review
+          </Link>
+        </Button>
+      );
+    }
+    return (
+      <Button onClick={jumpToReviews}>
+        <Star className="mr-2 h-4 w-4" />
+        Leave a Review
+      </Button>
+    );
+  })();
 
   return (
     <div className="space-y-8">
@@ -119,9 +171,12 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
         </Avatar>
 
         <div className="flex-1 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold">{broker.name}</h1>
-            <Badge className="bg-teal-600 text-white">Business Advisor</Badge>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold">{broker.name}</h1>
+              <Badge className="bg-teal-600 text-white">Business Advisor</Badge>
+            </div>
+            <div className="flex items-center gap-2">{LeaveReviewButton}</div>
           </div>
 
           {broker.brokerageName && (
@@ -130,9 +185,14 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
             </p>
           )}
 
-          {/* Rating */}
-          {broker.stats.reviewCount > 0 && (
-            <div className="flex items-center gap-2">
+          {/* Rating — clickable, jumps to Reviews tab */}
+          {broker.stats.reviewCount > 0 ? (
+            <button
+              type="button"
+              onClick={jumpToReviews}
+              className="flex items-center gap-2 rounded-md -ml-1 px-1 py-0.5 transition-colors hover:bg-muted text-left"
+              aria-label={`View ${broker.stats.reviewCount} reviews`}
+            >
               <div className="flex items-center gap-0.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
@@ -146,11 +206,19 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
                 ))}
               </div>
               <span className="font-semibold">{broker.stats.avgRating}</span>
-              <span className="text-muted-foreground">
+              <span className="text-sm text-muted-foreground underline-offset-2 hover:underline">
                 ({broker.stats.reviewCount} review
                 {broker.stats.reviewCount !== 1 ? "s" : ""})
               </span>
-            </div>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={jumpToReviews}
+              className="text-sm text-muted-foreground hover:underline -ml-1 px-1 py-0.5"
+            >
+              No reviews yet — be the first
+            </button>
           )}
 
           {/* Contact info */}
@@ -223,18 +291,14 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
           <p className="text-xs text-muted-foreground">Deals Closed</p>
         </div>
         <div className="rounded-lg border bg-card p-4 text-center">
-          <Clock className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-          <p className="text-2xl font-bold">
-            {monthsOnPlatform < 12
-              ? `${monthsOnPlatform}mo`
-              : `${Math.floor(monthsOnPlatform / 12)}yr`}
-          </p>
-          <p className="text-xs text-muted-foreground">On Platform</p>
+          <MessageSquare className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+          <p className="text-2xl font-bold">{broker.stats.reviewCount}</p>
+          <p className="text-xs text-muted-foreground">Reviews</p>
         </div>
       </div>
 
       {/* Tabbed content */}
-      <Tabs defaultValue="active">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="active">
             Active ({broker.activeListings.length})
@@ -304,7 +368,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
                         .map(
                           (w: string) =>
                             w.charAt(0).toUpperCase() +
-                            w.slice(1).toLowerCase()
+                            w.slice(1).toLowerCase(),
                         )
                         .join(" ")}
                     </p>
@@ -319,7 +383,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
                       <p className="text-xs text-muted-foreground">
                         {new Date(listing.soldDate).toLocaleDateString(
                           "en-US",
-                          { month: "short", year: "numeric" }
+                          { month: "short", year: "numeric" },
                         )}
                       </p>
                     )}
@@ -331,7 +395,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-6">
-          <div className="space-y-6">
+          <div id="reviews-tab-anchor" className="space-y-6">
             {/* Rating breakdown */}
             {broker.stats.reviewCount > 0 && (
               <div className="rounded-lg border p-4 space-y-2">
@@ -393,6 +457,11 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
                         ? review.createdAt
                         : new Date(review.createdAt).toISOString(),
                   }}
+                  brokerName={broker.name}
+                  brokerId={broker.id}
+                  isOwnProfile={isOwnProfile}
+                  onReport={isLoggedIn ? handleReport : undefined}
+                  onResponded={() => window.location.reload()}
                 />
               ))}
             </div>
@@ -403,56 +472,27 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
               </p>
             )}
 
-            {/* Leave review form */}
+            {/* Leave a Review form (inline) */}
             {canReview && (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Leave a Review</h3>
-                  <div className="space-y-2">
-                    <Label>Rating</Label>
-                    <div className="flex items-center gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setReviewRating(star)}
-                          onMouseEnter={() => setHoverRating(star)}
-                          onMouseLeave={() => setHoverRating(0)}
-                          className="p-0.5"
-                        >
-                          <Star
-                            className={`h-7 w-7 transition-colors ${
-                              star <= (hoverRating || reviewRating)
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-muted-foreground/30"
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Your Review (min 20 characters)</Label>
-                    <Textarea
-                      value={reviewText}
-                      onChange={(e) => setReviewText(e.target.value)}
-                      placeholder="Share your experience working with this advisor..."
-                      rows={4}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSubmitReview}
-                    disabled={
-                      submitting ||
-                      !reviewRating ||
-                      reviewText.length < 20
-                    }
-                  >
-                    {submitting ? "Submitting..." : "Submit Review"}
-                  </Button>
-                </div>
-              </>
+              <ReviewForm brokerId={broker.id} brokerName={broker.name} />
+            )}
+
+            {!isLoggedIn && (
+              <div className="rounded-lg border bg-muted/30 p-6 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Sign in to share your experience with this advisor.
+                </p>
+                <Button asChild>
+                  <Link href={loginCallback}>Sign in to Leave a Review</Link>
+                </Button>
+              </div>
+            )}
+
+            {isOwnProfile && (
+              <p className="text-center text-xs text-muted-foreground">
+                You can&apos;t review your own profile, but you can respond to
+                reviews above.
+              </p>
             )}
           </div>
         </TabsContent>

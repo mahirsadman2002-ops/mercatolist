@@ -101,10 +101,41 @@ export const inquiryFormSchema = z.object({
   listingId: z.string().uuid(),
 });
 
-export const reviewFormSchema = z.object({
-  rating: z.number().int().min(1).max(5),
-  text: z.string().min(20, "Review must be at least 20 characters").max(2000),
-  brokerId: z.string().uuid(),
+export const reviewFormSchema = z
+  .object({
+    rating: z.number().int().min(1).max(5),
+    text: z.string().max(2000).optional().or(z.literal("")),
+    brokerId: z.string().uuid(),
+    experienceType: z.enum(["BOUGHT", "SOLD", "COLLABORATED"]),
+    businessCategory: z.string().optional().or(z.literal("")),
+    businessName: z.string().max(200).optional().or(z.literal("")),
+    businessAddress: z.string().max(300).optional().or(z.literal("")),
+    transactionPrice: z.number().positive().optional().nullable(),
+    transactionYear: z
+      .number()
+      .int()
+      .min(1900)
+      .max(new Date().getFullYear() + 1)
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    (data) =>
+      data.experienceType === "COLLABORATED" ||
+      (data.businessCategory && data.businessCategory.length > 0),
+    {
+      message: "Business category is required for purchase or sale reviews",
+      path: ["businessCategory"],
+    },
+  );
+
+export const reviewResponseSchema = z.object({
+  response: z.string().min(1, "Response cannot be empty").max(2000),
+});
+
+export const transactionReviewDecisionSchema = z.object({
+  decision: z.enum(["APPROVED", "REJECTED"]),
+  notes: z.string().max(1000).optional(),
 });
 
 export const reportFormSchema = z.object({

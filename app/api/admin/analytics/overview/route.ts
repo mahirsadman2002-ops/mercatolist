@@ -26,6 +26,7 @@ export async function GET() {
       inquiriesThisWeek,
       pendingReports,
       overdueConfirmations,
+      pendingTransactions,
       unresolvedReports,
       staleListings,
       recentListings,
@@ -59,6 +60,11 @@ export async function GET() {
           status: "ACTIVE",
           statusConfirmationDue: { lt: now },
         },
+      }),
+
+      // Pending transaction reviews awaiting admin verification
+      prisma.review.count({
+        where: { transactionStatus: "PENDING" },
       }),
 
       // Unresolved reports (PENDING or REVIEWED)
@@ -211,6 +217,7 @@ export async function GET() {
         inquiriesThisWeek,
         pendingReports,
         overdueConfirmations,
+        pendingTransactions,
         unresolvedReports,
         staleListings,
         recentActivity,

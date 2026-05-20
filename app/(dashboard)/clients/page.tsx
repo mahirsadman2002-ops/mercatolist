@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronsUpDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -626,45 +628,54 @@ export default function ClientsPage() {
             {/* Preferred Boroughs */}
             <div className="space-y-1.5">
               <Label>Preferred Boroughs</Label>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                  onClick={() => setBoroughPickerOpen(!boroughPickerOpen)}
-                >
-                  {formBoroughs.length === 0 ? (
-                    <span className="text-muted-foreground">Select boroughs...</span>
-                  ) : (
-                    <span className="truncate">
-                      {formBoroughs.length} selected
+              <Popover open={boroughPickerOpen} onOpenChange={setBoroughPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
+                    <span
+                      className={
+                        formBoroughs.length === 0
+                          ? "text-muted-foreground"
+                          : "truncate"
+                      }
+                    >
+                      {formBoroughs.length === 0
+                        ? "Select boroughs..."
+                        : `${formBoroughs.length} selected`}
                     </span>
-                  )}
-                </Button>
-                {boroughPickerOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
-                    {BOROUGHS.map((b) => (
-                      <button
-                        key={b.value}
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => toggleBorough(b.value)}
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-1"
+                  align="start"
+                >
+                  {BOROUGHS.map((b) => (
+                    <button
+                      key={b.value}
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent text-left rounded-sm"
+                      onClick={() => toggleBorough(b.value)}
+                    >
+                      <div
+                        className={`size-4 rounded border flex items-center justify-center ${
+                          formBoroughs.includes(b.value)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-input"
+                        }`}
                       >
-                        <div
-                          className={`size-4 rounded border flex items-center justify-center ${
-                            formBoroughs.includes(b.value)
-                              ? "bg-primary border-primary text-primary-foreground"
-                              : "border-input"
-                          }`}
-                        >
-                          {formBoroughs.includes(b.value) && <Check className="size-3" />}
-                        </div>
-                        {b.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                        {formBoroughs.includes(b.value) && (
+                          <Check className="size-3" />
+                        )}
+                      </div>
+                      {b.label}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
               {formBoroughs.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {formBoroughs.map((val) => (

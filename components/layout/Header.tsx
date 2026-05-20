@@ -191,6 +191,11 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link href="/saved" className="gap-2">
+                      <Heart className="h-4 w-4" /> Saved Listings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/collections" className="gap-2">
                       <FolderOpen className="h-4 w-4" /> Collections
                     </Link>
@@ -258,14 +263,28 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile actions: Messages icon + Hamburger */}
+        <div className="flex items-center gap-1 lg:hidden">
+          {user && (
+            <Link href="/inquiries" aria-label="Messages">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:bg-primary-foreground/10 relative"
+              >
+                <MessageSquare className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+          )}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild className="lg:hidden">
+          <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 relative">
               <Menu className="h-6 w-6" />
-              {user && unreadCount > 0 && (
-                <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" />
-              )}
             </Button>
           </SheetTrigger>
           <SheetContent
@@ -472,6 +491,7 @@ export function Header() {
             )}
           </SheetContent>
         </Sheet>
+        </div>
       </div>
     </header>
   );

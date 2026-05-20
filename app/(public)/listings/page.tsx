@@ -30,6 +30,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Sheet,
   SheetContent,
   SheetTrigger,
@@ -840,19 +848,32 @@ function ListingsPageContent() {
                 </SelectContent>
               </Select>
 
-              {/* Sort - Mobile (smaller trigger) */}
-              <Select value={sort} onValueChange={handleSortChange}>
-                <SelectTrigger className="h-9 w-9 sm:hidden px-0 justify-center">
-                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                </SelectTrigger>
-                <SelectContent>
+              {/* Sort - Mobile (icon-only DropdownMenu — Select's stuffed chevron made it unclickable in a 36px square) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild className="sm:hidden">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    aria-label="Sort"
+                  >
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   {SORT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <DropdownMenuItem
+                      key={opt.value}
+                      onClick={() => handleSortChange(opt.value)}
+                      className={sort === opt.value ? "font-semibold" : undefined}
+                    >
                       {opt.label}
-                    </SelectItem>
+                    </DropdownMenuItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Select Toggle - BROKER only */}
               {isBroker && (

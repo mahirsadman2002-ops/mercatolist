@@ -14,6 +14,7 @@ import {
   Shield,
   Search,
   LogOut,
+  Eye,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -26,10 +27,6 @@ const mainLinks = [
   { label: "Saved Listings", href: "/saved", icon: Heart },
   { label: "Collections", href: "/collections", icon: FolderOpen },
   { label: "Saved Searches", href: "/saved-searches", icon: Search },
-];
-
-const settingsLinks = [
-  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 export default function DashboardLayout({
@@ -74,6 +71,15 @@ export default function DashboardLayout({
     ...(isBroker
       ? [{ label: "Clients", href: "/clients", icon: Users }]
       : []),
+  ];
+
+  const publicProfileHref = isBroker
+    ? `/advisors/${user.id}`
+    : `/profile/${user.id}`;
+
+  const settingsLinks = [
+    { label: "Settings", href: "/settings", icon: Settings },
+    { label: "View Public Profile", href: publicProfileHref, icon: Eye },
   ];
 
   const adminLinks = isAdmin
@@ -172,7 +178,10 @@ export default function DashboardLayout({
 
       {/* Mobile: horizontal scrollable tab bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
-        <nav className="flex overflow-x-auto px-2 py-2 gap-1 scrollbar-hide">
+        <nav
+          className="flex overflow-x-auto px-3 py-2 gap-3 scrollbar-hide snap-x"
+          aria-label="Dashboard"
+        >
           {[...allLinks, ...settingsLinks].map((link) => {
             const Icon = link.icon;
             const isActive =
@@ -183,14 +192,14 @@ export default function DashboardLayout({
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-md px-3 py-1.5 text-[10px] font-medium whitespace-nowrap transition-colors min-w-[60px]",
+                  "flex flex-col items-center justify-center gap-1 shrink-0 snap-start rounded-md px-2 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors min-w-[68px]",
                   isActive
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                    ? "text-primary bg-primary/5"
+                    : "text-muted-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" />
-                {link.label}
+                <span className="leading-tight">{link.label}</span>
               </Link>
             );
           })}

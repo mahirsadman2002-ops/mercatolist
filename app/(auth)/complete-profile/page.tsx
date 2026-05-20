@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -19,6 +19,51 @@ export default function CompleteProfilePage() {
   const [selectedType, setSelectedType] = useState<"USER" | "BROKER" | null>(null);
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(true);
+
+  // If the user already has a completed profile, skip this page.
+  // Brokers with the required essentials → /my-listings.
+  // Brokers missing some details → /register/advisor-details (to finish setup).
+  // Regular users with a role → /listings.
+  useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/user/profile");
+        if (!res.ok) {
+          setCheckingProfile(false);
+          return;
+        }
+        const json = await res.json();
+        const p = json?.data;
+        if (cancelled) return;
+        if (p?.role === "BROKER") {
+          const essentialsDone =
+            p.brokerageName &&
+            p.brokeragePhone &&
+            Array.isArray(p.boroughsServed) && p.boroughsServed.length > 0 &&
+            Array.isArray(p.specialties) && p.specialties.length > 0;
+          if (essentialsDone) {
+            router.replace("/my-listings");
+          } else {
+            router.replace("/register/advisor-details");
+          }
+          return;
+        }
+        if (p?.role === "USER" && p.phone) {
+          router.replace("/listings");
+          return;
+        }
+        setCheckingProfile(false);
+      } catch {
+        if (!cancelled) setCheckingProfile(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionStatus, router]);
 
   // Broker fields
   const [brokerForm, setBrokerForm] = useState({
@@ -40,7 +85,7 @@ export default function CompleteProfilePage() {
   };
 
   // Redirect if not logged in
-  if (sessionStatus === "loading") {
+  if (sessionStatus === "loading" || checkingProfile) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

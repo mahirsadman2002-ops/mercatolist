@@ -101,7 +101,6 @@ export async function POST(request: NextRequest) {
       revenueRangeMin,
       revenueRangeMax,
       notes,
-      invite,
     } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -161,46 +160,44 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Optionally invite the client to MercatoList. Only send if they don't
-    // already have a user account with that email — otherwise it's just noise.
-    if (invite) {
-      try {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: client.email },
-          select: { id: true },
-        });
+    // Always auto-invite to MercatoList if no account exists for this email.
+    // (The broker doesn't toggle this — if the client isn't on the platform,
+    // they get a sign-up link by default. Existing users get no email since
+    // they're already on the platform.)
+    try {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: client.email },
+        select: { id: true },
+      });
 
-        if (!existingUser) {
-          const broker = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { name: true, displayName: true, brokerageName: true },
-          });
-          const { sendEmail } = await import("@/lib/email");
-          const ClientInvite = (await import("@/emails/client-invite"))
-            .default;
-          const baseUrl =
-            process.env.NEXTAUTH_URL || "https://mercatolist.com";
-          const joinUrl = `${baseUrl}/register?invitedClient=${client.id}&email=${encodeURIComponent(
-            client.email,
-          )}`;
-          await sendEmail({
-            to: client.email,
-            subject: `${broker?.displayName || broker?.name} invited you to MercatoList`,
-            react: ClientInvite({
-              advisorName:
-                broker?.displayName || broker?.name || "Your advisor",
-              advisorCompany: broker?.brokerageName || undefined,
-              joinUrl,
-            }),
-          });
-          await prisma.client.update({
-            where: { id: client.id },
-            data: { invitedToPlatformAt: new Date() },
-          });
-        }
-      } catch (inviteError) {
-        console.error("Client invite email failed:", inviteError);
+      if (!existingUser) {
+        const broker = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { name: true, displayName: true, brokerageName: true },
+        });
+        const { sendEmail } = await import("@/lib/email");
+        const ClientInvite = (await import("@/emails/client-invite")).default;
+        const baseUrl =
+          process.env.NEXTAUTH_URL || "https://mercatolist.com";
+        const joinUrl = `${baseUrl}/register?invitedClient=${client.id}&email=${encodeURIComponent(
+          client.email,
+        )}`;
+        await sendEmail({
+          to: client.email,
+          subject: `${broker?.displayName || broker?.name} invited you to MercatoList`,
+          react: ClientInvite({
+            advisorName: broker?.displayName || broker?.name || "Your advisor",
+            advisorCompany: broker?.brokerageName || undefined,
+            joinUrl,
+          }),
+        });
+        await prisma.client.update({
+          where: { id: client.id },
+          data: { invitedToPlatformAt: new Date() },
+        });
       }
+    } catch (inviteError) {
+      console.error("Client invite email failed:", inviteError);
     }
 
     return NextResponse.json(

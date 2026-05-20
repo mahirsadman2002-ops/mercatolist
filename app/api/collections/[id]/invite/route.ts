@@ -28,6 +28,23 @@ export async function POST(
       include: {
         user: { select: { id: true, name: true, displayName: true } },
         collaborators: { select: { userId: true, role: true } },
+        collectionListings: {
+          orderBy: { addedAt: "desc" },
+          include: {
+            listing: {
+              select: {
+                title: true,
+                neighborhood: true,
+                category: true,
+                photos: {
+                  orderBy: { order: "asc" },
+                  take: 1,
+                  select: { url: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -81,6 +98,17 @@ export async function POST(
 
     const baseUrl =
       process.env.NEXTAUTH_URL || "https://mercatolist.com";
+
+    // Build listing previews for the email — up to 3 listings shown as teasers.
+    const previewListings = collection.collectionListings.slice(0, 3).map(
+      (cl) => ({
+        title: cl.listing.title,
+        photoUrl: cl.listing.photos[0]?.url || null,
+        neighborhood: cl.listing.neighborhood,
+        category: cl.listing.category,
+      }),
+    );
+    const totalListings = collection.collectionListings.length;
 
     // User doesn't exist — send a sign-up invite so they can register and
     // be granted access on signup (via the registration hook).
@@ -160,6 +188,8 @@ export async function POST(
           collectionName: collection.name,
           role,
           joinUrl: `${baseUrl}/collections/${id}`,
+          listings: previewListings,
+          totalListings,
         }),
       });
     } catch (emailError) {

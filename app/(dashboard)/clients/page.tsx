@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -123,7 +123,6 @@ export default function ClientsPage() {
   const [formCategories, setFormCategories] = useState<string[]>([]);
   const [formBoroughs, setFormBoroughs] = useState<string[]>([]);
   const [formNotes, setFormNotes] = useState("");
-  const [formInvite, setFormInvite] = useState(true);
 
   // Delete state
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
@@ -167,7 +166,6 @@ export default function ClientsPage() {
     setFormCategories([]);
     setFormBoroughs([]);
     setFormNotes("");
-    setFormInvite(true);
     setEditingClient(null);
   };
 
@@ -201,8 +199,6 @@ export default function ClientsPage() {
         preferredCategories: formCategories,
         preferredBoroughs: formBoroughs,
         notes: formNotes.trim() || undefined,
-        // Only meaningful on create — server ignores on update.
-        invite: !editingClient && formInvite,
       };
 
       if (editingClient) {
@@ -708,26 +704,16 @@ export default function ClientsPage() {
               />
             </div>
 
-            {/* Invite to MercatoList — only when creating a new client */}
+            {/* Auto-invite notice — only when creating a new client */}
             {!editingClient && (
-              <div className="flex items-start gap-3 rounded-md border bg-muted/30 p-3">
-                <input
-                  type="checkbox"
-                  id="invite-client"
-                  checked={formInvite}
-                  onChange={(e) => setFormInvite(e.target.checked)}
-                  className="mt-1 size-4 rounded border-input cursor-pointer"
-                />
-                <Label htmlFor="invite-client" className="cursor-pointer">
-                  <span className="block font-medium">
-                    Invite this client to MercatoList
-                  </span>
-                  <span className="block text-xs font-normal text-muted-foreground mt-0.5">
-                    We&apos;ll email them a link to join so you can share
-                    collections and collaborate directly. They only get added
-                    as a collaborator once they sign up with this email.
-                  </span>
-                </Label>
+              <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+                <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <p>
+                  If this client doesn&apos;t have a MercatoList account yet,
+                  we&apos;ll email them a link to join so you can share
+                  collections and collaborate directly. If they&apos;re
+                  already on MercatoList, no email is sent.
+                </p>
               </div>
             )}
           </div>

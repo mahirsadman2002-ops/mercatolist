@@ -9,6 +9,9 @@ import {
   Heading,
   Button,
   Preview,
+  Img,
+  Row,
+  Column,
 } from "@react-email/components";
 
 interface CollectionInviteProps {
@@ -16,6 +19,15 @@ interface CollectionInviteProps {
   collectionName: string;
   role: string;
   joinUrl: string;
+  /** Up to 3 listings shown as teasers. */
+  listings?: {
+    title: string;
+    photoUrl?: string | null;
+    neighborhood?: string | null;
+    category?: string | null;
+  }[];
+  /** Total listings in the collection (for the "and N more" caption). */
+  totalListings?: number;
 }
 
 export default function CollectionInvite({
@@ -23,11 +35,19 @@ export default function CollectionInvite({
   collectionName = "Manhattan Restaurants",
   role = "viewer",
   joinUrl = "https://mercatolist.com/collections/invite/abc123",
+  listings = [],
+  totalListings,
 }: CollectionInviteProps) {
   const roleDescription =
     role === "editor"
       ? "You'll be able to add listings, leave notes, and manage this collection."
       : "You'll be able to view listings and leave notes on this collection.";
+
+  const previews = listings.slice(0, 3);
+  const remainingCount =
+    totalListings && totalListings > previews.length
+      ? totalListings - previews.length
+      : 0;
 
   return (
     <Html>
@@ -55,19 +75,55 @@ export default function CollectionInvite({
               <Text style={roleText}>
                 {role.charAt(0).toUpperCase() + role.slice(1)}
               </Text>
-              <Text style={roleDescription_}>
-                {roleDescription}
-              </Text>
+              <Text style={roleDescription_}>{roleDescription}</Text>
             </Section>
+
+            {/* Listing previews — a teaser of what's inside the collection */}
+            {previews.length > 0 && (
+              <Section style={previewSection}>
+                <Text style={previewLabel}>What&apos;s inside</Text>
+                <Row>
+                  {previews.map((listing, idx) => (
+                    <Column key={idx} style={previewColumn}>
+                      {listing.photoUrl ? (
+                        <Img
+                          src={listing.photoUrl}
+                          alt={listing.title}
+                          width="100%"
+                          style={previewImage}
+                        />
+                      ) : (
+                        <div style={previewImagePlaceholder}>
+                          <Text style={placeholderText}>No photo</Text>
+                        </div>
+                      )}
+                      <Text style={previewTitle}>{listing.title}</Text>
+                      <Text style={previewMeta}>
+                        {[listing.neighborhood, listing.category]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </Text>
+                    </Column>
+                  ))}
+                </Row>
+                {remainingCount > 0 && (
+                  <Text style={moreCount}>
+                    + {remainingCount} more listing
+                    {remainingCount === 1 ? "" : "s"} inside
+                  </Text>
+                )}
+              </Section>
+            )}
 
             <Section style={buttonContainer}>
               <Button style={button} href={joinUrl}>
-                Accept Invitation
+                Open Collection
               </Button>
             </Section>
 
             <Text style={replyNote}>
-              This is a no-reply email. To respond, visit MercatoList and continue the conversation there.
+              This is a no-reply email. To respond, visit MercatoList and
+              continue the conversation there.
             </Text>
 
             <Text style={smallText}>
@@ -93,7 +149,8 @@ export default function CollectionInvite({
 
 const main: React.CSSProperties = {
   backgroundColor: "#f6f9fc",
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 };
 
 const container: React.CSSProperties = {
@@ -164,6 +221,76 @@ const roleDescription_: React.CSSProperties = {
   color: "#4a5568",
   lineHeight: "20px",
   margin: 0,
+};
+
+const previewSection: React.CSSProperties = {
+  margin: "24px 0",
+};
+
+const previewLabel: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  color: "#1a1f36",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  margin: "0 0 12px 0",
+};
+
+const previewColumn: React.CSSProperties = {
+  width: "33.33%",
+  padding: "0 6px",
+  verticalAlign: "top" as const,
+};
+
+const previewImage: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: "auto",
+  maxHeight: "120px",
+  objectFit: "cover" as const,
+  borderRadius: "6px",
+  border: "1px solid #e2e8f0",
+};
+
+const previewImagePlaceholder: React.CSSProperties = {
+  width: "100%",
+  height: "120px",
+  borderRadius: "6px",
+  backgroundColor: "#f1f5f9",
+  display: "flex",
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  border: "1px solid #e2e8f0",
+};
+
+const placeholderText: React.CSSProperties = {
+  fontSize: "11px",
+  color: "#94a3b8",
+  margin: 0,
+};
+
+const previewTitle: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#1a1f36",
+  margin: "8px 0 2px 0",
+  lineHeight: "16px",
+  overflow: "hidden" as const,
+};
+
+const previewMeta: React.CSSProperties = {
+  fontSize: "11px",
+  color: "#718096",
+  margin: 0,
+  lineHeight: "14px",
+};
+
+const moreCount: React.CSSProperties = {
+  fontSize: "13px",
+  color: "#0d9488",
+  fontWeight: 600,
+  margin: "12px 0 0 0",
+  textAlign: "center" as const,
 };
 
 const buttonContainer: React.CSSProperties = {

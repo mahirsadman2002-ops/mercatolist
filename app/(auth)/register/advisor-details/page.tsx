@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Loader2, ChevronLeft, ChevronRight, CheckCircle2, ArrowRight } from "lucide-react";
@@ -48,6 +48,58 @@ export default function AdvisorDetailsPage() {
   const [formStep, setFormStep] = useState<"essentials" | "profile" | "complete">("essentials");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [checkingProfile, setCheckingProfile] = useState(true);
+
+  // If the user is already a fully-onboarded broker, skip this page entirely
+  // (e.g. an existing broker who clicked "Register as Business Advisor" and
+  // signed in with Google — we should just send them to their dashboard).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/user/profile");
+        if (!res.ok) {
+          setCheckingProfile(false);
+          return;
+        }
+        const json = await res.json();
+        const p = json?.data;
+        if (
+          p?.role === "BROKER" &&
+          p.brokerageName &&
+          p.brokeragePhone &&
+          Array.isArray(p.boroughsServed) &&
+          p.boroughsServed.length > 0 &&
+          Array.isArray(p.specialties) &&
+          p.specialties.length > 0
+        ) {
+          if (!cancelled) router.replace("/my-listings");
+          return;
+        }
+        if (!cancelled) {
+          // Prefill any fields they've already filled out so they don't redo work.
+          if (p?.brokerageName) setBrokerageName(p.brokerageName);
+          if (p?.brokerageWebsite) setBrokerageWebsite(p.brokerageWebsite);
+          if (p?.brokeragePhone) setBrokeragePhone(p.brokeragePhone);
+          if (Array.isArray(p?.boroughsServed)) setBoroughsServed(p.boroughsServed);
+          if (Array.isArray(p?.specialties)) setSpecialties(p.specialties);
+          if (p?.bio) setBio(p.bio);
+          if (p?.linkedinUrl) setLinkedinUrl(p.linkedinUrl);
+          if (p?.instagramUrl) setInstagramUrl(p.instagramUrl);
+          if (p?.twitterUrl) setTwitterUrl(p.twitterUrl);
+          if (p?.facebookUrl) setFacebookUrl(p.facebookUrl);
+          if (p?.tiktokUrl) setTiktokUrl(p.tiktokUrl);
+          setCheckingProfile(false);
+        }
+      } catch {
+        if (!cancelled) setCheckingProfile(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Step 3: Essentials
   const [brokerageName, setBrokerageName] = useState("");
@@ -155,6 +207,14 @@ export default function AdvisorDetailsPage() {
     { label: "Professional licenses", done: hasLicenses },
     { label: "Profile photo", done: false },
   ];
+
+  if (checkingProfile) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">

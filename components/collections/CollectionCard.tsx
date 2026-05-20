@@ -36,6 +36,8 @@ interface CollectionCardProps {
     collaboratorCount?: number;
     isPubliclyShared?: boolean;
     createdAt: string;
+    unreadNotes?: number;
+    pendingRequests?: number;
   };
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -149,10 +151,33 @@ export function CollectionCard({
             <h3 className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
               {collection.name}
             </h3>
-            <Badge variant="secondary" className="text-[10px] shrink-0">
-              {collection.listingCount} listing
-              {collection.listingCount !== 1 ? "s" : ""}
-            </Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {(collection.unreadNotes ?? 0) > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="text-[10px] px-1.5 h-5 min-w-[20px] justify-center"
+                  title={`${collection.unreadNotes} unread notes`}
+                >
+                  {(collection.unreadNotes ?? 0) > 99
+                    ? "99+"
+                    : collection.unreadNotes}{" "}
+                  new
+                </Badge>
+              )}
+              {(collection.pendingRequests ?? 0) > 0 && (
+                <Badge
+                  className="text-[10px] px-1.5 h-5 min-w-[20px] justify-center bg-amber-500 hover:bg-amber-600"
+                  title={`${collection.pendingRequests} pending access requests`}
+                >
+                  {collection.pendingRequests} request
+                  {collection.pendingRequests !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-[10px]">
+                {collection.listingCount} listing
+                {collection.listingCount !== 1 ? "s" : ""}
+              </Badge>
+            </div>
           </div>
 
           {collection.description && (

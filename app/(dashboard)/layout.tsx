@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   LayoutList,
   MessageSquare,
@@ -37,6 +37,39 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+
+  const [collectionBadge, setCollectionBadge] = useState(0);
+  const [inquiriesBadge, setInquiriesBadge] = useState(0);
+
+  const fetchBadges = useCallback(async () => {
+    try {
+      const [statsRes, inqRes] = await Promise.all([
+        fetch("/api/user/collection-stats"),
+        fetch("/api/inquiries/unread-count"),
+      ]);
+      if (statsRes.ok) {
+        const json = await statsRes.json();
+        if (json.success) {
+          setCollectionBadge(
+            (json.data.unreadNotes || 0) + (json.data.pendingRequests || 0),
+          );
+        }
+      }
+      if (inqRes.ok) {
+        const json = await inqRes.json();
+        if (json.success) setInquiriesBadge(json.data.count || 0);
+      }
+    } catch {
+      // Silent
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30000);
+    return () => clearInterval(interval);
+  }, [status, fetchBadges]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -90,10 +123,12 @@ export default function DashboardLayout({
     href,
     icon: Icon,
     label,
+    badge,
   }: {
     href: string;
     icon: React.ComponentType<{ className?: string }>;
     label: string;
+    badge?: number;
   }) {
     const isActive =
       pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
@@ -108,7 +143,15 @@ export default function DashboardLayout({
         )}
       >
         <Icon className="h-4 w-4" />
-        {label}
+        <span className="flex-1">{label}</span>
+        {badge !== undefined && badge > 0 && (
+          <Badge
+            variant="destructive"
+            className="h-5 min-w-[20px] justify-center px-1.5 text-[10px]"
+          >
+            {badge > 99 ? "99+" : badge}
+          </Badge>
+        )}
       </Link>
     );
   }
@@ -145,7 +188,17 @@ export default function DashboardLayout({
         {/* Main navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
           {allLinks.map((link) => (
-            <NavLink key={link.href} {...link} />
+            <NavLink
+              key={link.href}
+              {...link}
+              badge={
+                link.href === "/collections"
+                  ? collectionBadge
+                  : link.href === "/inquiries"
+                    ? inquiriesBadge
+                    : undefined
+              }
+            />
           ))}
 
           <Separator className="my-3" />
@@ -187,18 +240,31 @@ export default function DashboardLayout({
             const isActive =
               pathname === link.href ||
               (link.href !== "/" && pathname.startsWith(link.href + "/"));
+            const badge =
+              link.href === "/collections"
+                ? collectionBadge
+                : link.href === "/inquiries"
+                  ? inquiriesBadge
+                  : 0;
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 shrink-0 snap-start rounded-md px-2 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors min-w-[68px]",
+                  "relative flex flex-col items-center justify-center gap-1 shrink-0 snap-start rounded-md px-2 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors min-w-[68px]",
                   isActive
                     ? "text-primary bg-primary/5"
                     : "text-muted-foreground",
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <div className="relative">
+                  <Icon className="h-5 w-5" />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </div>
                 <span className="leading-tight">{link.label}</span>
               </Link>
             );

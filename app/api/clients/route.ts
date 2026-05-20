@@ -160,33 +160,34 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Always auto-invite to MercatoList if no account exists for this email.
-    // (The broker doesn't toggle this — if the client isn't on the platform,
-    // they get a sign-up link by default. Existing users get no email since
-    // they're already on the platform.)
+    // Notify the client. If they don't have a MercatoList account yet, send
+    // the sign-up invite. If they do, send a "broker added you as a client"
+    // heads-up so they know to expect listings/collections from this broker.
     try {
       const existingUser = await prisma.user.findUnique({
         where: { email: client.email },
-        select: { id: true },
+        select: { id: true, name: true, displayName: true },
       });
+      const broker = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, displayName: true, brokerageName: true },
+      });
+      const { sendEmail } = await import("@/lib/email");
+      const baseUrl =
+        process.env.NEXTAUTH_URL || "https://mercatolist.com";
+      const brokerDisplay =
+        broker?.displayName || broker?.name || "Your advisor";
 
       if (!existingUser) {
-        const broker = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { name: true, displayName: true, brokerageName: true },
-        });
-        const { sendEmail } = await import("@/lib/email");
         const ClientInvite = (await import("@/emails/client-invite")).default;
-        const baseUrl =
-          process.env.NEXTAUTH_URL || "https://mercatolist.com";
         const joinUrl = `${baseUrl}/register?invitedClient=${client.id}&email=${encodeURIComponent(
           client.email,
         )}`;
         await sendEmail({
           to: client.email,
-          subject: `${broker?.displayName || broker?.name} invited you to MercatoList`,
+          subject: `${brokerDisplay} invited you to MercatoList`,
           react: ClientInvite({
-            advisorName: broker?.displayName || broker?.name || "Your advisor",
+            advisorName: brokerDisplay,
             advisorCompany: broker?.brokerageName || undefined,
             joinUrl,
           }),
@@ -195,9 +196,24 @@ export async function POST(request: NextRequest) {
           where: { id: client.id },
           data: { invitedToPlatformAt: new Date() },
         });
+      } else {
+        const ClientAddedByBroker = (
+          await import("@/emails/client-added-by-broker")
+        ).default;
+        await sendEmail({
+          to: client.email,
+          subject: `${brokerDisplay} added you as a client on MercatoList`,
+          react: ClientAddedByBroker({
+            recipientName:
+              existingUser.displayName || existingUser.name || "there",
+            brokerName: brokerDisplay,
+            brokerageName: broker?.brokerageName || undefined,
+            dashboardUrl: `${baseUrl}/saved`,
+          }),
+        });
       }
     } catch (inviteError) {
-      console.error("Client invite email failed:", inviteError);
+      console.error("Client notification email failed:", inviteError);
     }
 
     return NextResponse.json(

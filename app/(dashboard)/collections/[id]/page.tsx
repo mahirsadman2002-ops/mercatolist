@@ -29,6 +29,7 @@ import {
   Users,
   Briefcase,
   Info,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1209,15 +1210,28 @@ export default function CollectionDetailPage() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Listings Grid */}
         <div className="flex-1 min-w-0">
+          {/* "Add Listings" header — visible whenever the collection has any listings,
+              or is empty (in the empty state below). Routes the user to browse mode. */}
+          {sortedListings.length > 0 && (
+            <div className="mb-4 flex justify-end">
+              <Link href={`/listings?addToCollection=${id}`}>
+                <Button size="sm">
+                  <Plus className="mr-1.5 size-3.5" />
+                  Add Listings
+                </Button>
+              </Link>
+            </div>
+          )}
           {sortedListings.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <FolderOpen className="size-10 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">
                 No listings in this collection yet.
               </p>
-              <Link href="/listings">
-                <Button variant="outline" size="sm">
-                  Browse Listings
+              <Link href={`/listings?addToCollection=${id}`}>
+                <Button variant="default" size="sm">
+                  <Plus className="mr-1.5 size-3.5" />
+                  Add Listings
                 </Button>
               </Link>
             </div>

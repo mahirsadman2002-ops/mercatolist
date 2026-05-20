@@ -15,7 +15,11 @@ import {
   Send,
   Loader2,
   Mail,
+  FolderOpen,
+  Plus,
+  Check,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -308,6 +312,74 @@ function ListingsPageContent() {
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const isBroker = userRole === "BROKER";
+
+  // Add-to-collection mode: if ?addToCollection={id} is present, show a sticky
+  // banner so the user knows they're picking listings to add. After they're done,
+  // they click "Done" to return to the collection.
+  const addToCollectionId = searchParams.get("addToCollection");
+  const [addToCollectionName, setAddToCollectionName] = useState<string | null>(
+    null,
+  );
+  const [addingListingIds, setAddingListingIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [addedListingIds, setAddedListingIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  useEffect(() => {
+    if (!addToCollectionId) {
+      setAddToCollectionName(null);
+      return;
+    }
+    fetch(`/api/collections/${addToCollectionId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          setAddToCollectionName(json.data.name);
+          // Preload IDs of listings already in the collection so we can mark them.
+          const existingIds = new Set<string>(
+            (json.data.collectionListings || []).map(
+              (cl: { listing: { id: string } }) => cl.listing.id,
+            ),
+          );
+          setAddedListingIds(existingIds);
+        }
+      })
+      .catch(() => {
+        // Silent
+      });
+  }, [addToCollectionId]);
+
+  async function handleAddOneToCollection(listingId: string) {
+    if (!addToCollectionId || addingListingIds.has(listingId)) return;
+    setAddingListingIds((prev) => new Set(prev).add(listingId));
+    try {
+      const res = await fetch(
+        `/api/collections/${addToCollectionId}/listings`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingId }),
+        },
+      );
+      if (res.ok) {
+        setAddedListingIds((prev) => new Set(prev).add(listingId));
+        toast.success("Added to collection");
+      } else {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error || "Failed to add");
+      }
+    } catch {
+      toast.error("Failed to add");
+    } finally {
+      setAddingListingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(listingId);
+        return next;
+      });
+    }
+  }
 
   // -----------------------------------------------------------------------
   // State
@@ -730,13 +802,47 @@ function ListingsPageContent() {
           }`}
         >
           {listings.map((listing) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              selectable={selectMode}
-              isSelected={selectedIds.has(listing.id)}
-              onSelectToggle={handleSelectToggle}
-            />
+            <div key={listing.id} className="relative">
+              <ListingCard
+                listing={listing}
+                selectable={selectMode}
+                isSelected={selectedIds.has(listing.id)}
+                onSelectToggle={handleSelectToggle}
+              />
+              {addToCollectionId && (
+                <div className="absolute bottom-3 right-3 z-10">
+                  {addedListingIds.has(listing.id) ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled
+                      className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <Check className="mr-1 h-3.5 w-3.5" />
+                      Added
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleAddOneToCollection(listing.id);
+                      }}
+                      disabled={addingListingIds.has(listing.id)}
+                      className="bg-teal-600 hover:bg-teal-700 shadow-md"
+                    >
+                      {addingListingIds.has(listing.id) ? (
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      Add
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
 
@@ -812,9 +918,44 @@ function ListingsPageContent() {
       </div>
 
       {/* ================================================================= */}
+      {/* Add-to-collection mode banner (above sticky top bar)              */}
+      {/* ================================================================= */}
+      {addToCollectionId && (
+        <div className="sticky top-0 z-40 border-b bg-teal-600 text-white">
+          <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 shrink-0" />
+              <p className="text-sm truncate">
+                Adding listings to{" "}
+                <span className="font-semibold">
+                  {addToCollectionName || "your collection"}
+                </span>
+                . Tap{" "}
+                <span className="rounded bg-white/15 px-1 text-xs">Add</span>{" "}
+                on any listing.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="bg-white text-teal-700 hover:bg-white/90 shrink-0"
+              onClick={() => router.push(`/collections/${addToCollectionId}`)}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
       {/* Top Bar (sticky below header)                                     */}
       {/* ================================================================= */}
-      <div className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur-sm">
+      <div
+        className={cn(
+          "sticky z-30 border-b bg-background/95 backdrop-blur-sm",
+          addToCollectionId ? "top-[44px]" : "top-0",
+        )}
+      >
         <div className="container mx-auto px-4">
           <div className="flex h-14 items-center justify-between gap-4">
             {/* Left: Result count */}

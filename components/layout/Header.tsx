@@ -77,16 +77,27 @@ export function Header() {
     : "/register";
   const isAdmin = userRole === "ADMIN";
   const [unreadCount, setUnreadCount] = useState(0);
+  const [collectionBadge, setCollectionBadge] = useState(0);
 
-  // Fetch unread count
+  // Fetch unread count + collection stats
   const fetchUnread = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch("/api/inquiries/unread-count");
-      if (!res.ok) return;
-      const json = await res.json();
-      if (json.success) {
-        setUnreadCount(json.data.count);
+      const [inqRes, statsRes] = await Promise.all([
+        fetch("/api/inquiries/unread-count"),
+        fetch("/api/user/collection-stats"),
+      ]);
+      if (inqRes.ok) {
+        const json = await inqRes.json();
+        if (json.success) setUnreadCount(json.data.count);
+      }
+      if (statsRes.ok) {
+        const json = await statsRes.json();
+        if (json.success) {
+          setCollectionBadge(
+            (json.data.unreadNotes || 0) + (json.data.pendingRequests || 0),
+          );
+        }
       }
     } catch {
       // Silent
@@ -198,6 +209,14 @@ export function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/collections" className="gap-2">
                       <FolderOpen className="h-4 w-4" /> Collections
+                      {collectionBadge > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="ml-auto h-5 min-w-[20px] justify-center px-1.5 text-[10px]"
+                        >
+                          {collectionBadge > 99 ? "99+" : collectionBadge}
+                        </Badge>
+                      )}
                     </Link>
                   </DropdownMenuItem>
                   {isBroker && (
@@ -428,6 +447,7 @@ export function Header() {
                     href="/collections"
                     icon={FolderOpen}
                     label="Collections"
+                    badge={collectionBadge > 0 ? collectionBadge : undefined}
                     onClick={() => setMobileOpen(false)}
                   />
                   <MobileNavLink

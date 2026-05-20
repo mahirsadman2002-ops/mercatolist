@@ -63,6 +63,9 @@ interface CollectionData {
 export default function CollectionsPage() {
   const router = useRouter();
   const [collections, setCollections] = useState<CollectionData[]>([]);
+  const [stats, setStats] = useState<
+    Record<string, { unreadNotes: number; pendingRequests: number }>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -83,9 +86,23 @@ export default function CollectionsPage() {
     }
   }, []);
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/user/collection-stats");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success) {
+        setStats(json.data.perCollection || {});
+      }
+    } catch {
+      // Silent
+    }
+  }, []);
+
   useEffect(() => {
     fetchCollections();
-  }, [fetchCollections]);
+    fetchStats();
+  }, [fetchCollections, fetchStats]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -270,6 +287,8 @@ export default function CollectionsPage() {
                     collaboratorCount: col.collaboratorCount,
                     isPubliclyShared: col.isPubliclyShared,
                     createdAt: col.createdAt,
+                    unreadNotes: stats[col.id]?.unreadNotes || 0,
+                    pendingRequests: stats[col.id]?.pendingRequests || 0,
                   }}
                   onEdit={(id) => router.push(`/collections/${id}`)}
                   onDelete={setDeleteId}
@@ -313,6 +332,8 @@ export default function CollectionsPage() {
                         collaboratorCount: col.collaboratorCount,
                         isPubliclyShared: col.isPubliclyShared,
                         createdAt: col.createdAt,
+                        unreadNotes: stats[col.id]?.unreadNotes || 0,
+                        pendingRequests: stats[col.id]?.pendingRequests || 0,
                       }}
                       onEdit={(id) => router.push(`/collections/${id}`)}
                     />

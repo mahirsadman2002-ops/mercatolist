@@ -27,6 +27,7 @@ import { ListingMap } from "@/components/listings/ListingMap";
 import { ListingContactSidebar } from "@/components/listings/ListingContactSidebar";
 import { ListingStatusBadge } from "@/components/listings/ListingStatusBadge";
 import { CollectionDiscoveryPopup } from "@/components/listings/CollectionDiscoveryPopup";
+import { SuggestedListings } from "@/components/listings/SuggestedListings";
 
 
 // Revalidate every 60 seconds so listing data stays fresh
@@ -654,8 +655,8 @@ export default async function ListingDetailPage({
 
               <div className="my-8" />
 
-              {/* ---- Location ---- */}
-              <section aria-labelledby="location-heading">
+              {/* ---- Location (desktop only — on mobile this renders after the sidebar) ---- */}
+              <section aria-labelledby="location-heading" className="hidden lg:block">
                 <h2
                   id="location-heading"
                   className="mb-4 text-lg font-semibold tracking-tight"
@@ -687,8 +688,42 @@ export default async function ListingDetailPage({
               </div>
             </aside>
           </div>
+
+          {/* Mobile-only: Location section rendered below the sidebar */}
+          <section
+            aria-labelledby="location-heading-mobile"
+            className="lg:hidden mt-8"
+          >
+            <h2
+              id="location-heading-mobile"
+              className="mb-4 text-lg font-semibold tracking-tight"
+            >
+              Location
+            </h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {listing.hideAddress
+                ? `Located in ${listing.neighborhood}, ${borough}. Exact address provided upon inquiry.`
+                : `${listing.address}, ${listing.neighborhood}, ${borough}, ${listing.city}, ${listing.state} ${listing.zipCode}`}
+            </p>
+            <ListingMap
+              latitude={listing.latitude}
+              longitude={listing.longitude}
+              hideAddress={listing.hideAddress}
+              address={listing.hideAddress ? undefined : listing.address}
+              neighborhood={listing.neighborhood}
+              borough={listing.borough}
+            />
+          </section>
         </div>
       </div>
+
+      {/* Suggested listings — bottom of every detail page */}
+      <SuggestedListings
+        currentListingId={listing.id}
+        category={listing.category}
+        borough={listing.borough}
+        neighborhood={listing.neighborhood}
+      />
 
       {/* Collection Discovery Popup */}
       <CollectionDiscoveryPopup

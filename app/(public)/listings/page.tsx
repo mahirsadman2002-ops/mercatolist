@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
@@ -874,7 +875,14 @@ function ListingsPageContent() {
                 </Button>
               )}
 
-              {/* View Toggle - Hidden on mobile */}
+              {/* View Toggle — split option hidden on mobile (no room) */}
+              <div className="md:hidden">
+                <ViewToggle
+                  activeView={viewMode === "split" ? "grid" : viewMode}
+                  onViewChange={setViewMode}
+                  excludeSplit
+                />
+              </div>
               <div className="hidden md:block">
                 <ViewToggle activeView={viewMode} onViewChange={setViewMode} />
               </div>
@@ -902,21 +910,53 @@ function ListingsPageContent() {
                     )}
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-[320px] sm:w-[360px] p-0">
+                <SheetContent
+                  side="bottom"
+                  className="h-[92vh] p-0 sm:max-w-none rounded-t-2xl"
+                >
                   <div className="flex h-full flex-col">
-                    <div className="flex items-center justify-between border-b px-5 py-4">
-                      <SheetTitle className="text-lg font-semibold">
-                        Filters
-                      </SheetTitle>
+                    {/* Sticky header */}
+                    <div className="flex items-center justify-between border-b px-5 py-3 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <SheetTitle className="text-lg font-semibold">
+                          Filters
+                        </SheetTitle>
+                        {activeFilterCount > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {activeFilterCount}
+                          </Badge>
+                        )}
+                      </div>
+                      {activeFilterCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            handleFiltersChange({});
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Clear all
+                        </Button>
+                      )}
                     </div>
+
+                    {/* Scrollable body */}
                     <div className="flex-1 overflow-y-auto px-5 py-4">
                       <FilterSidebar
                         initialFilters={filters}
-                        onFiltersChange={(newFilters) => {
-                          handleFiltersChange(newFilters);
-                          setMobileFiltersOpen(false);
-                        }}
+                        onFiltersChange={handleFiltersChange}
                       />
+                    </div>
+
+                    {/* Sticky footer */}
+                    <div className="border-t px-5 py-3 shrink-0 bg-background">
+                      <Button
+                        className="w-full h-11"
+                        onClick={() => setMobileFiltersOpen(false)}
+                      >
+                        Show results
+                      </Button>
                     </div>
                   </div>
                 </SheetContent>

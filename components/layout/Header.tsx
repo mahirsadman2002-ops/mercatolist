@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -18,6 +18,11 @@ import {
   Shield,
   Settings,
   Globe,
+  LayoutList,
+  Building2,
+  Compass,
+  PlusCircle,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,19 +56,19 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const user = session?.user;
   const userRole = user?.role;
   const isBroker = userRole === "BROKER";
 
-  // Skip callbackUrl on the auth pages themselves (would loop back to /login).
+  // Build a callbackUrl from the current pathname so login returns the user
+  // to where they were. We skip useSearchParams() here because reading query
+  // strings at the top of Header forces every page into dynamic rendering.
+  // Skip on auth pages themselves to avoid loops.
   const isAuthPage =
     pathname === "/login" ||
     pathname?.startsWith("/register") ||
     pathname === "/signup-prompt";
-  const search = searchParams?.toString();
-  const currentUrl =
-    pathname && !isAuthPage ? `${pathname}${search ? `?${search}` : ""}` : null;
+  const currentUrl = pathname && !isAuthPage ? pathname : null;
   const loginHref = currentUrl
     ? `/login?callbackUrl=${encodeURIComponent(currentUrl)}`
     : "/login";
@@ -211,13 +216,16 @@ export function Header() {
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="gap-2">
-                      <Settings className="h-4 w-4" /> Profile Settings
+                    <Link href="/settings" className="gap-2">
+                      <Settings className="h-4 w-4" /> Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/public-profile" className="gap-2">
-                      <Globe className="h-4 w-4" /> Public Profile
+                    <Link
+                      href={isBroker ? `/advisors/${user.id}` : `/profile/${user.id}`}
+                      className="gap-2"
+                    >
+                      <Globe className="h-4 w-4" /> View Public Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -260,105 +268,243 @@ export function Header() {
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-80">
-            <SheetTitle className="font-heading text-lg font-bold">MercatoList</SheetTitle>
-            <nav className="flex flex-col gap-4 mt-8">
-              <Link href="/listings" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                Browse Businesses
-              </Link>
-              <Link href="/my-listings/new" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                {isBroker ? "List a Business" : "Sell Your Business"}
-              </Link>
-              <Link href="/advisors" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                Find an Advisor
-              </Link>
-              <Link href="/blog" className="text-lg font-medium" onClick={() => setMobileOpen(false)}>
-                Blog
-              </Link>
+          <SheetContent
+            side="right"
+            className="w-[88vw] sm:w-[400px] p-0 flex flex-col"
+          >
+            <SheetTitle className="sr-only">Navigation menu</SheetTitle>
 
-              <div className="border-t pt-4 mt-2 flex flex-col gap-3">
-                {user ? (
-                  <>
-                    <div className="flex items-center gap-3 pb-2">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.image || undefined} alt={user.name || ""} />
-                        <AvatarFallback className="bg-accent text-accent-foreground text-sm">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">{user.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            {/* Header / Brand */}
+            <div className="border-b px-5 pt-6 pb-4">
+              <Link
+                href="/"
+                onClick={() => setMobileOpen(false)}
+                className="font-heading text-xl font-bold tracking-tight"
+              >
+                MercatoList
+              </Link>
+              <p className="text-xs text-muted-foreground mt-1">
+                NYC&apos;s business marketplace
+              </p>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto">
+              {user && (
+                <div className="px-5 py-4 border-b bg-muted/30">
+                  <Link
+                    href={
+                      isBroker
+                        ? `/advisors/${user.id}`
+                        : `/profile/${user.id}`
+                    }
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 group"
+                  >
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={user.image || undefined} alt={user.name || ""} />
+                      <AvatarFallback className="bg-accent text-accent-foreground text-base">
+                        {getInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate group-hover:underline">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
                         {isBroker && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-0.5">Advisor</Badge>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            Advisor
+                          </Badge>
                         )}
+                        {isAdmin && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-teal-100 text-teal-800">
+                            Admin
+                          </Badge>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                          View profile
+                        </span>
                       </div>
                     </div>
-                    <Link href="/saved" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                      Saved Listings
-                    </Link>
-                    <Link href="/inquiries" className="text-base font-medium flex items-center gap-2" onClick={() => setMobileOpen(false)}>
-                      Inquiries
-                      {unreadCount > 0 && (
-                        <Badge variant="destructive" className="h-5 min-w-[20px] justify-center px-1.5 text-[10px]">
-                          {unreadCount}
-                        </Badge>
-                      )}
-                    </Link>
-                    <Link href="/my-listings" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                      My Listings
-                    </Link>
-                    <Link href="/collections" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                      Collections
-                    </Link>
-                    {isBroker && (
-                      <Link href="/clients" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                        Clients
-                      </Link>
-                    )}
-                    <Link href="/saved-searches" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                      Saved Searches
-                    </Link>
-                    <Link href="/profile" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                      Profile Settings
-                    </Link>
-                    <Link href="/public-profile" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                      Public Profile
-                    </Link>
-                    {isAdmin && (
-                      <Link href="/admin" className="text-base font-medium" onClick={() => setMobileOpen(false)}>
-                        Admin Dashboard
-                      </Link>
-                    )}
-                    <button
-                      onClick={() => { signOut({ callbackUrl: "/" }); setMobileOpen(false); }}
-                      className="text-base font-medium text-destructive text-left"
-                    >
-                      Sign Out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/register/advisor" onClick={() => setMobileOpen(false)}>
-                      <Button className="w-full bg-amber-400 text-amber-950 hover:bg-amber-500 font-semibold shadow-sm" size="lg">
-                        Register as Business Advisor
-                      </Button>
-                    </Link>
-                    <Link href={registerHref} onClick={() => setMobileOpen(false)}>
-                      <Button className="w-full bg-teal-500 text-white hover:bg-teal-600 font-semibold shadow-sm" size="lg">
-                        Create Account
-                      </Button>
-                    </Link>
-                    <Link href={loginHref} onClick={() => setMobileOpen(false)}>
-                      <Button variant="outline" className="w-full" size="lg">Sign In</Button>
-                    </Link>
-                  </>
-                )}
+                  </Link>
+                </div>
+              )}
+
+              {/* CTAs for logged-out users — sit prominently up top */}
+              {!user && (
+                <div className="px-5 py-4 border-b space-y-2">
+                  <Link href={registerHref} onClick={() => setMobileOpen(false)} className="block">
+                    <Button className="w-full bg-teal-500 text-white hover:bg-teal-600 font-semibold shadow-sm h-11">
+                      Create Account
+                    </Button>
+                  </Link>
+                  <Link href={loginHref} onClick={() => setMobileOpen(false)} className="block">
+                    <Button variant="outline" className="w-full h-11">Sign In</Button>
+                  </Link>
+                  <Link href="/register/advisor" onClick={() => setMobileOpen(false)} className="block">
+                    <Button className="w-full bg-amber-400 text-amber-950 hover:bg-amber-500 font-semibold shadow-sm h-11">
+                      Register as Business Advisor
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Explore section */}
+              <nav className="px-3 py-3">
+                <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Explore
+                </p>
+                <MobileNavLink
+                  href="/listings"
+                  icon={Compass}
+                  label="Browse Businesses"
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  href="/advisors"
+                  icon={Users}
+                  label="Find an Advisor"
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  href="/my-listings/new"
+                  icon={PlusCircle}
+                  label={isBroker ? "List a Business" : "Sell Your Business"}
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  href="/blog"
+                  icon={FileText}
+                  label="Blog"
+                  onClick={() => setMobileOpen(false)}
+                />
+              </nav>
+
+              {/* My Activity — only when logged in */}
+              {user && (
+                <nav className="px-3 py-3 border-t">
+                  <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    My Activity
+                  </p>
+                  <MobileNavLink
+                    href="/inquiries"
+                    icon={MessageSquare}
+                    label="Inquiries"
+                    badge={unreadCount > 0 ? unreadCount : undefined}
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    href="/saved"
+                    icon={Heart}
+                    label="Saved Listings"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    href="/my-listings"
+                    icon={LayoutList}
+                    label="My Listings"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    href="/collections"
+                    icon={FolderOpen}
+                    label="Collections"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    href="/saved-searches"
+                    icon={Search}
+                    label="Saved Searches"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  {isBroker && (
+                    <MobileNavLink
+                      href="/clients"
+                      icon={Building2}
+                      label="Clients"
+                      onClick={() => setMobileOpen(false)}
+                    />
+                  )}
+                </nav>
+              )}
+
+              {/* Account */}
+              {user && (
+                <nav className="px-3 py-3 border-t">
+                  <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Account
+                  </p>
+                  <MobileNavLink
+                    href="/settings"
+                    icon={Settings}
+                    label="Settings"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    href={isBroker ? `/advisors/${user.id}` : `/profile/${user.id}`}
+                    icon={Eye}
+                    label="View Public Profile"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  {isAdmin && (
+                    <MobileNavLink
+                      href="/admin"
+                      icon={Shield}
+                      label="Admin Dashboard"
+                      onClick={() => setMobileOpen(false)}
+                    />
+                  )}
+                </nav>
+              )}
+            </div>
+
+            {/* Footer — Sign Out anchored at bottom for logged-in users */}
+            {user && (
+              <div className="border-t px-3 py-3">
+                <button
+                  onClick={() => { signOut({ callbackUrl: "/" }); setMobileOpen(false); }}
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
               </div>
-            </nav>
+            )}
           </SheetContent>
         </Sheet>
       </div>
     </header>
+  );
+}
+
+interface MobileNavLinkProps {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  badge?: number;
+  onClick?: () => void;
+}
+
+function MobileNavLink({
+  href,
+  icon: Icon,
+  label,
+  badge,
+  onClick,
+}: MobileNavLinkProps) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium hover:bg-accent transition-colors"
+    >
+      <Icon className="h-5 w-5 text-muted-foreground" />
+      <span className="flex-1">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <Badge variant="destructive" className="h-5 min-w-[20px] justify-center px-1.5 text-[10px]">
+          {badge}
+        </Badge>
+      )}
+    </Link>
   );
 }

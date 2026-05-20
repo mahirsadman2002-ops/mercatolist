@@ -343,6 +343,79 @@ export default function CollectionDetailPage() {
     fetchCollection();
   }, [fetchCollection]);
 
+  // Mark all current notes as read for this user once the page loads.
+  // Server tracks per-user lastNotesReadAt so unread badges clear correctly.
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/collections/${id}/notes/mark-read`, {
+      method: "POST",
+    }).catch(() => {
+      // Silent — not critical to the page render.
+    });
+  }, [id]);
+
+  // Pending access requests (owner sees a banner + can approve/deny inline)
+  const [pendingRequests, setPendingRequests] = useState<
+    {
+      id: string;
+      user: { id: string; name: string; displayName: string | null; email: string };
+      requestedAt: string;
+    }[]
+  >([]);
+  const [decidingRequestId, setDecidingRequestId] = useState<string | null>(
+    null,
+  );
+
+  const fetchPendingRequests = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/collections/${id}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.pendingAccessRequests)) {
+        setPendingRequests(json.data.pendingAccessRequests);
+      }
+    } catch {
+      // Silent
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchPendingRequests();
+  }, [fetchPendingRequests]);
+
+  async function decideRequest(
+    requestId: string,
+    decision: "APPROVED" | "DENIED",
+  ) {
+    setDecidingRequestId(requestId);
+    try {
+      const res = await fetch(
+        `/api/collections/${id}/access-requests/${requestId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision }),
+        },
+      );
+      const json = await res.json();
+      if (res.ok) {
+        toast.success(
+          decision === "APPROVED"
+            ? "Access approved"
+            : "Request denied",
+        );
+        setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+      } else {
+        toast.error(json.error || "Failed to update request");
+      }
+    } catch {
+      toast.error("Failed to update request");
+    } finally {
+      setDecidingRequestId(null);
+    }
+  }
+
   // Fetch broker clients when user is a broker
   useEffect(() => {
     if (!isBroker) return;
@@ -834,6 +907,54 @@ export default function CollectionDetailPage() {
         <ArrowLeft className="size-3.5" />
         Back to Collections
       </Link>
+
+      {/* Pending access requests (owner only) */}
+      {pendingRequests.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Info className="size-5 text-amber-700 shrink-0" />
+            <p className="text-sm font-semibold text-amber-900">
+              {pendingRequests.length} pending{" "}
+              {pendingRequests.length === 1 ? "request" : "requests"} for
+              access
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {pendingRequests.map((req) => (
+              <li
+                key={req.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 border border-amber-200"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {req.user.displayName || req.user.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {req.user.email}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => decideRequest(req.id, "APPROVED")}
+                    disabled={decidingRequestId === req.id}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => decideRequest(req.id, "DENIED")}
+                    disabled={decidingRequestId === req.id}
+                  >
+                    Deny
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Assigned client banner */}
       {isAssignedClient && advisorName && (

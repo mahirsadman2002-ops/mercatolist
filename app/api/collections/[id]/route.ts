@@ -71,6 +71,20 @@ export async function GET(
             },
           },
         },
+        accessRequests: {
+          where: { status: "PENDING" },
+          orderBy: { lastRequestedAt: "desc" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -173,6 +187,15 @@ export async function GET(
           user: n.user,
           createdAt: n.createdAt,
         })),
+        // Only the owner sees pending requests; everyone else gets an empty array.
+        pendingAccessRequests: isOwner
+          ? collection.accessRequests.map((r) => ({
+              id: r.id,
+              user: r.user,
+              requestedAt: r.requestedAt.toISOString(),
+              lastRequestedAt: r.lastRequestedAt.toISOString(),
+            }))
+          : [],
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
         isAssignedClient,

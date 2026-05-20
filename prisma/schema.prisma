@@ -179,27 +179,28 @@ model User {
   accounts                   Account[]
   sessions                   Session[]
   listings                   BusinessListing[]
-  coListings                 BusinessListing[]        @relation("CoBrokers")
-  receivedInquiries          Inquiry[]                @relation("ReceivedInquiries")
-  sentInquiries              Inquiry[]                @relation("SentInquiries")
+  coListings                 BusinessListing[]         @relation("CoBrokers")
+  receivedInquiries          Inquiry[]                 @relation("ReceivedInquiries")
+  sentInquiries              Inquiry[]                 @relation("SentInquiries")
   savedListings              SavedListing[]
   collections                Collection[]
-  receivedReviews            Review[]                 @relation("ReceivedReviews")
-  givenReviews               Review[]                 @relation("GivenReviews")
-  transactionReviewsApproved Review[]                 @relation("TransactionReviewer")
+  receivedReviews            Review[]                  @relation("ReceivedReviews")
+  givenReviews               Review[]                  @relation("GivenReviews")
+  transactionReviewsApproved Review[]                  @relation("TransactionReviewer")
   savedSearches              SavedSearch[]
   messages                   Message[]
   reports                    Report[]
   statusLogs                 ListingStatusLog[]
   emailVerificationTokens    EmailVerificationToken[]
-  reviewTokens               ReviewToken[]            @relation("ReviewTokens")
+  reviewTokens               ReviewToken[]             @relation("ReviewTokens")
   blogPosts                  BlogPost[]
   searchLogs                 SearchLog[]
   licenses                   License[]
   pastDeals                  PastDeal[]
   collectionCollaborations   CollectionCollaborator[]
   collectionNotes            CollectionNote[]
-  clients                    Client[]                 @relation("advisorClients")
+  collectionAccessRequests   CollectionAccessRequest[] @relation("CollectionAccessRequests")
+  clients                    Client[]                  @relation("advisorClients")
 
   // Admin: ban management
   isBanned     Boolean @default(false)
@@ -390,19 +391,65 @@ model Collection {
   userId           String
   shareToken       String? @unique
   isPubliclyShared Boolean @default(false)
+  /// Legacy single-client assignment; new code uses the CollectionClient join.
+  /// Kept nullable for backwards compatibility, populated by migration into the join.
   clientId         String?
 
-  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client             Client?                  @relation(fields: [clientId], references: [id])
+  /// When the owner last opened this collection — used to compute unread notes for them.
+  ownerLastNotesReadAt DateTime?
+
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client             Client?                   @relation(fields: [clientId], references: [id])
   collectionListings CollectionListing[]
   collaborators      CollectionCollaborator[]
   notes              CollectionNote[]
+  clientAssignments  CollectionClient[]
+  accessRequests     CollectionAccessRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([clientId])
+}
+
+model CollectionClient {
+  id           String     @id @default(uuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+  addedById    String
+
+  @@unique([collectionId, clientId])
+  @@index([collectionId])
+  @@index([clientId])
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  WITHDRAWN
+}
+
+model CollectionAccessRequest {
+  id              String              @id @default(uuid())
+  collectionId    String
+  collection      Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                @relation("CollectionAccessRequests", fields: [userId], references: [id], onDelete: Cascade)
+  status          AccessRequestStatus @default(PENDING)
+  requestedAt     DateTime            @default(now())
+  lastRequestedAt DateTime            @default(now())
+  decidedAt       DateTime?
+  decidedById     String?
+
+  @@unique([collectionId, userId])
+  @@index([collectionId])
+  @@index([userId])
+  @@index([status])
 }
 
 model SavedSearch {
@@ -615,15 +662,18 @@ model CollectionListing {
 }
 
 model CollectionCollaborator {
-  id           String     @id @default(uuid())
-  collectionId String
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role         String     @default("viewer")
-  invitedBy    String
-  invitedAt    DateTime   @default(now())
-  acceptedAt   DateTime?
+  id              String     @id @default(uuid())
+  collectionId    String
+  collection      Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "viewer" or "editor"
+  role            String     @default("viewer")
+  invitedBy       String
+  invitedAt       DateTime   @default(now())
+  acceptedAt      DateTime?
+  /// When this collaborator last opened the collection — used to compute their unread-note count.
+  lastNotesReadAt DateTime?
 
   @@unique([collectionId, userId])
   @@index([collectionId])
@@ -648,23 +698,26 @@ model CollectionNote {
 }
 
 model Client {
-  id                  String       @id @default(uuid())
-  advisorId           String
-  advisor             User         @relation("advisorClients", fields: [advisorId], references: [id], onDelete: Cascade)
-  name                String
-  email               String
-  phone               String?
-  company             String?
-  preferredCategories String[]
-  preferredBoroughs   String[]
-  priceRangeMin       Decimal?
-  priceRangeMax       Decimal?
-  revenueRangeMin     Decimal?
-  revenueRangeMax     Decimal?
-  notes               String?      @db.Text
-  collections         Collection[]
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  id                    String             @id @default(uuid())
+  advisorId             String
+  advisor               User               @relation("advisorClients", fields: [advisorId], references: [id], onDelete: Cascade)
+  name                  String
+  email                 String
+  phone                 String?
+  company               String?
+  preferredCategories   String[]
+  preferredBoroughs     String[]
+  priceRangeMin         Decimal?
+  priceRangeMax         Decimal?
+  revenueRangeMin       Decimal?
+  revenueRangeMax       Decimal?
+  notes                 String?            @db.Text
+  /// Set when the broker sent this client an invite to join MercatoList.
+  invitedToPlatformAt   DateTime?
+  collections           Collection[]
+  collectionAssignments CollectionClient[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   @@unique([advisorId, email])
   @@index([advisorId])

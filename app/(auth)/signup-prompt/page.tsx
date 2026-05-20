@@ -17,6 +17,7 @@ import {
   Sparkles,
   Mail,
   Star,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +75,7 @@ type ActionKey =
   | "save"
   | "collection"
   | "collection-interact"
+  | "collection-access"
   | "share-listing"
   | "leave-review";
 
@@ -149,6 +151,17 @@ const ACTION_MAP: Record<ActionKey, ActionConfig> = {
       "Help future buyers and sellers find trusted advisors",
       "Add verified transaction details to MercatoList's sold-business data",
       "Get a verified-reviewer badge on your profile",
+    ],
+  },
+  "collection-access": {
+    icon: Users,
+    heading: "Collaborate on this Collection",
+    subtext:
+      "Create a free account to request access — you'll be able to view the full collection, leave notes, and collaborate with everyone involved.",
+    bullets: [
+      "Request access from the collection owner in one click",
+      "Leave notes on individual listings to share your thoughts",
+      "Get notified when new listings or notes are added",
     ],
   },
 };

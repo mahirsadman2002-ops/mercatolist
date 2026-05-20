@@ -197,6 +197,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: user?.email,
         isNewUser,
       });
+      // For OAuth signups, attach pending Client-based collaborator invites.
+      if (isNewUser && user?.id && user?.email) {
+        const { attachPendingInvites } = await import(
+          "@/lib/attach-pending-invites"
+        );
+        await attachPendingInvites(user.id, user.email);
+      }
     },
   },
   logger: {

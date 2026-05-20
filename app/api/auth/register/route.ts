@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "@/lib/prisma";
 import { userRegistrationSchema } from "@/lib/validations";
+import { attachPendingInvites } from "@/lib/attach-pending-invites";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,9 @@ export async function POST(request: NextRequest) {
         role: role || "USER",
       },
     });
+
+    // Attach any pending invites for this email (Client → Collection collaborator).
+    await attachPendingInvites(user.id, user.email);
 
     // Generate verification token
     const token = uuidv4();

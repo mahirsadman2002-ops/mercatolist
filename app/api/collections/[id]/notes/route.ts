@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
+import CollectionNoteEmail from "@/emails/collection-note";
 
 // GET: Fetch notes for a collection, optionally filtered by listingId
 export async function GET(
@@ -197,6 +199,67 @@ export async function POST(
         },
       },
     });
+
+    // Notify other participants (owner + collaborators except the author).
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          OR: [
+            { id: collection.userId },
+            {
+              collectionCollaborations: {
+                some: { collectionId: id },
+              },
+            },
+          ],
+          NOT: { id: session.user.id },
+        },
+        select: { id: true, email: true, name: true },
+      });
+
+      if (recipients.length > 0) {
+        const fullCollection = await prisma.collection.findUnique({
+          where: { id },
+          select: { name: true },
+        });
+        const listingTitle = listingId
+          ? (
+              await prisma.businessListing.findUnique({
+                where: { id: listingId },
+                select: { title: true },
+              })
+            )?.title
+          : undefined;
+
+        const authorName = note.user.displayName || note.user.name || "Someone";
+        const baseUrl = process.env.NEXTAUTH_URL || "https://mercatolist.com";
+        const viewUrl = `${baseUrl}/collections/${id}#note-${note.id}`;
+        const notePreview =
+          note.content.length > 200
+            ? note.content.slice(0, 197) + "..."
+            : note.content;
+
+        await Promise.all(
+          recipients.map((r) =>
+            sendEmail({
+              to: r.email,
+              subject: `${authorName} left a note on "${fullCollection?.name || "your collection"}"`,
+              react: CollectionNoteEmail({
+                authorName,
+                collectionName: fullCollection?.name || "your collection",
+                listingTitle,
+                notePreview,
+                viewUrl,
+              }),
+            }).catch((err) => {
+              console.error("Note notification email failed:", err);
+            }),
+          ),
+        );
+      }
+    } catch (notifyError) {
+      console.error("Failed to send note notifications:", notifyError);
+    }
 
     return NextResponse.json(
       {

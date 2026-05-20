@@ -1,44 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
+import CollectionInvite from "@/emails/collection-invite";
+import ClientInvite from "@/emails/client-invite";
 
-// POST: Invite a collaborator to a collection
+// POST: Invite a collaborator to a collection.
+// Owner or editor can invite. If the invitee doesn't have a MercatoList
+// account, we send them a sign-up invite so they can accept later.
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const { id } = await params;
 
-    // Verify collection ownership
     const collection = await prisma.collection.findUnique({
       where: { id },
       include: {
-        collaborators: {
-          select: { userId: true },
-        },
+        user: { select: { id: true, name: true, displayName: true } },
+        collaborators: { select: { userId: true, role: true } },
       },
     });
 
     if (!collection) {
       return NextResponse.json(
         { success: false, error: "Collection not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    if (collection.userId !== session.user.id) {
+    const isOwner = collection.userId === session.user.id;
+    const editorCollab = collection.collaborators.find(
+      (c) => c.userId === session.user.id && c.role === "editor",
+    );
+    if (!isOwner && !editorCollab) {
       return NextResponse.json(
-        { success: false, error: "Only the collection owner can invite collaborators" },
-        { status: 403 }
+        {
+          success: false,
+          error:
+            "Only the collection owner or editors can invite collaborators",
+        },
+        { status: 403 },
       );
     }
 
@@ -48,59 +59,77 @@ export async function POST(
     if (!email || typeof email !== "string") {
       return NextResponse.json(
         { success: false, error: "Email is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
-
     if (!role || !["editor", "viewer"].includes(role)) {
       return NextResponse.json(
         { success: false, error: "Role must be 'editor' or 'viewer'" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Check max 4 total (owner + 3 collaborators)
-    if (collection.collaborators.length >= 3) {
-      return NextResponse.json(
-        { success: false, error: "Maximum of 3 collaborators allowed per collection" },
-        { status: 400 }
-      );
-    }
+    const normalizedEmail = email.trim().toLowerCase();
 
-    // Look up user by email
     const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
-      select: { id: true, name: true, email: true },
+      where: { email: normalizedEmail },
+      select: { id: true, name: true, displayName: true, email: true },
     });
 
+    const inviterName =
+      collection.user.displayName || collection.user.name || "A MercatoList user";
+
+    const baseUrl =
+      process.env.NEXTAUTH_URL || "https://mercatolist.com";
+
+    // User doesn't exist — send a sign-up invite so they can register and
+    // be granted access on signup (via the registration hook).
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: "No user found with that email address" },
-        { status: 404 }
-      );
+      const joinUrl = `${baseUrl}/signup-prompt?action=collection-access&collectionId=${id}&email=${encodeURIComponent(
+        normalizedEmail,
+      )}&callbackUrl=${encodeURIComponent(`/collections/${id}`)}`;
+
+      try {
+        await sendEmail({
+          to: normalizedEmail,
+          subject: `${inviterName} invited you to collaborate on MercatoList`,
+          react: ClientInvite({
+            advisorName: inviterName,
+            joinUrl,
+          }),
+        });
+      } catch (emailError) {
+        console.error("Failed to send signup invite email:", emailError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          status: "invite-sent",
+          email: normalizedEmail,
+          message:
+            "We've sent them a link to join MercatoList. They'll be added once they sign up.",
+        },
+      });
     }
 
-    // Cannot invite yourself
     if (user.id === session.user.id) {
       return NextResponse.json(
         { success: false, error: "You cannot invite yourself" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Check if already a collaborator
     const alreadyCollaborator = collection.collaborators.some(
-      (c) => c.userId === user.id
+      (c) => c.userId === user.id,
     );
-
     if (alreadyCollaborator) {
       return NextResponse.json(
         { success: false, error: "User is already a collaborator" },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
-    // Create CollectionCollaborator record
     const collaborator = await prisma.collectionCollaborator.create({
       data: {
         collectionId: id,
@@ -113,12 +142,29 @@ export async function POST(
           select: {
             id: true,
             name: true,
+            displayName: true,
             email: true,
             avatarUrl: true,
           },
         },
       },
     });
+
+    // Notify the new collaborator
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: `${inviterName} invited you to "${collection.name}" on MercatoList`,
+        react: CollectionInvite({
+          inviterName,
+          collectionName: collection.name,
+          role,
+          joinUrl: `${baseUrl}/collections/${id}`,
+        }),
+      });
+    } catch (emailError) {
+      console.error("Failed to send collaborator invite email:", emailError);
+    }
 
     return NextResponse.json(
       {
@@ -130,13 +176,13 @@ export async function POST(
           joinedAt: collaborator.invitedAt,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error inviting collaborator:", error);
     return NextResponse.json(
       { success: false, error: "Failed to invite collaborator" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -867,6 +867,9 @@ export function ListingContactSidebar({
     } else if (autoAction === "collection") {
       setCollectionPopoverOpen(true);
       cleanUrl();
+    } else if (autoAction === "share-email") {
+      setEmailDialogOpen(true);
+      cleanUrl();
     }
   }, [searchParams, currentUser?.id, listing.slug, listing.id, router]);
 
@@ -950,8 +953,16 @@ export function ListingContactSidebar({
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   const handleShareViaEmail = useCallback(() => {
+    if (!currentUser?.id) {
+      router.push(
+        `/signup-prompt?action=share-listing&callbackUrl=${encodeURIComponent(
+          `/listings/${listing.slug}?autoAction=share-email`,
+        )}`,
+      );
+      return;
+    }
     setEmailDialogOpen(true);
-  }, []);
+  }, [currentUser?.id, listing.slug, router]);
 
   const handleShareOnTwitter = useCallback(() => {
     const url = getShareUrl();

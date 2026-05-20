@@ -15,6 +15,8 @@ import {
   Check,
   X,
   Sparkles,
+  Mail,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +69,13 @@ function getPasswordStrength(password: string): {
 
 // ── Action config ───────────────────────────────────────────────────
 
-type ActionKey = "contact" | "save" | "collection" | "collection-interact";
+type ActionKey =
+  | "contact"
+  | "save"
+  | "collection"
+  | "collection-interact"
+  | "share-listing"
+  | "leave-review";
 
 interface ActionConfig {
   icon: React.ElementType;
@@ -119,6 +127,28 @@ const ACTION_MAP: Record<ActionKey, ActionConfig> = {
       "React to listings your advisor shares with you",
       "Leave notes and comments for your advisor to see",
       "Track your preferences across all shared collections",
+    ],
+  },
+  "share-listing": {
+    icon: Mail,
+    heading: "Share Listings with Anyone",
+    subtext:
+      "Create a free account to send listings by email to friends, partners, or your advisor — straight from MercatoList.",
+    bullets: [
+      "Send any listing to anyone, even if they don't have an account",
+      "Track which listings you've shared and with whom",
+      "Get replies in your MercatoList inbox if they have questions",
+    ],
+  },
+  "leave-review": {
+    icon: Star,
+    heading: "Leave a Review",
+    subtext:
+      "Create a free account to share your experience with this advisor and help other NYC buyers and sellers.",
+    bullets: [
+      "Help future buyers and sellers find trusted advisors",
+      "Add verified transaction details to MercatoList's sold-business data",
+      "Get a verified-reviewer badge on your profile",
     ],
   },
 };

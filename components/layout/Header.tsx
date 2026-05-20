@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -49,9 +50,26 @@ function getInitials(name: string | null | undefined): string {
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const user = session?.user;
   const userRole = user?.role;
   const isBroker = userRole === "BROKER";
+
+  // Skip callbackUrl on the auth pages themselves (would loop back to /login).
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname?.startsWith("/register") ||
+    pathname === "/signup-prompt";
+  const search = searchParams?.toString();
+  const currentUrl =
+    pathname && !isAuthPage ? `${pathname}${search ? `?${search}` : ""}` : null;
+  const loginHref = currentUrl
+    ? `/login?callbackUrl=${encodeURIComponent(currentUrl)}`
+    : "/login";
+  const registerHref = currentUrl
+    ? `/register?callbackUrl=${encodeURIComponent(currentUrl)}`
+    : "/register";
   const isAdmin = userRole === "ADMIN";
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -218,12 +236,12 @@ export function Header() {
                   Register as Business Advisor
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href={registerHref}>
                 <Button size="sm" className="bg-teal-500 text-white hover:bg-teal-600 font-semibold shadow-sm">
                   Create Account
                 </Button>
               </Link>
-              <Link href="/login">
+              <Link href={loginHref}>
                 <Button variant="outline" size="sm" className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 font-semibold">
                   Sign In
                 </Button>
@@ -326,12 +344,12 @@ export function Header() {
                         Register as Business Advisor
                       </Button>
                     </Link>
-                    <Link href="/register" onClick={() => setMobileOpen(false)}>
+                    <Link href={registerHref} onClick={() => setMobileOpen(false)}>
                       <Button className="w-full bg-teal-500 text-white hover:bg-teal-600 font-semibold shadow-sm" size="lg">
                         Create Account
                       </Button>
                     </Link>
-                    <Link href="/login" onClick={() => setMobileOpen(false)}>
+                    <Link href={loginHref} onClick={() => setMobileOpen(false)}>
                       <Button variant="outline" className="w-full" size="lg">Sign In</Button>
                     </Link>
                   </>

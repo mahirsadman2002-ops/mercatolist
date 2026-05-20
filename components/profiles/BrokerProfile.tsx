@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Star,
@@ -65,6 +65,20 @@ interface BrokerProfileProps {
 export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
   const [activeTab, setActiveTab] = useState("active");
 
+  // If the user arrives with #reviews (e.g. after signing up via "Leave a Review"),
+  // jump to the reviews tab automatically.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#reviews") {
+      setActiveTab("reviews");
+      setTimeout(() => {
+        document
+          .getElementById("reviews-tab-anchor")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, []);
+
   const initials = broker.name
     .split(" ")
     .map((n) => n[0])
@@ -75,7 +89,7 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
   const isOwnProfile = currentUserId === broker.id;
   const isLoggedIn = !!currentUserId;
   const canReview = isLoggedIn && !isOwnProfile;
-  const loginCallback = `/login?callbackUrl=${encodeURIComponent(`/advisors/${broker.id}#reviews`)}`;
+  const signupPromptHref = `/signup-prompt?action=leave-review&callbackUrl=${encodeURIComponent(`/advisors/${broker.id}#reviews`)}`;
 
   function jumpToReviews() {
     setActiveTab("reviews");
@@ -144,9 +158,9 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
     if (!isLoggedIn) {
       return (
         <Button asChild variant="default">
-          <Link href={loginCallback}>
+          <Link href={signupPromptHref}>
             <Star className="mr-2 h-4 w-4" />
-            Sign in to Leave a Review
+            Leave a Review
           </Link>
         </Button>
       );
@@ -480,10 +494,11 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
             {!isLoggedIn && (
               <div className="rounded-lg border bg-muted/30 p-6 text-center space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Sign in to share your experience with this advisor.
+                  Share your experience with this advisor to help other NYC
+                  buyers and sellers.
                 </p>
                 <Button asChild>
-                  <Link href={loginCallback}>Sign in to Leave a Review</Link>
+                  <Link href={signupPromptHref}>Leave a Review</Link>
                 </Button>
               </div>
             )}

@@ -76,8 +76,10 @@ function LoginPageContent() {
       if (result?.error) {
         setFormError("Invalid email or password");
       } else {
-        router.push(callbackUrl);
-        router.refresh();
+        // Full page navigation so the new session cookie is picked up by both
+        // server components and the client useSession() cache. router.push +
+        // refresh leaves useSession stale until its next periodic poll.
+        window.location.assign(callbackUrl);
       }
     } catch {
       toast.error("Something went wrong. Please try again.");

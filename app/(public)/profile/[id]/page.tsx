@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { PublicProfile } from "@/components/profiles/PublicProfile";
 import { notFound } from "next/navigation";
 
@@ -112,9 +113,14 @@ export default async function UserProfilePage({
     })),
   };
 
+  const session = await auth();
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <PublicProfile profile={profileData} />
+      <PublicProfile
+        profile={profileData}
+        currentUserId={session?.user?.id || null}
+      />
     </div>
   );
 }

@@ -11,19 +11,13 @@ import {
   ExternalLink,
   LayoutList,
   Handshake,
-  Clock,
   MessageSquare,
+  Plus,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { ReviewCard } from "@/components/profiles/ReviewCard";
 import { ReviewForm } from "@/components/forms/ReviewForm";
@@ -138,21 +132,12 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
   const LeaveReviewButton = (() => {
     if (isOwnProfile) {
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button variant="outline" disabled>
-                  <Star className="mr-2 h-4 w-4" />
-                  Leave a Review
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>You can&apos;t review your own profile</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button asChild>
+          <Link href="/my-listings/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Add a Listing
+          </Link>
+        </Button>
       );
     }
     if (!isLoggedIn) {
@@ -330,15 +315,43 @@ export function BrokerProfile({ broker, currentUserId }: BrokerProfileProps) {
 
         <TabsContent value="active" className="mt-6">
           {broker.activeListings.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No active listings at this time.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {broker.activeListings.map((listing: any) => (
-                <ListingCard key={listing.id} listing={listing} />
-              ))}
+            <div className="rounded-lg border border-dashed py-12 text-center space-y-3">
+              {isOwnProfile ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    You don&apos;t have any active listings yet.
+                  </p>
+                  <Button asChild>
+                    <Link href="/my-listings/new">
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Add Your First Listing
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  No active listings at this time.
+                </p>
+              )}
             </div>
+          ) : (
+            <>
+              {isOwnProfile && (
+                <div className="mb-4 flex justify-end">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href="/my-listings/new">
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Add More Listings
+                    </Link>
+                  </Button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {broker.activeListings.map((listing: any) => (
+                  <ListingCard key={listing.id} listing={listing} />
+                ))}
+              </div>
+            </>
           )}
         </TabsContent>
 

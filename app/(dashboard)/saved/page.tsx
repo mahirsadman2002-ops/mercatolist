@@ -14,7 +14,6 @@ import { toast } from "sonner";
 
 import { ListingCard } from "@/components/listings/ListingCard";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -58,15 +57,12 @@ export default function SavedListingsPage() {
   const [savedListings, setSavedListings] = useState<SavedListingData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sort, setSort] = useState("savedAt");
-  const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isRemoving, setIsRemoving] = useState(false);
 
   const fetchSaved = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/user/saved-listings?sort=${sort}&status=${statusFilter}`
-      );
+      const res = await fetch(`/api/user/saved-listings?sort=${sort}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
       if (json.success) {
@@ -77,7 +73,7 @@ export default function SavedListingsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [sort, statusFilter]);
+  }, [sort]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -161,34 +157,19 @@ export default function SavedListingsPage() {
         </div>
       ) : (
         <>
-          {/* Controls Row */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {/* Status filter */}
-              <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-                <TabsList>
-                  <TabsTrigger value="ALL">All</TabsTrigger>
-                  <TabsTrigger value="ACTIVE">Active</TabsTrigger>
-                  <TabsTrigger value="UNDER_CONTRACT">Under Contract</TabsTrigger>
-                  <TabsTrigger value="SOLD">Sold</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Sort */}
-              <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger className="w-[180px]">
-                  <ArrowUpDown className="size-3.5 mr-1.5" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="savedAt">Date Saved</SelectItem>
-                  <SelectItem value="priceAsc">Price: Low to High</SelectItem>
-                  <SelectItem value="priceDesc">Price: High to Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Sort */}
+          <div className="flex items-center justify-end">
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger className="w-[180px]">
+                <ArrowUpDown className="size-3.5 mr-1.5" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="savedAt">Date Saved</SelectItem>
+                <SelectItem value="priceAsc">Price: Low to High</SelectItem>
+                <SelectItem value="priceDesc">Price: High to Low</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Bulk Actions */}

@@ -656,9 +656,12 @@ export default function SettingsPage() {
   }
 
   const isBroker = profile?.role === "BROKER";
-  const publicProfileUrl = isBroker
-    ? `/advisors/${profile?.id}`
-    : `/profile/${profile?.id}`;
+  const publicProfileUrl =
+    profile?.id
+      ? isBroker
+        ? `/advisors/${profile.id}`
+        : `/profile/${profile.id}`
+      : null;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -670,12 +673,14 @@ export default function SettingsPage() {
             Manage your account, profile, and preferences.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={publicProfileUrl} target="_blank">
-            <Eye className="mr-2 h-4 w-4" />
-            View Public Profile
-          </Link>
-        </Button>
+        {publicProfileUrl && (
+          <Button asChild variant="outline">
+            <Link href={publicProfileUrl}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Public Profile
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Profile Photo & Basics */}

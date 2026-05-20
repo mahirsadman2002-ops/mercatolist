@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Briefcase, Tag, MapPin } from "lucide-react";
+import { Calendar, Briefcase, Tag, MapPin, Plus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { formatCurrency } from "@/lib/utils";
 
@@ -22,6 +22,7 @@ interface PublicProfileProps {
     soldListings: any[];
     underContractListings: any[];
   };
+  currentUserId?: string | null;
 }
 
 function formatBorough(borough: string): string {
@@ -31,7 +32,12 @@ function formatBorough(borough: string): string {
     .join(" ");
 }
 
-export function PublicProfile({ profile }: PublicProfileProps) {
+export function PublicProfile({ profile, currentUserId }: PublicProfileProps) {
+  const isOwnProfile = !!currentUserId && currentUserId === profile.id;
+  const hasAnyListings =
+    profile.activeListings.length > 0 ||
+    profile.soldListings.length > 0 ||
+    profile.underContractListings.length > 0;
   const initials = profile.name
     .split(" ")
     .map((n) => n[0])
@@ -132,14 +138,24 @@ export function PublicProfile({ profile }: PublicProfileProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Active Listings</h2>
-            {profile.activeListings.length > 6 && (
-              <Link
-                href={`/listings?listedBy=${profile.id}`}
-                className="text-sm text-primary hover:underline"
-              >
-                View all
-              </Link>
-            )}
+            <div className="flex items-center gap-3">
+              {isOwnProfile && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/my-listings/new">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add More Listings
+                  </Link>
+                </Button>
+              )}
+              {profile.activeListings.length > 6 && (
+                <Link
+                  href={`/listings?listedBy=${profile.id}`}
+                  className="text-sm text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {profile.activeListings.slice(0, 6).map((listing) => (
@@ -226,15 +242,25 @@ export function PublicProfile({ profile }: PublicProfileProps) {
       )}
 
       {/* Empty state */}
-      {profile.activeListings.length === 0 &&
-        profile.soldListings.length === 0 &&
-        profile.underContractListings.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              No listings to display.
-            </p>
-          </div>
-        )}
+      {!hasAnyListings && (
+        <div className="rounded-lg border border-dashed py-12 text-center space-y-3">
+          {isOwnProfile ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                You haven&apos;t listed any businesses yet.
+              </p>
+              <Button asChild>
+                <Link href="/my-listings/new">
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Add Your First Listing
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No listings to display.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

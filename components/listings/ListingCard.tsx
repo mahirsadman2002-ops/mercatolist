@@ -46,6 +46,8 @@ interface ListingCardProps {
   isSelected?: boolean;
   /** Callback when the selection checkbox is toggled */
   onSelectToggle?: (listingId: string) => void;
+  /** Optional query string appended to the listing detail href, e.g. "addToCollection=X" */
+  hrefSearch?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +93,7 @@ export function ListingCard({
   selectable = false,
   isSelected = false,
   onSelectToggle,
+  hrefSearch,
 }: ListingCardProps) {
   const [saved, setSaved] = useState(isSaved);
   const [saving, setSaving] = useState(false);
@@ -183,7 +186,9 @@ export function ListingCard({
         onClick: handleSelectClick,
       }
     : {
-        href: `/listings/${listing.slug}`,
+        href: hrefSearch
+          ? `/listings/${listing.slug}?${hrefSearch}`
+          : `/listings/${listing.slug}`,
         className:
           "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl",
       };

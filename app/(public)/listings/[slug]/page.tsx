@@ -28,6 +28,7 @@ import { ListingContactSidebar } from "@/components/listings/ListingContactSideb
 import { ListingStatusBadge } from "@/components/listings/ListingStatusBadge";
 import { CollectionDiscoveryPopup } from "@/components/listings/CollectionDiscoveryPopup";
 import { SuggestedListings } from "@/components/listings/SuggestedListings";
+import { BrowseModeBanner } from "@/components/listings/BrowseModeBanner";
 
 
 // Revalidate every 60 seconds so listing data stays fresh
@@ -378,6 +379,9 @@ export default async function ListingDetailPage({
 
       {/* View Count Incrementer */}
       <ViewCountIncrementerScript listingId={listing.id} />
+
+      {/* Browse-mode banner — only renders when ?addToCollection=X is present */}
+      <BrowseModeBanner listingId={listing.id} listingSlug={slug} />
 
       <div className="min-h-screen bg-background">
         {/* ================================================================

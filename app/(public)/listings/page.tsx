@@ -314,18 +314,46 @@ function ListingsPageContent() {
   const isBroker = userRole === "BROKER";
 
   // Add-to-collection mode: if ?addToCollection={id} is present, show a sticky
-  // banner so the user knows they're picking listings to add. After they're done,
-  // they click "Done" to return to the collection.
+  // banner so the user knows they're picking listings to add. Each card gets a
+  // top-left checkbox; selected listings show in a floating bottom bar with a
+  // "Add N to {collection}" button. Selection persists via sessionStorage so
+  // drilling into a listing detail page doesn't lose state.
   const addToCollectionId = searchParams.get("addToCollection");
   const [addToCollectionName, setAddToCollectionName] = useState<string | null>(
     null,
   );
-  const [addingListingIds, setAddingListingIds] = useState<Set<string>>(
-    new Set(),
-  );
   const [addedListingIds, setAddedListingIds] = useState<Set<string>>(
     new Set(),
   );
+  const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
+
+  // Hydrate selection from sessionStorage when in browse mode
+  useEffect(() => {
+    if (!addToCollectionId || typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem(
+        `browseMode:${addToCollectionId}:selected`,
+      );
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        setSelectedListingIds(new Set(arr));
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [addToCollectionId]);
+
+  // Persist selection to sessionStorage whenever it changes
+  useEffect(() => {
+    if (!addToCollectionId || typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      `browseMode:${addToCollectionId}:selected`,
+      JSON.stringify(Array.from(selectedListingIds)),
+    );
+  }, [addToCollectionId, selectedListingIds]);
 
   useEffect(() => {
     if (!addToCollectionId) {
@@ -337,6 +365,12 @@ function ListingsPageContent() {
       .then((json) => {
         if (json.success) {
           setAddToCollectionName(json.data.name);
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+              `browseMode:${addToCollectionId}:name`,
+              json.data.name,
+            );
+          }
           // Preload IDs of listings already in the collection so we can mark them.
           const existingIds = new Set<string>(
             (json.data.collectionListings || []).map(
@@ -351,35 +385,57 @@ function ListingsPageContent() {
       });
   }, [addToCollectionId]);
 
-  async function handleAddOneToCollection(listingId: string) {
-    if (!addToCollectionId || addingListingIds.has(listingId)) return;
-    setAddingListingIds((prev) => new Set(prev).add(listingId));
-    try {
-      const res = await fetch(
-        `/api/collections/${addToCollectionId}/listings`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingId }),
-        },
-      );
-      if (res.ok) {
-        setAddedListingIds((prev) => new Set(prev).add(listingId));
-        toast.success("Added to collection");
-      } else {
-        const json = await res.json().catch(() => ({}));
-        toast.error(json.error || "Failed to add");
-      }
-    } catch {
-      toast.error("Failed to add");
-    } finally {
-      setAddingListingIds((prev) => {
-        const next = new Set(prev);
+  function toggleListingSelection(listingId: string) {
+    setSelectedListingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(listingId)) {
         next.delete(listingId);
+      } else {
+        next.add(listingId);
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkAddToCollection() {
+    if (!addToCollectionId || selectedListingIds.size === 0) return;
+    setIsBulkAdding(true);
+    const ids = Array.from(selectedListingIds);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((listingId) =>
+          fetch(`/api/collections/${addToCollectionId}/listings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ listingId }),
+          }),
+        ),
+      );
+      const successCount = results.filter(
+        (r) => r.status === "fulfilled" && (r.value as Response).ok,
+      ).length;
+      toast.success(
+        `Added ${successCount} listing${successCount !== 1 ? "s" : ""} to ${addToCollectionName || "your collection"}`,
+      );
+      // Mark them as added and clear selection
+      setAddedListingIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
         return next;
       });
+      setSelectedListingIds(new Set());
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(
+          `browseMode:${addToCollectionId}:selected`,
+        );
+      }
+    } catch {
+      toast.error("Failed to add some listings");
+    } finally {
+      setIsBulkAdding(false);
     }
   }
+
 
   // -----------------------------------------------------------------------
   // State
@@ -656,6 +712,16 @@ function ListingsPageContent() {
     fetchListings();
   }, [fetchListings]);
 
+  // Persist the current order of listings for prev/next navigation in detail page
+  useEffect(() => {
+    if (!addToCollectionId || listings.length === 0 || typeof window === "undefined") return;
+    const order = listings.map((l) => ({ id: l.id, slug: l.slug }));
+    window.sessionStorage.setItem(
+      `browseMode:${addToCollectionId}:order`,
+      JSON.stringify(order),
+    );
+  }, [addToCollectionId, listings]);
+
   // -----------------------------------------------------------------------
   // Handlers
   // -----------------------------------------------------------------------
@@ -801,49 +867,53 @@ function ListingsPageContent() {
               : "sm:grid-cols-2 xl:grid-cols-3"
           }`}
         >
-          {listings.map((listing) => (
-            <div key={listing.id} className="relative">
-              <ListingCard
-                listing={listing}
-                selectable={selectMode}
-                isSelected={selectedIds.has(listing.id)}
-                onSelectToggle={handleSelectToggle}
-              />
-              {addToCollectionId && (
-                <div className="absolute bottom-3 right-3 z-10">
-                  {addedListingIds.has(listing.id) ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled
-                      className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-                    >
-                      <Check className="mr-1 h-3.5 w-3.5" />
-                      Added
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleAddOneToCollection(listing.id);
-                      }}
-                      disabled={addingListingIds.has(listing.id)}
-                      className="bg-teal-600 hover:bg-teal-700 shadow-md"
-                    >
-                      {addingListingIds.has(listing.id) ? (
-                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Plus className="mr-1 h-3.5 w-3.5" />
-                      )}
-                      Add
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+          {listings.map((listing) => {
+            const isSelected = selectedListingIds.has(listing.id);
+            const isAlreadyInCollection = addedListingIds.has(listing.id);
+            return (
+              <div key={listing.id} className="relative">
+                <ListingCard
+                  listing={listing}
+                  selectable={selectMode}
+                  isSelected={selectedIds.has(listing.id)}
+                  onSelectToggle={handleSelectToggle}
+                  hrefSearch={
+                    addToCollectionId
+                      ? `addToCollection=${addToCollectionId}`
+                      : undefined
+                  }
+                />
+                {addToCollectionId && (
+                  <button
+                    type="button"
+                    aria-label={isSelected ? "Unselect listing" : "Select listing"}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (isAlreadyInCollection) return;
+                      toggleListingSelection(listing.id);
+                    }}
+                    disabled={isAlreadyInCollection}
+                    className={cn(
+                      "absolute top-3 left-3 z-10 flex h-7 w-7 items-center justify-center rounded-md border-2 shadow-md transition-all",
+                      isAlreadyInCollection
+                        ? "border-emerald-500 bg-emerald-500 text-white cursor-default"
+                        : isSelected
+                          ? "border-teal-600 bg-teal-600 text-white scale-110"
+                          : "border-white bg-white/90 hover:bg-white hover:border-teal-600",
+                    )}
+                    title={
+                      isAlreadyInCollection ? "Already in collection" : undefined
+                    }
+                  >
+                    {(isSelected || isAlreadyInCollection) && (
+                      <Check className="size-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Pagination */}
@@ -926,13 +996,11 @@ function ListingsPageContent() {
             <div className="min-w-0 flex items-center gap-2">
               <FolderOpen className="h-4 w-4 shrink-0" />
               <p className="text-sm truncate">
-                Adding listings to{" "}
+                Adding to{" "}
                 <span className="font-semibold">
                   {addToCollectionName || "your collection"}
                 </span>
-                . Tap{" "}
-                <span className="rounded bg-white/15 px-1 text-xs">Add</span>{" "}
-                on any listing.
+                . Tap the checkbox on any listing to select.
               </p>
             </div>
             <Button
@@ -942,6 +1010,43 @@ function ListingsPageContent() {
               onClick={() => router.push(`/collections/${addToCollectionId}`)}
             >
               Done
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating bottom action bar — appears when user has selected listings */}
+      {addToCollectionId && selectedListingIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 rounded-full border bg-background shadow-xl px-4 py-2.5">
+            <span className="text-sm font-medium">
+              {selectedListingIds.size} selected
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedListingIds(new Set())}
+              className="h-7 text-xs"
+            >
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleBulkAddToCollection}
+              disabled={isBulkAdding}
+              className="bg-teal-600 hover:bg-teal-700"
+            >
+              {isBulkAdding ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add to {addToCollectionName || "collection"}
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -1168,7 +1273,14 @@ function ListingsPageContent() {
                     latitude: Number(l.latitude),
                     longitude: Number(l.longitude),
                     askingPrice: Number(l.askingPrice),
+                    neighborhood: l.neighborhood,
+                    category: l.category,
+                    photoUrl: l.photos?.[0]?.url || null,
                   }))}
+                addToCollectionId={addToCollectionId || undefined}
+                alreadyInCollection={addedListingIds}
+                selectedIds={selectedListingIds}
+                onToggleSelection={toggleListingSelection}
               />
             </div>
           )}
@@ -1204,7 +1316,14 @@ function ListingsPageContent() {
                         latitude: Number(l.latitude),
                         longitude: Number(l.longitude),
                         askingPrice: Number(l.askingPrice),
+                        neighborhood: l.neighborhood,
+                        category: l.category,
+                        photoUrl: l.photos?.[0]?.url || null,
                       }))}
+                    addToCollectionId={addToCollectionId || undefined}
+                    alreadyInCollection={addedListingIds}
+                    selectedIds={selectedListingIds}
+                    onToggleSelection={toggleListingSelection}
                   />
                 </div>
               </div>

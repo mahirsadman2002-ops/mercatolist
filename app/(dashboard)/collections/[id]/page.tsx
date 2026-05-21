@@ -290,13 +290,8 @@ export default function CollectionDetailPage() {
 
   // Dialogs
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [emailOpen, setEmailOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
-
-  // Email
-  const [emailMessage, setEmailMessage] = useState("");
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Sharing
   const [isPubliclyShared, setIsPubliclyShared] = useState(false);
@@ -664,35 +659,6 @@ export default function CollectionDetailPage() {
       );
     } catch {
       toast.error("Failed to rate listing");
-    }
-  };
-
-  // -----------------------------------------------------------------------
-  // Email to client
-  // -----------------------------------------------------------------------
-  const handleEmailClient = async () => {
-    setIsSendingEmail(true);
-    try {
-      const res = await fetch(`/api/collections/${id}/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          personalMessage: emailMessage.trim() || undefined,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to send email");
-      }
-      toast.success(`Collection emailed to ${collection?.client?.name}!`);
-      setEmailOpen(false);
-      setEmailMessage("");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to send email"
-      );
-    } finally {
-      setIsSendingEmail(false);
     }
   };
 
@@ -1556,55 +1522,9 @@ export default function CollectionDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Email Dialog */}
-      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Email Collection to Client</DialogTitle>
-            <DialogDescription>
-              Send &quot;{collection.name}&quot; to{" "}
-              {collection.client?.name} ({collection.client?.email})
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="rounded-md bg-muted p-3">
-              <p className="text-xs text-muted-foreground mb-1">
-                Preview: {collection.collectionListings.length} listings
-                will be included
-              </p>
-              <div className="flex gap-1 flex-wrap">
-                {collection.collectionListings.slice(0, 5).map((cl) => (
-                  <Badge key={cl.id} variant="secondary" className="text-[10px]">
-                    {cl.listing.title}
-                  </Badge>
-                ))}
-                {collection.collectionListings.length > 5 && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    +{collection.collectionListings.length - 5} more
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <Textarea
-              value={emailMessage}
-              onChange={(e) => setEmailMessage(e.target.value)}
-              placeholder="Add a personal message (optional)..."
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEmailClient} disabled={isSendingEmail}>
-              {isSendingEmail && (
-                <Loader2 className="size-4 animate-spin" />
-              )}
-              Send Email
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Email-Client dialog removed — the Share dialog (with multi-client
+          assignment) handles this flow; emails are sent automatically when a
+          client is assigned and is/isn't on the platform yet. */}
 
       {/* Share Dialog */}
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>

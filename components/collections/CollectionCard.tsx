@@ -7,7 +7,6 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Mail,
   Share2,
   User,
   Users,
@@ -44,7 +43,6 @@ interface CollectionCardProps {
   };
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onEmail?: (id: string) => void;
   onShare?: (id: string) => void;
 }
 
@@ -52,7 +50,6 @@ export function CollectionCard({
   collection,
   onEdit,
   onDelete,
-  onEmail,
   onShare,
 }: CollectionCardProps) {
   const photos = (collection.previewPhotos || []).slice(0, 4).map((p) => p.url);
@@ -127,12 +124,6 @@ export function CollectionCard({
                   <DropdownMenuItem onClick={() => onShare(collection.id)}>
                     <Share2 className="size-3.5" />
                     Share
-                  </DropdownMenuItem>
-                )}
-                {onEmail && collection.clientEmail && (
-                  <DropdownMenuItem onClick={() => onEmail(collection.id)}>
-                    <Mail className="size-3.5" />
-                    Email to Client
                   </DropdownMenuItem>
                 )}
                 {onDelete && (

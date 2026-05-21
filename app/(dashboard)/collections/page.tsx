@@ -191,23 +191,6 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleEmail = async (id: string) => {
-    try {
-      const res = await fetch(`/api/collections/${id}/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to send email");
-      }
-      toast.success("Collection emailed to client!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to send email");
-    }
-  };
-
   const handleShare = async (id: string) => {
     try {
       const col = collections.find((c) => c.id === id);
@@ -339,7 +322,6 @@ export default function CollectionsPage() {
                   }}
                   onEdit={(id) => router.push(`/collections/${id}`)}
                   onDelete={setDeleteId}
-                  onEmail={handleEmail}
                   onShare={handleShare}
                 />
               ))}

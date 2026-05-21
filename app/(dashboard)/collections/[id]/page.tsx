@@ -488,6 +488,26 @@ export default function CollectionDetailPage() {
     return;
   };
 
+  // Revoke a collaborator's access (owner only — server enforces).
+  const handleRemoveCollaborator = async (userId: string) => {
+    try {
+      const res = await fetch(
+        `/api/collections/${id}/collaborators/${userId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "Failed to revoke access");
+      }
+      toast.success("Access revoked");
+      await fetchCollection();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to revoke access",
+      );
+    }
+  };
+
   // Inline create + assign client from inside the Share dialog.
   // Creates the client via /api/clients (which auto-sends the appropriate
   // invite/heads-up email) and then assigns to this collection.
@@ -1745,43 +1765,96 @@ export default function CollectionDetailPage() {
               </div>
             )}
 
-            {/* Invite collaborator */}
-            <div className="border-t pt-4 space-y-3">
-              <Label className="text-sm font-medium">
-                {isBroker ? "Invite Collaborators" : "Invite Collaborator"}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Email address"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1"
-                />
-                <Select
-                  value={inviteRole}
-                  onValueChange={setInviteRole}
-                >
-                  <SelectTrigger className="w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                    <SelectItem value="editor">Editor</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  onClick={handleInvite}
-                  disabled={!inviteEmail.trim() || isInviting}
-                >
-                  {isInviting ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <UserPlus className="size-3.5" />
-                  )}
-                </Button>
+            {/* Invite collaborator (non-brokers only).
+                Brokers share via clients + public link; anyone they want to
+                share with outside their client list just gets the public link
+                and signs up to request collaboration. */}
+            {!isBroker && (
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-sm font-medium">
+                  Invite Collaborator
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Email address"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Select
+                    value={inviteRole}
+                    onValueChange={setInviteRole}
+                  >
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={handleInvite}
+                    disabled={!inviteEmail.trim() || isInviting}
+                  >
+                    {isInviting ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <UserPlus className="size-3.5" />
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Also shared with — existing collaborators with revoke buttons.
+                Useful for both brokers (people who joined via the public link
+                + access request) and non-brokers (people they directly invited). */}
+            {collection.collaborators.length > 0 && (
+              <div className="border-t pt-4 space-y-2">
+                <Label className="text-sm font-medium">
+                  {isBroker ? "Also shared with" : "Shared with"}
+                </Label>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {collection.collaborators.map((collab) => (
+                    <div
+                      key={collab.id}
+                      className="flex items-center gap-2 rounded-md border p-2"
+                    >
+                      <Avatar size="sm" className="h-7 w-7">
+                        {collab.user.avatarUrl && (
+                          <AvatarImage src={collab.user.avatarUrl} />
+                        )}
+                        <AvatarFallback className="text-[10px]">
+                          {initials(
+                            collab.user.displayName || collab.user.name,
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">
+                          {collab.user.displayName || collab.user.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {collab.user.email}{" "}
+                          <span className="capitalize">· {collab.role}</span>
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                        title="Revoke access"
+                        onClick={() => handleRemoveCollaborator(collab.user.id)}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -45,53 +45,58 @@ export async function GET() {
         }),
       ]);
 
-    const perCollection: Record<
-      string,
-      { unreadNotes: number; pendingRequests: number }
-    > = {};
+    type Stat = {
+      unreadNotes: number;
+      newListings: number;
+      pendingRequests: number;
+    };
+    const perCollection: Record<string, Stat> = {};
 
-    // Count unread notes for owned collections
-    await Promise.all(
-      ownedCollections.map(async (c) => {
-        const count = await prisma.collectionNote.count({
+    // Both unread notes AND new listings share the same "last viewed at"
+    // timestamp — opening the collection page clears both. We track them
+    // separately in the counts so the UI can show distinct badges.
+    async function pull(
+      collectionId: string,
+      lastViewedAt: Date | null,
+    ): Promise<void> {
+      const [notes, listings] = await Promise.all([
+        prisma.collectionNote.count({
           where: {
-            collectionId: c.id,
+            collectionId,
             userId: { not: userId },
-            ...(c.ownerLastNotesReadAt
-              ? { createdAt: { gt: c.ownerLastNotesReadAt } }
-              : {}),
+            ...(lastViewedAt ? { createdAt: { gt: lastViewedAt } } : {}),
           },
-        });
-        perCollection[c.id] = {
-          unreadNotes: count,
-          pendingRequests: 0,
-        };
-      }),
-    );
+        }),
+        prisma.collectionListing.count({
+          where: {
+            collectionId,
+            addedBy: { not: userId },
+            ...(lastViewedAt ? { addedAt: { gt: lastViewedAt } } : {}),
+          },
+        }),
+      ]);
+      perCollection[collectionId] = {
+        unreadNotes: notes,
+        newListings: listings,
+        pendingRequests: 0,
+      };
+    }
 
-    // Count unread notes for collaborated collections
-    await Promise.all(
-      collaborations.map(async (c) => {
-        const count = await prisma.collectionNote.count({
-          where: {
-            collectionId: c.collectionId,
-            userId: { not: userId },
-            ...(c.lastNotesReadAt
-              ? { createdAt: { gt: c.lastNotesReadAt } }
-              : {}),
-          },
-        });
-        perCollection[c.collectionId] = {
-          unreadNotes: count,
-          pendingRequests: 0,
-        };
-      }),
-    );
+    await Promise.all([
+      ...ownedCollections.map((c) => pull(c.id, c.ownerLastNotesReadAt)),
+      ...collaborations.map((c) =>
+        pull(c.collectionId, c.lastNotesReadAt),
+      ),
+    ]);
 
     // Add pending request counts to per-collection totals
     for (const req of pendingRequestRows) {
       if (!perCollection[req.collectionId]) {
-        perCollection[req.collectionId] = { unreadNotes: 0, pendingRequests: 0 };
+        perCollection[req.collectionId] = {
+          unreadNotes: 0,
+          newListings: 0,
+          pendingRequests: 0,
+        };
       }
       perCollection[req.collectionId].pendingRequests += 1;
     }
@@ -100,12 +105,17 @@ export async function GET() {
       (sum, c) => sum + c.unreadNotes,
       0,
     );
+    const newListings = Object.values(perCollection).reduce(
+      (sum, c) => sum + c.newListings,
+      0,
+    );
     const pendingRequests = pendingRequestRows.length;
 
     return NextResponse.json({
       success: true,
       data: {
         unreadNotes,
+        newListings,
         pendingRequests,
         perCollection,
       },

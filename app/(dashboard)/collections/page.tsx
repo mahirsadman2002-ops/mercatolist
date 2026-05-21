@@ -8,6 +8,7 @@ import {
   Loader2,
   Search,
   UserCheck,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -64,7 +65,10 @@ export default function CollectionsPage() {
   const router = useRouter();
   const [collections, setCollections] = useState<CollectionData[]>([]);
   const [stats, setStats] = useState<
-    Record<string, { unreadNotes: number; pendingRequests: number }>
+    Record<
+      string,
+      { unreadNotes: number; newListings: number; pendingRequests: number }
+    >
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -73,18 +77,60 @@ export default function CollectionsPage() {
   const [newDesc, setNewDesc] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
+  interface LockedCollection {
+    id: string;
+    name: string;
+    description: string | null;
+    ownerName: string;
+    listingCount: number;
+    isPubliclyShared: boolean;
+    shareToken: string | null;
+    status: "PENDING" | "DENIED" | "APPROVED" | "WITHDRAWN";
+    lastRequestedAt: string;
+  }
+  const [lockedCollections, setLockedCollections] = useState<
+    LockedCollection[]
+  >([]);
+  const [reRequestingId, setReRequestingId] = useState<string | null>(null);
+
   const fetchCollections = useCallback(async () => {
     try {
       const res = await fetch("/api/collections");
       if (!res.ok) throw new Error();
       const json = await res.json();
-      if (json.success) setCollections(json.data);
+      if (json.success) {
+        setCollections(json.data);
+        if (Array.isArray(json.lockedCollections)) {
+          setLockedCollections(json.lockedCollections);
+        }
+      }
     } catch {
       toast.error("Failed to load collections");
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  async function handleReRequest(collectionId: string) {
+    setReRequestingId(collectionId);
+    try {
+      const res = await fetch(
+        `/api/collections/${collectionId}/access-requests`,
+        { method: "POST" },
+      );
+      const json = await res.json();
+      if (res.ok) {
+        toast.success("Request sent. We'll let you know when the owner responds.");
+        fetchCollections();
+      } else {
+        toast.error(json.error || "Couldn't send request");
+      }
+    } catch {
+      toast.error("Couldn't send request");
+    } finally {
+      setReRequestingId(null);
+    }
+  }
 
   const fetchStats = useCallback(async () => {
     try {
@@ -288,6 +334,7 @@ export default function CollectionsPage() {
                     isPubliclyShared: col.isPubliclyShared,
                     createdAt: col.createdAt,
                     unreadNotes: stats[col.id]?.unreadNotes || 0,
+                    newListings: stats[col.id]?.newListings || 0,
                     pendingRequests: stats[col.id]?.pendingRequests || 0,
                   }}
                   onEdit={(id) => router.push(`/collections/${id}`)}
@@ -339,6 +386,102 @@ export default function CollectionsPage() {
                     />
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Locked collections — access requested but not yet granted */}
+          {lockedCollections.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Lock className="size-5 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Awaiting Access</h2>
+                <Badge variant="secondary" className="text-xs">
+                  {lockedCollections.length}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {lockedCollections.map((col) => {
+                  const lastReq = new Date(col.lastRequestedAt);
+                  const hoursSince = Math.floor(
+                    (Date.now() - lastReq.getTime()) / (60 * 60 * 1000),
+                  );
+                  const canRetry = hoursSince >= 24;
+                  const hoursUntil = canRetry ? 0 : 24 - hoursSince;
+                  return (
+                    <div
+                      key={col.id}
+                      className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 p-5 space-y-3 dark:border-amber-900 dark:bg-amber-950/20"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <Lock className="size-3.5 text-amber-700 shrink-0" />
+                            <h3 className="text-sm font-semibold truncate">
+                              {col.name}
+                            </h3>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Owned by {col.ownerName}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] shrink-0 bg-white dark:bg-background"
+                        >
+                          {col.status === "PENDING"
+                            ? "Awaiting"
+                            : col.status === "DENIED"
+                              ? "Denied"
+                              : col.status}
+                        </Badge>
+                      </div>
+                      {col.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {col.description}
+                        </p>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {col.status === "PENDING"
+                          ? `Your request is with the owner. Try checking in with ${col.ownerName} directly.`
+                          : `Your last request was denied. Reach out to ${col.ownerName} before requesting again.`}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleReRequest(col.id)}
+                          disabled={!canRetry || reRequestingId === col.id}
+                        >
+                          {reRequestingId === col.id ? (
+                            <>
+                              <Loader2 className="mr-1.5 size-3 animate-spin" />
+                              Sending...
+                            </>
+                          ) : canRetry ? (
+                            "Request again"
+                          ) : (
+                            `Try again in ${hoursUntil}h`
+                          )}
+                        </Button>
+                        {col.isPubliclyShared && col.shareToken && (
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                          >
+                            <a
+                              href={`/collections/shared/${col.shareToken}`}
+                            >
+                              View public preview
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

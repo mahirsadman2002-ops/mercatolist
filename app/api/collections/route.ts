@@ -152,7 +152,50 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, data });
+    // Fetch this user's pending/denied access requests so the UI can show
+    // locked-collection cards for collections they don't yet have access to.
+    const accessRequests = await prisma.collectionAccessRequest.findMany({
+      where: {
+        userId,
+        status: { in: ["PENDING", "DENIED"] },
+      },
+      include: {
+        collection: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            shareToken: true,
+            isPubliclyShared: true,
+            user: {
+              select: { id: true, name: true, displayName: true },
+            },
+            _count: {
+              select: {
+                collectionListings: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { lastRequestedAt: "desc" },
+    });
+
+    const lockedCollections = accessRequests.map((req) => ({
+      id: req.collection.id,
+      name: req.collection.name,
+      description: req.collection.description,
+      ownerName:
+        req.collection.user.displayName || req.collection.user.name,
+      ownerId: req.collection.user.id,
+      listingCount: req.collection._count.collectionListings,
+      isPubliclyShared: req.collection.isPubliclyShared,
+      shareToken: req.collection.shareToken,
+      status: req.status,
+      lastRequestedAt: req.lastRequestedAt.toISOString(),
+    }));
+
+    return NextResponse.json({ success: true, data, lockedCollections });
   } catch (error) {
     console.error("Error fetching collections:", error);
     return NextResponse.json(

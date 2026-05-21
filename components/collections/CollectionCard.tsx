@@ -12,6 +12,7 @@ import {
   User,
   Users,
   Globe,
+  StickyNote,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +38,8 @@ interface CollectionCardProps {
     isPubliclyShared?: boolean;
     createdAt: string;
     unreadNotes?: number;
+    /** Listings added by another participant since the user last viewed. */
+    newListings?: number;
     pendingRequests?: number;
   };
   onEdit?: (id: string) => void;
@@ -152,24 +155,35 @@ export function CollectionCard({
               {collection.name}
             </h3>
             <div className="flex items-center gap-1.5 shrink-0">
-              {(collection.unreadNotes ?? 0) > 0 && (
+              {(collection.newListings ?? 0) > 0 && (
                 <Badge
                   variant="destructive"
                   className="text-[10px] px-1.5 h-5 min-w-[20px] justify-center"
-                  title={`${collection.unreadNotes} unread notes`}
+                  title={`${collection.newListings} new ${collection.newListings === 1 ? "listing" : "listings"} added`}
                 >
+                  {(collection.newListings ?? 0) > 99
+                    ? "99+"
+                    : collection.newListings}{" "}
+                  new
+                </Badge>
+              )}
+              {(collection.unreadNotes ?? 0) > 0 && (
+                <Badge
+                  className="flex items-center gap-0.5 text-[10px] px-1.5 h-5 min-w-[20px] justify-center bg-amber-400 text-amber-950 hover:bg-amber-500 border-0"
+                  title={`${collection.unreadNotes} unread ${collection.unreadNotes === 1 ? "note" : "notes"}`}
+                >
+                  <StickyNote className="size-2.5" />
                   {(collection.unreadNotes ?? 0) > 99
                     ? "99+"
-                    : collection.unreadNotes}{" "}
-                  new
+                    : collection.unreadNotes}
                 </Badge>
               )}
               {(collection.pendingRequests ?? 0) > 0 && (
                 <Badge
-                  className="text-[10px] px-1.5 h-5 min-w-[20px] justify-center bg-amber-500 hover:bg-amber-600"
+                  className="text-[10px] px-1.5 h-5 min-w-[20px] justify-center bg-orange-500 hover:bg-orange-600"
                   title={`${collection.pendingRequests} pending access requests`}
                 >
-                  {collection.pendingRequests} request
+                  {collection.pendingRequests} req
                   {collection.pendingRequests !== 1 ? "s" : ""}
                 </Badge>
               )}

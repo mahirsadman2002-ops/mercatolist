@@ -1125,16 +1125,10 @@ export default function CollectionDetailPage() {
             <GitCompare className="size-3.5" />
             {compareMode ? "Cancel Compare" : "Compare"}
           </Button>
-          {!isAssignedClient && collection.client?.email && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEmailOpen(true)}
-            >
-              <Mail className="size-3.5" />
-              Email to Client
-            </Button>
-          )}
+          {/* "Email to Client" removed — the Share dialog covers this flow via the
+              collaborator invite + client assignment paths. Sharing a collection
+              with a client triggers an email automatically when they don't yet
+              have an account. */}
           {!isAssignedClient && (
             <Button
               variant="outline"
@@ -1206,6 +1200,90 @@ export default function CollectionDetailPage() {
         </Select>
       </div>
 
+      {/* Participants strip — clients (broker view) + collaborators with a single
+          Manage button that opens the existing share dialog. Moved here from the
+          right sidebar so it lives at the top of the page where it belongs. */}
+      {!isAssignedClient && (
+        <Card>
+          <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* Clients (broker only) */}
+            {isBroker && (
+              <div className="flex items-center gap-2 min-w-0">
+                <Briefcase className="size-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Clients
+                </span>
+                {collection.client ? (
+                  <div className="flex items-center gap-1.5">
+                    <Avatar size="sm">
+                      <AvatarFallback className="text-[10px]">
+                        {initials(collection.client.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs truncate max-w-[140px]">
+                      {collection.client.name}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">
+                    None assigned
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Collaborators (everyone) */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="size-4 text-muted-foreground shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Collaborators
+              </span>
+              {collection.collaborators.length === 0 ? (
+                <span className="text-xs text-muted-foreground italic">
+                  Just you
+                </span>
+              ) : (
+                <div className="flex items-center -space-x-2">
+                  {collection.collaborators.slice(0, 5).map((collab) => (
+                    <Avatar
+                      key={collab.id}
+                      size="sm"
+                      className="ring-2 ring-background"
+                    >
+                      {collab.user.avatarUrl && (
+                        <AvatarImage src={collab.user.avatarUrl} />
+                      )}
+                      <AvatarFallback className="text-[10px]">
+                        {initials(
+                          collab.user.displayName || collab.user.name,
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {collection.collaborators.length > 5 && (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                      +{collection.collaborators.length - 5}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Manage button — opens the existing share dialog where the user can
+                assign/unassign clients and invite/remove collaborators. */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={() => setShareOpen(true)}
+            >
+              <UserPlus className="mr-1.5 size-3.5" />
+              Manage
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main content: listings + sidebar */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Listings Grid */}
@@ -1256,199 +1334,13 @@ export default function CollectionDetailPage() {
           )}
         </div>
 
-        {/* Right sidebar: Notes + Collaborators + Client */}
+        {/* Right sidebar: Notes only.
+            Client and Collaborator cards moved to the participants strip at
+            the top of the page. */}
         <div className="w-full lg:w-80 shrink-0 space-y-6">
-          {/* Client info */}
-          {collection.client && (
-            <Card>
-              <CardContent className="p-4 space-y-2">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <User className="size-3.5" />
-                  Client
-                </h3>
-                <div className="text-sm space-y-1">
-                  <p className="font-medium">{collection.client.name}</p>
-                  {collection.client.email && (
-                    <p className="text-muted-foreground text-xs">
-                      {collection.client.email}
-                    </p>
-                  )}
-                  {collection.client.phone && (
-                    <p className="text-muted-foreground text-xs flex items-center gap-1">
-                      <Phone className="size-3" />
-                      {collection.client.phone}
-                    </p>
-                  )}
-                </div>
-                {/* Client interest responses */}
-                {collection.collectionListings.some(
-                  (cl) => cl.clientInterested != null
-                ) && (
-                  <div className="border-t pt-2 mt-2 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Interest Responses
-                    </p>
-                    {collection.collectionListings
-                      .filter((cl) => cl.clientInterested != null)
-                      .map((cl) => (
-                        <div
-                          key={cl.id}
-                          className="flex items-center gap-2 text-xs"
-                        >
-                          {cl.clientInterested ? (
-                            <ThumbsUp className="size-3 text-emerald-500" />
-                          ) : (
-                            <ThumbsDown className="size-3 text-red-500" />
-                          )}
-                          <span className="truncate">
-                            {cl.listing.title}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Shared with Clients (broker view) */}
-          {!isAssignedClient && isBroker && (
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Briefcase className="size-3.5" />
-                  Shared with Clients
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setShareOpen(true)}
-                >
-                  <UserPlus className="size-3" />
-                  Assign
-                </Button>
-              </div>
-              {collection.client ? (
-                <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-2.5">
-                  <Avatar size="sm">
-                    <AvatarFallback>
-                      {initials(collection.client.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">
-                      {collection.client.name}
-                    </p>
-                    {collection.client.email && (
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {collection.client.email}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="text-[10px] shrink-0">
-                    Assigned
-                  </Badge>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  No client assigned yet. Click &quot;Assign&quot; to share this collection with a client.
-                </p>
-              )}
-              {/* Also show collaborators if any */}
-              {collection.collaborators.length > 0 && (
-                <div className="border-t pt-3 space-y-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Collaborators
-                  </p>
-                  {collection.collaborators.map((collab) => (
-                    <div
-                      key={collab.id}
-                      className="flex items-center gap-2"
-                    >
-                      <Avatar size="sm">
-                        {collab.user.avatarUrl && (
-                          <AvatarImage src={collab.user.avatarUrl} />
-                        )}
-                        <AvatarFallback>
-                          {initials(
-                            collab.user.displayName || collab.user.name
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {collab.user.displayName || collab.user.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground capitalize">
-                          {collab.role}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          )}
-
-          {/* Collaborators for regular users (non-broker) */}
-          {!isAssignedClient && !isBroker && (
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Users className="size-3.5" />
-                  Collaborators
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setShareOpen(true)}
-                >
-                  <UserPlus className="size-3" />
-                  Invite
-                </Button>
-              </div>
-              {collection.collaborators.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No collaborators yet
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {collection.collaborators.map((collab) => (
-                    <div
-                      key={collab.id}
-                      className="flex items-center gap-2"
-                    >
-                      <Avatar size="sm">
-                        {collab.user.avatarUrl && (
-                          <AvatarImage src={collab.user.avatarUrl} />
-                        )}
-                        <AvatarFallback>
-                          {initials(
-                            collab.user.displayName || collab.user.name
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {collab.user.displayName || collab.user.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground capitalize">
-                          {collab.role}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          )}
-
+          {/* Client info, Shared-with-Clients, and Collaborators cards
+              are now in the participants strip at the top of the page.
+              Notes section below is the only remaining sidebar content. */}
           {/* Notes */}
           <Card>
             <CardContent className="p-4 space-y-3">

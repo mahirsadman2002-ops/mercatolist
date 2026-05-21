@@ -126,7 +126,10 @@ export function Header() {
           <Link href="/listings" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
             Browse Businesses
           </Link>
-          <Link href="/my-listings/new" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+          <Link
+            href={user ? "/my-listings/new" : "/list-your-business"}
+            className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+          >
             {isBroker ? "List a Business" : "Sell Your Business"}
           </Link>
           <Link href="/advisors" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
@@ -405,7 +408,7 @@ export function Header() {
                   onClick={() => setMobileOpen(false)}
                 />
                 <MobileNavLink
-                  href="/my-listings/new"
+                  href={user ? "/my-listings/new" : "/list-your-business"}
                   icon={PlusCircle}
                   label={isBroker ? "List a Business" : "Sell Your Business"}
                   onClick={() => setMobileOpen(false)}

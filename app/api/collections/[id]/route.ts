@@ -22,6 +22,18 @@ export async function GET(
       where: { id },
       include: {
         client: true,
+        clientAssignments: {
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
         collectionListings: {
           orderBy: { addedAt: "desc" },
           include: {
@@ -146,6 +158,7 @@ export async function GET(
         isPubliclyShared: collection.isPubliclyShared,
         userId: collection.userId,
         client: collection.client,
+        assignedClients: collection.clientAssignments.map((a) => a.client),
         listingCount: collection.collectionListings.length,
         collectionListings: collection.collectionListings.map((cl) => ({
           id: cl.id,

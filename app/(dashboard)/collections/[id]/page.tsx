@@ -167,6 +167,7 @@ interface CollectionDetail {
   isPubliclyShared: boolean;
   userId: string;
   client?: ClientInfo | null;
+  assignedClients?: ClientInfo[];
   listingCount: number;
   collectionListings: CollectionListing[];
   collaborators: CollectionCollaborator[];
@@ -274,6 +275,11 @@ export default function CollectionDetailPage() {
   const [brokerClients, setBrokerClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [isAssigningClient, setIsAssigningClient] = useState(false);
+  // Inline "Add new client" mini-form state inside the share dialog
+  const [showAddClientInline, setShowAddClientInline] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
 
   // Inline editing
   const [editingName, setEditingName] = useState(false);
@@ -448,33 +454,95 @@ export default function CollectionDetailPage() {
     }
   }, [collection?.client?.id]);
 
-  // Handle assigning a client to this collection (broker only)
-  const handleAssignClient = async (clientId: string | null) => {
+  // Handle assigning/unassigning a client to this collection (broker only).
+  // Uses the new CollectionClient join endpoints which auto-link matching
+  // user accounts as editor collaborators and email signup invites otherwise.
+  const handleToggleClientAssignment = async (
+    clientId: string,
+    currentlyAssigned: boolean,
+  ) => {
     setIsAssigningClient(true);
     try {
-      const res = await fetch(`/api/collections/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: clientId || null }),
-      });
-      if (!res.ok) throw new Error();
+      const res = await fetch(
+        `/api/collections/${id}/clients/${clientId}`,
+        {
+          method: currentlyAssigned ? "DELETE" : "POST",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
       const json = await res.json();
-      setSelectedClientId(clientId);
-      setCollection((prev) =>
-        prev
-          ? {
-              ...prev,
-              client: json.data.client || null,
-            }
-          : prev
+      if (!res.ok) {
+        throw new Error(json.error || "Failed");
+      }
+      // Refresh collection to pull updated assignedClients list.
+      await fetchCollection();
+      if (currentlyAssigned) {
+        toast.success("Client unassigned");
+      } else {
+        toast.success(json.data?.message || "Client assigned");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to assign client",
       );
-      toast.success(
-        clientId ? "Client assigned to collection" : "Client unassigned"
-      );
-    } catch {
-      toast.error("Failed to assign client");
     } finally {
       setIsAssigningClient(false);
+    }
+
+    // Legacy: kept as a no-op for the trailing brace below
+    return;
+  };
+
+  // Inline create + assign client from inside the Share dialog.
+  // Creates the client via /api/clients (which auto-sends the appropriate
+  // invite/heads-up email) and then assigns to this collection.
+  const handleCreateAndAssignClient = async () => {
+    const name = newClientName.trim();
+    const email = newClientEmail.trim().toLowerCase();
+    if (!name || !email) return;
+    setIsCreatingClient(true);
+    try {
+      const createRes = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email }),
+      });
+      const createJson = await createRes.json();
+      if (!createRes.ok) {
+        throw new Error(createJson.error || "Couldn't create client");
+      }
+      const newClient = createJson.data;
+      // Re-fetch broker clients so the picker shows them.
+      try {
+        const listRes = await fetch("/api/clients");
+        if (listRes.ok) {
+          const listJson = await listRes.json();
+          if (listJson.success) {
+            setBrokerClients(
+              listJson.data.map(
+                (c: { id: string; name: string; email?: string | null }) => ({
+                  id: c.id,
+                  name: c.name,
+                  email: c.email,
+                }),
+              ),
+            );
+          }
+        }
+      } catch {
+        // Silent; the next render will fetch as needed.
+      }
+      // Assign immediately.
+      await handleToggleClientAssignment(newClient.id, false);
+      setShowAddClientInline(false);
+      setNewClientName("");
+      setNewClientEmail("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't create client",
+      );
+    } finally {
+      setIsCreatingClient(false);
     }
   };
 
@@ -1206,29 +1274,63 @@ export default function CollectionDetailPage() {
       {!isAssignedClient && (
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {/* Clients (broker only) */}
+            {/* Clients (broker only) — multi-client display */}
             {isBroker && (
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                 <Briefcase className="size-4 text-muted-foreground shrink-0" />
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Clients
                 </span>
-                {collection.client ? (
-                  <div className="flex items-center gap-1.5">
-                    <Avatar size="sm">
-                      <AvatarFallback className="text-[10px]">
-                        {initials(collection.client.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs truncate max-w-[140px]">
-                      {collection.client.name}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground italic">
-                    None assigned
-                  </span>
-                )}
+                {(() => {
+                  const assigned = collection.assignedClients || [];
+                  // Legacy single-client field fallback
+                  if (assigned.length === 0 && collection.client) {
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <Avatar size="sm">
+                          <AvatarFallback className="text-[10px]">
+                            {initials(collection.client.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs truncate max-w-[140px]">
+                          {collection.client.name}
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (assigned.length === 0) {
+                    return (
+                      <span className="text-xs text-muted-foreground italic">
+                        None assigned
+                      </span>
+                    );
+                  }
+                  return (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {assigned.slice(0, 4).map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                          title={c.email || c.name}
+                        >
+                          <Avatar size="sm" className="h-5 w-5">
+                            <AvatarFallback className="text-[9px]">
+                              {initials(c.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs truncate max-w-[100px]">
+                            {c.name}
+                          </span>
+                        </div>
+                      ))}
+                      {assigned.length > 4 && (
+                        <span className="text-xs text-muted-foreground">
+                          +{assigned.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -1554,62 +1656,172 @@ export default function CollectionDetailPage() {
               </div>
             )}
 
-            {/* Assign to Client (Broker only) */}
+            {/* Assign to Clients (Broker only) — multi-select */}
             {isBroker && (
               <div className="border-t pt-4 space-y-3">
                 <Label className="text-sm font-medium flex items-center gap-1.5">
                   <Briefcase className="size-3.5" />
-                  Assign to Client
+                  Assign to Clients
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  The assigned client will see this collection on their dashboard if they have a MercatoList account.
+                  Each assigned client sees this collection on their MercatoList
+                  dashboard (we email a sign-up invite if they don&apos;t have
+                  an account yet).
                 </p>
-                {brokerClients.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    No clients yet. Add clients from the{" "}
-                    <Link href="/clients" className="underline text-primary">
-                      Clients
-                    </Link>{" "}
-                    page.
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {brokerClients.map((client) => (
-                      <div
-                        key={client.id}
-                        className={`flex items-center gap-3 rounded-md border p-2.5 cursor-pointer transition-colors ${
-                          selectedClientId === client.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-muted-foreground/30"
-                        }`}
-                        onClick={() => {
-                          const newId =
-                            selectedClientId === client.id ? null : client.id;
-                          handleAssignClient(newId);
-                        }}
+
+                {/* Currently-assigned clients with X to remove */}
+                {(collection.assignedClients || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(collection.assignedClients || []).map((c) => (
+                      <Badge
+                        key={c.id}
+                        variant="secondary"
+                        className="gap-1 pr-1 font-normal"
                       >
-                        <Checkbox
-                          checked={selectedClientId === client.id}
+                        {c.name}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleClientAssignment(c.id, true)
+                          }
+                          className="ml-0.5 rounded-sm opacity-60 hover:opacity-100"
                           disabled={isAssigningClient}
-                          className="pointer-events-none"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {client.name}
-                          </p>
-                          {client.email && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {client.email}
-                            </p>
-                          )}
-                        </div>
-                        {isAssigningClient && selectedClientId === client.id && (
-                          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                        )}
-                      </div>
+                          aria-label={`Remove ${c.name}`}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
                     ))}
                   </div>
                 )}
+
+                {/* Picker showing unassigned clients */}
+                {(() => {
+                  const assignedIds = new Set(
+                    (collection.assignedClients || []).map((c) => c.id),
+                  );
+                  const available = brokerClients.filter(
+                    (c) => !assignedIds.has(c.id),
+                  );
+
+                  if (brokerClients.length === 0 && !showAddClientInline) {
+                    return (
+                      <div className="flex items-center justify-between gap-3 rounded-md border border-dashed p-3">
+                        <p className="text-xs text-muted-foreground">
+                          No clients yet.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAddClientInline(true)}
+                        >
+                          <UserPlus className="mr-1.5 size-3.5" />
+                          Add client
+                        </Button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {available.length > 0 && (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {available.map((client) => (
+                            <button
+                              key={client.id}
+                              type="button"
+                              onClick={() =>
+                                handleToggleClientAssignment(
+                                  client.id,
+                                  false,
+                                )
+                              }
+                              disabled={isAssigningClient}
+                              className="w-full flex items-center gap-3 rounded-md border p-2 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                            >
+                              <UserPlus className="size-3.5 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">
+                                  {client.name}
+                                </p>
+                                {client.email && (
+                                  <p className="text-[10px] text-muted-foreground truncate">
+                                    {client.email}
+                                  </p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {!showAddClientInline ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAddClientInline(true)}
+                          className="text-xs"
+                        >
+                          <Plus className="mr-1 size-3" />
+                          Add a new client
+                        </Button>
+                      ) : (
+                        <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                          <p className="text-xs font-medium">
+                            Add new client
+                          </p>
+                          <Input
+                            placeholder="Name"
+                            value={newClientName}
+                            onChange={(e) => setNewClientName(e.target.value)}
+                            className="text-xs h-8"
+                          />
+                          <Input
+                            placeholder="Email"
+                            type="email"
+                            value={newClientEmail}
+                            onChange={(e) =>
+                              setNewClientEmail(e.target.value)
+                            }
+                            className="text-xs h-8"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleCreateAndAssignClient}
+                              disabled={
+                                !newClientName.trim() ||
+                                !newClientEmail.trim() ||
+                                isCreatingClient
+                              }
+                            >
+                              {isCreatingClient ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                "Create & assign"
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setShowAddClientInline(false);
+                                setNewClientName("");
+                                setNewClientEmail("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            They&apos;ll receive a sign-up invite if they
+                            don&apos;t already have a MercatoList account.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionProvider } from "@/components/providers/SessionProvider";
@@ -80,6 +81,7 @@ export default function RootLayout({
             <Toaster position="bottom-right" />
           </TooltipProvider>
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   );

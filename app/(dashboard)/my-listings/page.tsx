@@ -198,6 +198,7 @@ export default function MyListingsPage() {
 
   const tabCounts = {
     ALL: listings.length,
+    DRAFT: 0,
     ACTIVE: 0,
     UNDER_CONTRACT: 0,
     SOLD: 0,
@@ -227,7 +228,12 @@ export default function MyListingsPage() {
       {/* Filter Tabs */}
       <Tabs value={filter} onValueChange={setFilter}>
         <TabsList>
-          <TabsTrigger value="ALL">All</TabsTrigger>
+          <TabsTrigger value="ALL">
+            All{tabCounts.ALL > 0 ? ` (${tabCounts.ALL})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="DRAFT">
+            Drafts{tabCounts.DRAFT > 0 ? ` (${tabCounts.DRAFT})` : ""}
+          </TabsTrigger>
           <TabsTrigger value="ACTIVE">Active</TabsTrigger>
           <TabsTrigger value="UNDER_CONTRACT">Under Contract</TabsTrigger>
           <TabsTrigger value="SOLD">Sold</TabsTrigger>

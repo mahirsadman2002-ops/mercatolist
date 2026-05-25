@@ -232,7 +232,6 @@ function preparePayload(data: FormData) {
 
   return {
     title: data.title.trim(),
-    category: data.category,
     description: data.description.trim(),
     askingPrice: toNumber(data.askingPrice),
     annualRevenue: toNumber(data.annualRevenue),
@@ -260,8 +259,10 @@ function preparePayload(data: FormData) {
     licensesPermits: toStringOrNull(data.licensesPermits),
     trainingSupport: toStringOrNull(data.trainingSupport),
     address: data.address.trim(),
-    neighborhood: data.neighborhood,
-    borough: data.borough,
+    neighborhood: toStringOrNull(data.neighborhood),
+    // borough is an enum on the server; empty string must become null for drafts
+    borough: toStringOrNull(data.borough),
+    category: toStringOrNull(data.category),
     city: data.city.trim(),
     state: data.state.trim(),
     zipCode: data.zipCode.trim(),
@@ -1601,10 +1602,6 @@ function ReviewField({ label, value }: { label: string; value: string }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-// localStorage key for autosaved create-mode drafts (per-user is handled by
-// the browser session itself — each user is on their own machine).
-const LOCAL_DRAFT_KEY = "mercatolist:listingDraft:v1";
-
 export function ListingForm({ mode, initialData, listingId }: ListingFormProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
@@ -1614,51 +1611,88 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [lastAutoSaveAt, setLastAutoSaveAt] = useState<Date | null>(null);
-  const [restoredFromLocal, setRestoredFromLocal] = useState(false);
 
-  // ── On mount in create mode, offer to restore from localStorage ────────
-  useEffect(() => {
-    if (mode !== "create" || typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(LOCAL_DRAFT_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<FormData>;
-      // Only prompt if the saved draft actually has content
-      const hasContent = Object.entries(parsed).some(([, v]) => {
-        if (Array.isArray(v)) return v.length > 0;
-        if (typeof v === "boolean") return false;
-        return v != null && v !== "";
-      });
-      if (!hasContent) return;
-      const restore = window.confirm(
-        "You have an unsaved listing in progress. Restore where you left off?",
-      );
-      if (restore) {
-        setFormData((prev) => ({ ...prev, ...parsed } as FormData));
-        setRestoredFromLocal(true);
-      } else {
-        window.localStorage.removeItem(LOCAL_DRAFT_KEY);
-      }
-    } catch {
-      // Ignore parse errors
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Server-side draft id. Initialised from the edit-mode listingId prop;
+  // in create mode, set after the first successful POST creates a draft row.
+  const [serverDraftId, setServerDraftId] = useState<string | null>(
+    listingId ?? null,
+  );
 
-  // ── Autosave to localStorage as the user fills the form (create mode only) ──
-  useEffect(() => {
-    if (mode !== "create" || typeof window === "undefined") return;
-    const handle = setTimeout(() => {
+  // Autosave state for the inline status pill
+  const [autoSaveStatus, setAutoSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // Track what we last persisted so we don't re-save unchanged state on every tick.
+  const lastSavedSnapshotRef = useRef<string>(JSON.stringify(formData));
+  // Re-entrancy guard so concurrent autosaves don't race the POST that creates the draft id.
+  const isSavingRef = useRef(false);
+
+  /** Persist the current formData as a draft. Creates on first call, updates after. */
+  const saveDraftToServer = useCallback(
+    async (opts: { silent: boolean }) => {
+      if (isSavingRef.current) return null;
+      isSavingRef.current = true;
+      if (!opts.silent) setIsSavingDraft(true);
+      else setAutoSaveStatus("saving");
       try {
-        window.localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify(formData));
-        setLastAutoSaveAt(new Date());
-      } catch {
-        // Silent — quota or private browsing
+        const payload = { ...preparePayload(formData), status: "DRAFT" };
+        const targetId = serverDraftId;
+        const url = targetId
+          ? `/api/listings/${targetId}`
+          : "/api/listings";
+        const method = targetId ? "PUT" : "POST";
+        const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Couldn't save");
+        }
+        if (!targetId && result.data?.id) {
+          setServerDraftId(result.data.id);
+        }
+        lastSavedSnapshotRef.current = JSON.stringify(formData);
+        setLastSavedAt(new Date());
+        setAutoSaveStatus("saved");
+        return result.data;
+      } catch (err) {
+        setAutoSaveStatus("error");
+        if (!opts.silent) {
+          toast.error(err instanceof Error ? err.message : "Couldn't save");
+        }
+        return null;
+      } finally {
+        isSavingRef.current = false;
+        if (!opts.silent) setIsSavingDraft(false);
       }
-    }, 1500);
+    },
+    [formData, serverDraftId],
+  );
+
+  // Debounced server-side autosave — fires 2.5s after the user stops editing.
+  useEffect(() => {
+    // Don't autosave on first render or if nothing meaningful is there yet.
+    const snapshot = JSON.stringify(formData);
+    if (snapshot === lastSavedSnapshotRef.current) return;
+    const hasAnyContent =
+      formData.title.trim() ||
+      formData.description.trim() ||
+      formData.address.trim() ||
+      formData.category ||
+      formData.borough ||
+      formData.askingPrice ||
+      formData.photos.length > 0;
+    if (!hasAnyContent) return;
+
+    const handle = setTimeout(() => {
+      saveDraftToServer({ silent: true });
+    }, 2500);
     return () => clearTimeout(handle);
-  }, [formData, mode]);
+  }, [formData, saveDraftToServer]);
 
   const onChange = useCallback(
     (field: keyof FormData, value: any) => {
@@ -1713,37 +1747,15 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   }, []);
 
-  // ── Save current state as a server-side draft (no validation gate) ────
+  // Explicit "Save Draft" button — saves and redirects to /my-listings.
   const handleSaveDraft = useCallback(async () => {
-    setIsSavingDraft(true);
-    try {
-      const payload = { ...preparePayload(formData), status: "DRAFT" };
-      const url =
-        mode === "create" ? "/api/listings" : `/api/listings/${listingId}`;
-      const method = mode === "create" ? "POST" : "PUT";
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || "Couldn't save draft");
-      }
+    const saved = await saveDraftToServer({ silent: false });
+    if (saved) {
       toast.success("Saved to drafts");
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(LOCAL_DRAFT_KEY);
-      }
       router.push("/my-listings");
       router.refresh();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Couldn't save draft",
-      );
-    } finally {
-      setIsSavingDraft(false);
     }
-  }, [formData, mode, listingId, router]);
+  }, [saveDraftToServer, router]);
 
   const handleSubmit = useCallback(async () => {
     // Re-validate all steps before submitting
@@ -1762,12 +1774,16 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
     setIsSubmitting(true);
 
     try {
-      const payload = preparePayload(formData);
-      const url =
-        mode === "create"
-          ? "/api/listings"
-          : `/api/listings/${listingId}`;
-      const method = mode === "create" ? "POST" : "PUT";
+      // Publishing always sends status=ACTIVE. If a draft has already been
+      // created (autosave or manual), update that row instead of inserting
+      // a new one — that avoids accidentally leaving a DRAFT and an ACTIVE
+      // copy of the same listing.
+      const targetId = serverDraftId;
+      const payload = { ...preparePayload(formData), status: "ACTIVE" };
+      const url = targetId
+        ? `/api/listings/${targetId}`
+        : "/api/listings";
+      const method = targetId ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -1782,15 +1798,10 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
       }
 
       toast.success(
-        mode === "create"
+        mode === "create" && !targetId
           ? "Listing created successfully!"
-          : "Listing updated successfully!"
+          : "Listing published!"
       );
-
-      // Clear local autosave once the listing is published.
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(LOCAL_DRAFT_KEY);
-      }
 
       // Redirect to the listing or listings page
       if (result.data?.slug) {
@@ -1806,10 +1817,60 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, mode, listingId, router]);
+  }, [formData, mode, serverDraftId, router]);
+
+  // Render the autosave pill — small status line that lives next to the Save Draft button.
+  function renderAutosavePill() {
+    const baseClass =
+      "flex items-center gap-1.5 text-xs text-muted-foreground";
+    if (autoSaveStatus === "saving") {
+      return (
+        <span className={baseClass}>
+          <Loader2 className="size-3 animate-spin" />
+          Autosaving...
+        </span>
+      );
+    }
+    if (autoSaveStatus === "saved" && lastSavedAt) {
+      return (
+        <span className={baseClass}>
+          <Check className="size-3 text-emerald-600" />
+          Saved {lastSavedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </span>
+      );
+    }
+    if (autoSaveStatus === "error") {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-destructive">
+          Couldn&apos;t autosave
+        </span>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8">
+      {/* Sticky top action bar — Save Draft + autosave status on the right */}
+      <div className="sticky top-0 z-30 -mx-2 sm:-mx-4 px-2 sm:px-4 py-2 bg-background/95 backdrop-blur border-b flex items-center justify-end gap-3 flex-wrap">
+        {renderAutosavePill()}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleSaveDraft}
+          disabled={isSavingDraft || isSubmitting}
+          className="gap-1.5"
+        >
+          {isSavingDraft ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Upload className="size-3.5" />
+          )}
+          Save Draft
+        </Button>
+      </div>
+
       {/* Step Indicator */}
       <StepIndicator
         steps={STEPS}
@@ -1846,16 +1907,6 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
         {currentStep === 5 && <StepReview data={formData} mode={mode} />}
       </div>
 
-      {/* Autosave + restore status banner (create mode only) */}
-      {mode === "create" && (lastAutoSaveAt || restoredFromLocal) && (
-        <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-          <Check className="size-3.5" />
-          {restoredFromLocal && !lastAutoSaveAt
-            ? "Restored your in-progress listing from this browser."
-            : `Autosaved to your browser${lastAutoSaveAt ? ` at ${lastAutoSaveAt.toLocaleTimeString()}` : ""}.`}
-        </div>
-      )}
-
       {/* Navigation Buttons */}
       <div className="flex items-center justify-between gap-2 pt-4 flex-wrap">
         <Button
@@ -1870,20 +1921,6 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
         </Button>
 
         <div className="flex items-center gap-3 flex-wrap justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleSaveDraft}
-            disabled={isSavingDraft || isSubmitting}
-            className="gap-2"
-          >
-            {isSavingDraft ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Upload className="size-4" />
-            )}
-            Save Draft
-          </Button>
           {currentStep < STEPS.length - 1 ? (
             <Button type="button" onClick={handleNext} className="gap-2">
               Next

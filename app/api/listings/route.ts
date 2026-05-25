@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { listingCreateSchema } from "@/lib/validations";
+import { listingCreateSchema, listingDraftSchema } from "@/lib/validations";
 import { slugify, generateShareToken } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
@@ -200,10 +200,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validated = listingCreateSchema.parse(body);
+    const isDraft = body?.status === "DRAFT" || body?.draft === true;
 
-    // Generate slug
-    let slug = slugify(validated.title);
+    // Drafts skip the full required-field validation so users can save partial
+    // progress; we still validate types/lengths via the relaxed schema.
+    const validated = isDraft
+      ? listingDraftSchema.parse(body)
+      : listingCreateSchema.parse(body);
+
+    // Generate slug — use title if present, otherwise a placeholder for drafts.
+    const baseTitle = validated.title?.trim() || "untitled-listing";
+    let slug = slugify(baseTitle);
     const existingSlug = await prisma.businessListing.findUnique({
       where: { slug },
     });
@@ -211,36 +218,63 @@ export async function POST(request: NextRequest) {
       slug = `${slug}-${Date.now().toString(36)}`;
     }
 
-    // Calculate derived fields
     const profitMargin =
       validated.annualRevenue && validated.netIncome
         ? Number(
-            ((validated.netIncome / validated.annualRevenue) * 100).toFixed(2)
+            ((validated.netIncome / validated.annualRevenue) * 100).toFixed(2),
           )
         : null;
     const askingMultiple =
-      validated.cashFlowSDE && validated.cashFlowSDE > 0
+      validated.askingPrice &&
+      validated.cashFlowSDE &&
+      validated.cashFlowSDE > 0
         ? Number((validated.askingPrice / validated.cashFlowSDE).toFixed(2))
         : null;
 
-    // Generate share token for ghost listings
     const shareToken = validated.isGhostListing ? generateShareToken() : null;
+    const photos = Array.isArray(validated.photos) ? validated.photos : [];
+
+    // Strip photos from the spread — we create them via the nested relation instead.
+    const { photos: _photos, ...listingData } = validated;
+    void _photos;
 
     const listing = await prisma.businessListing.create({
       data: {
-        ...validated,
+        ...(listingData as Prisma.BusinessListingUncheckedCreateInput),
+        status: isDraft ? "DRAFT" : "ACTIVE",
+        // Drafts can have missing required fields — fall back to safe defaults so
+        // the DB accepts the row. They'll be overwritten when the user finishes.
+        title: validated.title?.trim() || "Untitled listing",
+        description: validated.description?.trim() || "",
+        category: validated.category || "Other",
+        askingPrice: validated.askingPrice ?? 0,
+        address: validated.address?.trim() || "",
+        neighborhood: validated.neighborhood?.trim() || "",
+        borough: (validated.borough as "MANHATTAN") || "MANHATTAN",
+        zipCode: validated.zipCode?.trim() || "00000",
+        latitude: validated.latitude ?? 0,
+        longitude: validated.longitude ?? 0,
         slug,
         profitMargin,
         askingMultiple,
         shareToken,
         listedById: session.user.id,
+        photos:
+          photos.length > 0
+            ? {
+                create: photos.map((p, idx) => ({
+                  url: p.url,
+                  order: typeof p.order === "number" ? p.order : idx,
+                })),
+              }
+            : undefined,
       },
       include: { photos: true },
     });
 
     return NextResponse.json(
       { success: true, data: listing },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") {

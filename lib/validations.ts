@@ -69,6 +69,70 @@ export const listingCreateSchema = z.object({
   longitude: z.number(),
   showPhoneNumber: z.boolean().default(true),
   isGhostListing: z.boolean().default(false),
+  photos: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        key: z.string().optional(),
+        order: z.number().int().min(0),
+      }),
+    )
+    .max(20)
+    .optional(),
+});
+
+/** Relaxed schema for drafts — everything optional so users can save in any state. */
+export const listingDraftSchema = z.object({
+  title: z.string().max(150).optional().nullable(),
+  description: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  askingPrice: z.number().positive().optional().nullable(),
+  annualRevenue: z.number().positive().optional().nullable(),
+  cashFlowSDE: z.number().optional().nullable(),
+  netIncome: z.number().optional().nullable(),
+  monthlyRent: z.number().positive().optional().nullable(),
+  rentEscalation: z.string().optional().nullable(),
+  annualPayroll: z.number().positive().optional().nullable(),
+  totalExpenses: z.number().positive().optional().nullable(),
+  inventoryValue: z.number().positive().optional().nullable(),
+  inventoryIncluded: z.boolean().optional().nullable(),
+  ffeValue: z.number().positive().optional().nullable(),
+  ffeIncluded: z.boolean().optional().nullable(),
+  sellerFinancing: z.boolean().optional(),
+  sbaFinancingAvailable: z.boolean().optional(),
+  yearEstablished: z.number().int().optional().nullable(),
+  numberOfEmployees: z.number().int().optional().nullable(),
+  employeesWillingToStay: z.boolean().optional().nullable(),
+  ownerInvolvement: z.string().optional().nullable(),
+  ownerHoursPerWeek: z.number().int().optional().nullable(),
+  squareFootage: z.number().int().optional().nullable(),
+  leaseTerms: z.string().optional().nullable(),
+  leaseRenewalOption: z.boolean().optional().nullable(),
+  reasonForSelling: z.string().optional().nullable(),
+  licensesPermits: z.string().optional().nullable(),
+  trainingSupport: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  hideAddress: z.boolean().optional(),
+  neighborhood: z.string().optional().nullable(),
+  borough: z
+    .enum(["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN_ISLAND"])
+    .optional()
+    .nullable(),
+  zipCode: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  showPhoneNumber: z.boolean().optional(),
+  isGhostListing: z.boolean().optional(),
+  photos: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        key: z.string().optional(),
+        order: z.number().int().min(0),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 export const userRegistrationSchema = z.object({

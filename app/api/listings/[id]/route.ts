@@ -108,17 +108,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
+    // Separate photos out — they're handled via the nested relation, not a column.
+    const { photos: photoUpdates, ...rest } = body;
 
-    // Recalculate derived fields
-    const annualRevenue = body.annualRevenue ?? listing.annualRevenue;
-    const netIncome = body.netIncome ?? listing.netIncome;
-    const cashFlowSDE = body.cashFlowSDE ?? listing.cashFlowSDE;
-    const askingPrice = body.askingPrice ?? listing.askingPrice;
+    const annualRevenue = rest.annualRevenue ?? listing.annualRevenue;
+    const netIncome = rest.netIncome ?? listing.netIncome;
+    const cashFlowSDE = rest.cashFlowSDE ?? listing.cashFlowSDE;
+    const askingPrice = rest.askingPrice ?? listing.askingPrice;
 
     const profitMargin =
       annualRevenue && netIncome
         ? Number(
-            ((Number(netIncome) / Number(annualRevenue)) * 100).toFixed(2)
+            ((Number(netIncome) / Number(annualRevenue)) * 100).toFixed(2),
           )
         : listing.profitMargin;
     const askingMultiple =
@@ -126,20 +127,37 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ? Number((Number(askingPrice) / Number(cashFlowSDE)).toFixed(2))
         : listing.askingMultiple;
 
-    // Handle slug change if title changed
     let slug = listing.slug;
-    if (body.title && body.title !== listing.title) {
-      slug = slugify(body.title);
+    if (rest.title && rest.title !== listing.title) {
+      slug = slugify(rest.title);
       const existingSlug = await prisma.businessListing.findFirst({
         where: { slug, id: { not: id } },
       });
       if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
     }
 
+    // Replace the photo set when the caller sends a photos array.
+    // This is a full overwrite — caller is responsible for sending the
+    // complete final list.
+    if (Array.isArray(photoUpdates)) {
+      await prisma.photo.deleteMany({ where: { listingId: id } });
+      if (photoUpdates.length > 0) {
+        await prisma.photo.createMany({
+          data: photoUpdates.map(
+            (p: { url: string; order?: number }, idx: number) => ({
+              listingId: id,
+              url: p.url,
+              order: typeof p.order === "number" ? p.order : idx,
+            }),
+          ),
+        });
+      }
+    }
+
     const updated = await prisma.businessListing.update({
       where: { id },
       data: {
-        ...body,
+        ...rest,
         slug,
         profitMargin,
         askingMultiple,

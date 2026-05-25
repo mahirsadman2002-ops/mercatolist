@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { AddressAutofill } from "@mapbox/search-js-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -89,6 +90,9 @@ interface FormData {
   hideAddress: boolean;
   latitude: string;
   longitude: string;
+
+  // Step 5 — Photos
+  photos: { url: string; key?: string; order: number }[];
 }
 
 interface StepMeta {
@@ -147,6 +151,7 @@ const INITIAL_FORM_DATA: FormData = {
   hideAddress: false,
   latitude: "",
   longitude: "",
+  photos: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -193,6 +198,18 @@ function mergeInitialData(initial: any): FormData {
     hideAddress: initial.hideAddress ?? false,
     latitude: initial.latitude?.toString() ?? "",
     longitude: initial.longitude?.toString() ?? "",
+    photos: Array.isArray(initial.photos)
+      ? initial.photos.map(
+          (
+            p: { url: string; order?: number; key?: string | null },
+            i: number,
+          ) => ({
+            url: p.url,
+            key: p.key ?? undefined,
+            order: typeof p.order === "number" ? p.order : i,
+          }),
+        )
+      : [],
   };
 }
 
@@ -251,6 +268,11 @@ function preparePayload(data: FormData) {
     hideAddress: data.hideAddress,
     latitude: toNumber(data.latitude),
     longitude: toNumber(data.longitude),
+    photos: data.photos.map((p, i) => ({
+      url: p.url,
+      key: p.key,
+      order: typeof p.order === "number" ? p.order : i,
+    })),
   };
 }
 
@@ -948,6 +970,39 @@ function StepLocation({
   const neighborhoodsForBorough = data.borough
     ? NEIGHBORHOODS[data.borough] ?? []
     : [];
+  const mapboxToken =
+    (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim() || null;
+
+  function handleAutofillRetrieve(res: unknown) {
+    const features = (res as { features?: unknown[] })?.features;
+    const feature = (features?.[0] || null) as {
+      geometry?: { coordinates?: number[] };
+      properties?: Record<string, string | undefined>;
+    } | null;
+    if (!feature) return;
+    const props = feature.properties || {};
+    const coords = feature.geometry?.coordinates;
+
+    if (props.address_line1) onChange("address", props.address_line1);
+    if (props.postcode) onChange("zipCode", props.postcode);
+    // Best-effort borough mapping from Mapbox's address levels.
+    const borough = (props.address_level2 || props.place || "").toUpperCase();
+    const boroughMap: Record<string, string> = {
+      MANHATTAN: "MANHATTAN",
+      "NEW YORK": "MANHATTAN",
+      BROOKLYN: "BROOKLYN",
+      QUEENS: "QUEENS",
+      BRONX: "BRONX",
+      "STATEN ISLAND": "STATEN_ISLAND",
+    };
+    if (boroughMap[borough]) {
+      onChange("borough", boroughMap[borough]);
+    }
+    if (coords && coords.length >= 2) {
+      onChange("longitude", String(coords[0]));
+      onChange("latitude", String(coords[1]));
+    }
+  }
 
   return (
     <Card>
@@ -965,13 +1020,38 @@ function StepLocation({
               <Label htmlFor="address">
                 Street Address <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="address"
-                placeholder="e.g. 123 Main Street"
-                value={data.address}
-                onChange={(e) => onChange("address", e.target.value)}
-                aria-invalid={!!errors.address}
-              />
+              {mapboxToken ? (
+                <AddressAutofill
+                  accessToken={mapboxToken}
+                  onRetrieve={handleAutofillRetrieve}
+                  options={{
+                    country: "us",
+                    proximity: "ip" as const,
+                  }}
+                >
+                  <Input
+                    id="address"
+                    placeholder="Start typing an address..."
+                    autoComplete="street-address"
+                    value={data.address}
+                    onChange={(e) => onChange("address", e.target.value)}
+                    aria-invalid={!!errors.address}
+                  />
+                </AddressAutofill>
+              ) : (
+                <Input
+                  id="address"
+                  placeholder="e.g. 123 Main Street"
+                  value={data.address}
+                  onChange={(e) => onChange("address", e.target.value)}
+                  aria-invalid={!!errors.address}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {mapboxToken
+                  ? "Start typing and pick from the suggestions — zip, borough, and coordinates fill in automatically."
+                  : "Address autocomplete unavailable. You can type manually."}
+              </p>
               <FieldError message={errors.address} />
             </div>
 
@@ -1121,7 +1201,117 @@ function StepLocation({
   );
 }
 
-function StepPhotos() {
+const MAX_PHOTOS = 20;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+function StepPhotos({
+  photos,
+  onPhotosChange,
+}: {
+  photos: FormData["photos"];
+  onPhotosChange: (next: FormData["photos"]) => void;
+}) {
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadFile(file: File): Promise<{ url: string; key: string } | null> {
+    try {
+      const presignRes = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileType: file.type,
+          folder: "listings",
+        }),
+      });
+      const presignJson = await presignRes.json();
+      if (!presignRes.ok || !presignJson.success) {
+        throw new Error(presignJson.error || "Couldn't get upload URL");
+      }
+      const { url, key } = presignJson.data;
+
+      const putRes = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) {
+        throw new Error(`Upload failed (${putRes.status})`);
+      }
+
+      // The presigned URL is a writable S3 endpoint. The viewable URL is the
+      // same origin without the query string.
+      const viewUrl = url.split("?")[0];
+      return { url: viewUrl, key };
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Photo upload failed",
+      );
+      return null;
+    }
+  }
+
+  async function handleFiles(files: FileList | File[]) {
+    const filesArray = Array.from(files);
+    const remaining = MAX_PHOTOS - photos.length;
+    if (remaining <= 0) {
+      toast.error(`You've hit the ${MAX_PHOTOS}-photo limit`);
+      return;
+    }
+    const accepted: File[] = [];
+    for (const f of filesArray.slice(0, remaining)) {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name} isn't an image`);
+        continue;
+      }
+      if (f.size > MAX_PHOTO_BYTES) {
+        toast.error(`${f.name} is too large (max 10MB)`);
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length === 0) return;
+
+    setUploadingCount((c) => c + accepted.length);
+    const results = await Promise.all(accepted.map(uploadFile));
+    const successful = results.filter(
+      (r): r is { url: string; key: string } => r !== null,
+    );
+    if (successful.length > 0) {
+      const startOrder = photos.length;
+      onPhotosChange([
+        ...photos,
+        ...successful.map((s, i) => ({
+          url: s.url,
+          key: s.key,
+          order: startOrder + i,
+        })),
+      ]);
+      toast.success(
+        `Uploaded ${successful.length} photo${successful.length === 1 ? "" : "s"}`,
+      );
+    }
+    setUploadingCount((c) => Math.max(0, c - accepted.length));
+  }
+
+  function removePhoto(index: number) {
+    const next = photos.filter((_, i) => i !== index).map((p, i) => ({
+      ...p,
+      order: i,
+    }));
+    onPhotosChange(next);
+  }
+
+  function movePhoto(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= photos.length) return;
+    const next = [...photos];
+    [next[index], next[target]] = [next[target], next[index]];
+    onPhotosChange(next.map((p, i) => ({ ...p, order: i })));
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -1129,39 +1319,137 @@ function StepPhotos() {
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-sm text-muted-foreground">
-          Upload high-quality photos of the business. Listings with photos receive significantly more inquiries.
+          Upload high-quality photos of the business. Listings with photos
+          receive significantly more inquiries.
         </p>
 
-        {/* Drop zone */}
-        <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <ImagePlus className="size-8 text-muted-foreground" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFiles(e.target.files);
+              e.target.value = "";
+            }
+          }}
+        />
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+              handleFiles(e.dataTransfer.files);
+            }
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer ${
+            isDragging
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50 hover:bg-muted/30"
+          }`}
+        >
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+              <ImagePlus className="size-7 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-base font-medium text-foreground">
+              <p className="text-base font-medium">
                 Drag and drop photos here
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 or click to browse from your computer
               </p>
             </div>
-            <Button type="button" variant="outline" size="sm">
-              <Upload className="size-4" />
-              Choose Files
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              disabled={photos.length >= MAX_PHOTOS}
+            >
+              {uploadingCount > 0 ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Uploading {uploadingCount}...
+                </>
+              ) : (
+                <>
+                  <Upload className="size-4" />
+                  Choose Files
+                </>
+              )}
             </Button>
             <p className="text-xs text-muted-foreground">
-              PNG, JPG, or WEBP. Max 10MB per file. Up to 20 photos.
+              PNG, JPG, or WEBP. Max 10MB per file. {photos.length}/
+              {MAX_PHOTOS} photos used.
             </p>
           </div>
         </div>
 
-        {/* Placeholder thumbnails area */}
-        <div className="bg-muted/40 rounded-lg p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Photo upload functionality will be available once cloud storage is connected. Uploaded photos will appear here with drag-to-reorder support.
-          </p>
-        </div>
+        {photos.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {photos.map((photo, index) => (
+              <div
+                key={`${photo.url}-${index}`}
+                className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photo.url}
+                  alt={`Listing photo ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+                {index === 0 && (
+                  <span className="absolute top-1 left-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                    Cover
+                  </span>
+                )}
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => movePhoto(index, -1)}
+                      disabled={index === 0}
+                      className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-foreground disabled:opacity-40"
+                      aria-label="Move left"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePhoto(index, 1)}
+                      disabled={index === photos.length - 1}
+                      className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-foreground disabled:opacity-40"
+                      aria-label="Move right"
+                    >
+                      →
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(index)}
+                    className="rounded bg-red-500/90 px-1.5 py-0.5 text-[11px] font-medium text-white hover:bg-red-600"
+                    aria-label="Remove photo"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1313,14 +1601,64 @@ function ReviewField({ label, value }: { label: string; value: string }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
+// localStorage key for autosaved create-mode drafts (per-user is handled by
+// the browser session itself — each user is on their own machine).
+const LOCAL_DRAFT_KEY = "mercatolist:listingDraft:v1";
+
 export function ListingForm({ mode, initialData, listingId }: ListingFormProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(() =>
-    mergeInitialData(initialData)
+    mergeInitialData(initialData),
   );
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [lastAutoSaveAt, setLastAutoSaveAt] = useState<Date | null>(null);
+  const [restoredFromLocal, setRestoredFromLocal] = useState(false);
+
+  // ── On mount in create mode, offer to restore from localStorage ────────
+  useEffect(() => {
+    if (mode !== "create" || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(LOCAL_DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<FormData>;
+      // Only prompt if the saved draft actually has content
+      const hasContent = Object.entries(parsed).some(([, v]) => {
+        if (Array.isArray(v)) return v.length > 0;
+        if (typeof v === "boolean") return false;
+        return v != null && v !== "";
+      });
+      if (!hasContent) return;
+      const restore = window.confirm(
+        "You have an unsaved listing in progress. Restore where you left off?",
+      );
+      if (restore) {
+        setFormData((prev) => ({ ...prev, ...parsed } as FormData));
+        setRestoredFromLocal(true);
+      } else {
+        window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Autosave to localStorage as the user fills the form (create mode only) ──
+  useEffect(() => {
+    if (mode !== "create" || typeof window === "undefined") return;
+    const handle = setTimeout(() => {
+      try {
+        window.localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify(formData));
+        setLastAutoSaveAt(new Date());
+      } catch {
+        // Silent — quota or private browsing
+      }
+    }, 1500);
+    return () => clearTimeout(handle);
+  }, [formData, mode]);
 
   const onChange = useCallback(
     (field: keyof FormData, value: any) => {
@@ -1375,6 +1713,38 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   }, []);
 
+  // ── Save current state as a server-side draft (no validation gate) ────
+  const handleSaveDraft = useCallback(async () => {
+    setIsSavingDraft(true);
+    try {
+      const payload = { ...preparePayload(formData), status: "DRAFT" };
+      const url =
+        mode === "create" ? "/api/listings" : `/api/listings/${listingId}`;
+      const method = mode === "create" ? "POST" : "PUT";
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Couldn't save draft");
+      }
+      toast.success("Saved to drafts");
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+      }
+      router.push("/my-listings");
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't save draft",
+      );
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [formData, mode, listingId, router]);
+
   const handleSubmit = useCallback(async () => {
     // Re-validate all steps before submitting
     for (let i = 0; i < STEPS.length - 1; i++) {
@@ -1416,6 +1786,11 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
           ? "Listing created successfully!"
           : "Listing updated successfully!"
       );
+
+      // Clear local autosave once the listing is published.
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+      }
 
       // Redirect to the listing or listings page
       if (result.data?.slug) {
@@ -1460,12 +1835,29 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
         {currentStep === 3 && (
           <StepLocation data={formData} errors={errors} onChange={onChange} />
         )}
-        {currentStep === 4 && <StepPhotos />}
+        {currentStep === 4 && (
+          <StepPhotos
+            photos={formData.photos}
+            onPhotosChange={(next) =>
+              setFormData((prev) => ({ ...prev, photos: next }))
+            }
+          />
+        )}
         {currentStep === 5 && <StepReview data={formData} mode={mode} />}
       </div>
 
+      {/* Autosave + restore status banner (create mode only) */}
+      {mode === "create" && (lastAutoSaveAt || restoredFromLocal) && (
+        <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+          <Check className="size-3.5" />
+          {restoredFromLocal && !lastAutoSaveAt
+            ? "Restored your in-progress listing from this browser."
+            : `Autosaved to your browser${lastAutoSaveAt ? ` at ${lastAutoSaveAt.toLocaleTimeString()}` : ""}.`}
+        </div>
+      )}
+
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-4">
+      <div className="flex items-center justify-between gap-2 pt-4 flex-wrap">
         <Button
           type="button"
           variant="outline"
@@ -1477,7 +1869,21 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
           Back
         </Button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft || isSubmitting}
+            className="gap-2"
+          >
+            {isSavingDraft ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Upload className="size-4" />
+            )}
+            Save Draft
+          </Button>
           {currentStep < STEPS.length - 1 ? (
             <Button type="button" onClick={handleNext} className="gap-2">
               Next
@@ -1493,10 +1899,10 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
               {isSubmitting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  {mode === "create" ? "Creating..." : "Saving..."}
+                  {mode === "create" ? "Publishing..." : "Saving..."}
                 </>
               ) : mode === "create" ? (
-                "Create Listing"
+                "Publish Listing"
               ) : (
                 "Save Changes"
               )}

@@ -39,15 +39,12 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
-      // S3 virtual-hosted URLs for uploaded listing photos and avatars.
-      // Without this, next/image refuses to render images from the bucket.
+      // S3 virtual-hosted URL for the uploads bucket. Wildcards in the
+      // middle of a hostname aren't reliable in remotePatterns, so we list
+      // the exact host. URL shape: {bucket}.s3.{region}.amazonaws.com
       {
         protocol: "https",
-        hostname: "*.s3.amazonaws.com",
-      },
-      {
-        protocol: "https",
-        hostname: "*.s3.*.amazonaws.com",
+        hostname: "mercatolist-photos.s3.us-east-2.amazonaws.com",
       },
     ],
   },

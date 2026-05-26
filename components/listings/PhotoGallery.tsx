@@ -61,6 +61,23 @@ export function PhotoGallery({
     latitude !== 0 &&
     longitude !== 0;
 
+  // Mapbox Static Images URL for the map-thumbnail buttons. Single 192x128 @2x
+  // image works for both the inline strip and the lightbox strip via object-cover.
+  // When hideAddress is on, drop the marker and zoom out so the precise point
+  // isn't implied by the thumbnail.
+  const mapboxToken =
+    (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim() || null;
+  const mapThumbnailUrl =
+    hasCoords && mapboxToken
+      ? (() => {
+          const lng = longitude!.toFixed(5);
+          const lat = latitude!.toFixed(5);
+          const zoom = hideAddress ? 13 : 15;
+          const marker = hideAddress ? "" : `pin-s+0d9488(${lng},${lat})/`;
+          return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${marker}${lng},${lat},${zoom},0/192x128@2x?access_token=${mapboxToken}`;
+        })()
+      : null;
+
   // Total slide count: photos + optional map slide
   const totalSlides = sortedPhotos.length + (hasCoords ? 1 : 0);
 
@@ -352,14 +369,33 @@ export function PhotoGallery({
                     ? "ring-2 ring-teal ring-offset-1 ring-offset-background opacity-100"
                     : "opacity-60 hover:opacity-90"
                 )}
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)",
-                  backgroundSize: "12px 12px",
-                }}
+                style={
+                  mapThumbnailUrl
+                    ? undefined
+                    : {
+                        backgroundImage:
+                          "linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)",
+                        backgroundSize: "12px 12px",
+                      }
+                }
               >
-                <MapPin className="h-4 w-4 text-teal" strokeWidth={2} />
-                <span className="text-[9px] font-semibold leading-none tracking-wide">
+                {mapThumbnailUrl && (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={mapThumbnailUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/35" />
+                  </>
+                )}
+                <MapPin
+                  className="relative h-4 w-4 text-teal drop-shadow"
+                  strokeWidth={2}
+                />
+                <span className="relative text-[9px] font-semibold leading-none tracking-wide drop-shadow">
                   Map
                 </span>
               </button>
@@ -503,17 +539,33 @@ export function PhotoGallery({
                       ? "ring-2 ring-teal opacity-100"
                       : "opacity-50 hover:opacity-80"
                   )}
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)",
-                    backgroundSize: "10px 10px",
-                  }}
+                  style={
+                    mapThumbnailUrl
+                      ? undefined
+                      : {
+                          backgroundImage:
+                            "linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)",
+                          backgroundSize: "10px 10px",
+                        }
+                  }
                 >
+                  {mapThumbnailUrl && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={mapThumbnailUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/35" />
+                    </>
+                  )}
                   <MapPin
-                    className="h-3.5 w-3.5 text-teal"
+                    className="relative h-3.5 w-3.5 text-teal drop-shadow"
                     strokeWidth={2}
                   />
-                  <span className="text-[8px] font-semibold text-white leading-none">
+                  <span className="relative text-[8px] font-semibold text-white leading-none drop-shadow">
                     Map
                   </span>
                 </button>

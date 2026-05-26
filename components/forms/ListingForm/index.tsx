@@ -1217,6 +1217,9 @@ function StepPhotos({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function uploadFile(file: File): Promise<{ url: string; key: string } | null> {
+    // Two-step upload: (1) presign through our API (same-origin), then
+    // (2) PUT directly to S3 (cross-origin — needs CORS on the bucket).
+    let presignJson: { success: boolean; data?: { url: string; key: string }; error?: string };
     try {
       const presignRes = await fetch("/api/upload", {
         method: "POST",
@@ -1226,30 +1229,44 @@ function StepPhotos({
           folder: "listings",
         }),
       });
-      const presignJson = await presignRes.json();
+      presignJson = await presignRes.json();
       if (!presignRes.ok || !presignJson.success) {
         throw new Error(presignJson.error || "Couldn't get upload URL");
       }
-      const { url, key } = presignJson.data;
+    } catch (err) {
+      console.error("[photo] presign step failed:", err);
+      const msg =
+        err instanceof Error ? err.message : "Couldn't reach the upload service";
+      toast.error(`Presign failed: ${msg}`);
+      return null;
+    }
 
+    const { url, key } = presignJson.data!;
+    try {
       const putRes = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
       });
       if (!putRes.ok) {
-        throw new Error(`Upload failed (${putRes.status})`);
+        const body = await putRes.text().catch(() => "");
+        throw new Error(`S3 returned ${putRes.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
       }
-
-      // The presigned URL is a writable S3 endpoint. The viewable URL is the
-      // same origin without the query string.
       const viewUrl = url.split("?")[0];
       return { url: viewUrl, key };
     } catch (err) {
-      console.error("Photo upload failed:", err);
-      toast.error(
-        err instanceof Error ? err.message : "Photo upload failed",
-      );
+      console.error("[photo] S3 PUT failed:", err);
+      // "Failed to fetch" / TypeError almost always means CORS rejected the
+      // request. Give the user (or admin) an actionable hint.
+      const isLikelyCors =
+        err instanceof TypeError ||
+        (err instanceof Error && err.message.toLowerCase().includes("failed to fetch"));
+      const hint = isLikelyCors
+        ? "Browser blocked the upload — your S3 bucket needs CORS configured to allow PUT from this domain. Check the AWS S3 console → bucket → Permissions → CORS."
+        : err instanceof Error
+          ? err.message
+          : "Upload to storage failed";
+      toast.error(hint);
       return null;
     }
   }

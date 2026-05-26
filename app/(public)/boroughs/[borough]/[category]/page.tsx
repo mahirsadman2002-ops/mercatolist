@@ -90,15 +90,12 @@ function serializeListing(listing: {
 // Static Params
 // ---------------------------------------------------------------------------
 
+// Don't pre-generate the full 90 × 5 = 450 combos at build time — that drains
+// the Neon data-transfer quota. Pages are still cached via the page-level
+// `revalidate = 3600`; the first request for each combo renders dynamically,
+// then every subsequent request within an hour is served from cache.
 export async function generateStaticParams() {
-  const params: { borough: string; category: string }[] = [];
-  for (const b of BOROUGHS) {
-    const boroughSlug = b.value.toLowerCase().replace(/_/g, "-");
-    for (const cat of BUSINESS_CATEGORIES) {
-      params.push({ borough: boroughSlug, category: slugify(cat) });
-    }
-  }
-  return params;
+  return [];
 }
 
 // ---------------------------------------------------------------------------

@@ -131,10 +131,11 @@ function serializeListing(listing: {
 // Static Params
 // ---------------------------------------------------------------------------
 
+// Don't pre-generate all 90 category pages at build time — each one runs
+// DB queries and that drains the Neon data-transfer quota. revalidate=3600
+// gives us hourly ISR caching on first request, which is plenty for SEO.
 export async function generateStaticParams() {
-  return BUSINESS_CATEGORIES.map((cat) => ({
-    category: slugify(cat),
-  }));
+  return [];
 }
 
 // ---------------------------------------------------------------------------

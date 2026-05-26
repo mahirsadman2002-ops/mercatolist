@@ -47,14 +47,12 @@ function boroughValueToSlug(value: string): string {
 // Static params
 // ---------------------------------------------------------------------------
 
+// Don't pre-generate all ~115 neighborhood pages at build time — each one
+// runs DB queries and that drains the Neon data-transfer quota.
+// revalidate=3600 caches each page for an hour after its first request.
 export async function generateStaticParams() {
   const params: { neighborhood: string }[] = [];
-
-  for (const neighborhoods of Object.values(NEIGHBORHOODS)) {
-    for (const name of neighborhoods) {
-      params.push({ neighborhood: slugify(name) });
-    }
-  }
+  // Intentionally empty — generated on demand.
 
   return params;
 }

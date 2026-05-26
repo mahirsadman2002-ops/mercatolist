@@ -25,17 +25,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Surface a clearer error if AWS isn't configured on this deploy so the
+    // developer/admin can fix it immediately instead of seeing a generic 500.
+    const missingEnv: string[] = [];
+    if (!process.env.AWS_REGION) missingEnv.push("AWS_REGION");
+    if (!process.env.AWS_ACCESS_KEY_ID) missingEnv.push("AWS_ACCESS_KEY_ID");
+    if (!process.env.AWS_SECRET_ACCESS_KEY)
+      missingEnv.push("AWS_SECRET_ACCESS_KEY");
+    if (!process.env.AWS_S3_BUCKET) missingEnv.push("AWS_S3_BUCKET");
+    if (missingEnv.length > 0) {
+      console.error("[upload] missing AWS env vars:", missingEnv);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Photo uploads aren't configured on this deploy. Missing: ${missingEnv.join(", ")}. Set these in your Vercel project's environment variables and redeploy.`,
+        },
+        { status: 500 },
+      );
+    }
+
     const { url, key } = await generatePresignedUploadUrl(
       fileType,
-      folder || "listings"
+      folder || "listings",
     );
 
     return NextResponse.json({ success: true, data: { url, key } });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    console.error("[upload] presign error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to generate upload URL" },
-      { status: 500 }
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? `Upload failed: ${error.message}`
+            : "Failed to generate upload URL",
+      },
+      { status: 500 },
     );
   }
 }

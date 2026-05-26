@@ -9,6 +9,11 @@ import { prisma } from "@/lib/prisma";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+  // Trust the X-Forwarded-Host header from Vercel / any proxy so cookies are
+  // issued and validated against the actual production hostname. Without this,
+  // NextAuth v5 can refuse to set the session cookie on custom domains, which
+  // looks like a sign-in → redirect-back-to-login loop.
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/login",

@@ -66,14 +66,11 @@ const BOROUGH_DESCRIPTIONS: Record<string, string> = {
 // Static params
 // ---------------------------------------------------------------------------
 
+// Generated on demand to avoid hitting the Neon data-transfer quota during
+// builds. revalidate=3600 caches each borough page for an hour after its
+// first request.
 export async function generateStaticParams() {
-  return [
-    { borough: "manhattan" },
-    { borough: "brooklyn" },
-    { borough: "queens" },
-    { borough: "bronx" },
-    { borough: "staten-island" },
-  ];
+  return [];
 }
 
 // ---------------------------------------------------------------------------

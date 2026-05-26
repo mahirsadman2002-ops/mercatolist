@@ -5,6 +5,11 @@ import { slugify } from "@/lib/utils";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.com";
 
+// Cache the generated sitemap for 6 hours. Crawlers don't need a fresh
+// /sitemap.xml on every request, and re-running 3 full-table scans every
+// time a bot hits this URL was a meaningful chunk of Neon traffic.
+export const revalidate = 21600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
@@ -44,8 +49,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // Dynamic pages from database
-  const [listings, blogPosts, brokers, users] = await Promise.all([
+  // Dynamic pages from database — one combined user query instead of two,
+  // and we split brokers vs everyone-else in JS to skip a round-trip.
+  const [listings, blogPosts, allUsers] = await Promise.all([
     prisma.businessListing.findMany({
       where: { status: "ACTIVE" },
       select: { slug: true, updatedAt: true, borough: true, category: true, neighborhood: true },
@@ -55,14 +61,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       select: { slug: true, updatedAt: true },
     }),
     prisma.user.findMany({
-      where: { role: "BROKER" },
-      select: { id: true, updatedAt: true },
-    }),
-    prisma.user.findMany({
       where: { role: { not: "ADMIN" } },
-      select: { id: true, updatedAt: true },
+      select: { id: true, role: true, updatedAt: true },
     }),
   ]);
+
+  const brokers = allUsers.filter((u) => u.role === "BROKER");
+  const users = allUsers;
 
   // Listing pages
   const listingPages: MetadataRoute.Sitemap = listings.map((l) => ({

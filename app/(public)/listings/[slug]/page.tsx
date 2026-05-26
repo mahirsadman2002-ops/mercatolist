@@ -32,7 +32,10 @@ import { BrowseModeBanner } from "@/components/listings/BrowseModeBanner";
 
 
 // Revalidate every 60 seconds so listing data stays fresh
-export const revalidate = 60;
+// 5 minutes. Was 60s which gave us almost no edge caching — every request
+// after a minute re-ran the listing fetch + SuggestedListings query against
+// Neon. Listings change infrequently; 5 minutes is plenty fresh.
+export const revalidate = 300;
 
 // =============================================================================
 // View Count Incrementer (Client Component)

@@ -93,6 +93,10 @@ interface FormData {
 
   // Step 5 — Photos
   photos: { url: string; key?: string; order: number }[];
+
+  // Internal: lets the publish button render the right label in edit mode.
+  // Not part of the API payload — preparePayload strips it.
+  status?: string;
 }
 
 interface StepMeta {
@@ -152,6 +156,7 @@ const INITIAL_FORM_DATA: FormData = {
   latitude: "",
   longitude: "",
   photos: [],
+  status: undefined,
 };
 
 // ---------------------------------------------------------------------------
@@ -210,6 +215,7 @@ function mergeInitialData(initial: any): FormData {
           }),
         )
       : [],
+    status: initial.status ?? undefined,
   };
 }
 
@@ -1330,6 +1336,20 @@ function StepPhotos({
     onPhotosChange(next.map((p, i) => ({ ...p, order: i })));
   }
 
+  function reorderPhoto(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || fromIndex >= photos.length) return;
+    if (toIndex < 0 || toIndex >= photos.length) return;
+    const next = [...photos];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    onPhotosChange(next.map((p, i) => ({ ...p, order: i })));
+  }
+
+  // HTML5 drag-and-drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
   return (
     <Card>
       <CardHeader>
@@ -1417,56 +1437,114 @@ function StepPhotos({
         </div>
 
         {photos.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {photos.map((photo, index) => (
-              <div
-                key={`${photo.url}-${index}`}
-                className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photo.url}
-                  alt={`Listing photo ${index + 1}`}
-                  className="h-full w-full object-cover"
-                />
-                {index === 0 && (
-                  <span className="absolute top-1 left-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                    Cover
-                  </span>
-                )}
-                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => movePhoto(index, -1)}
-                      disabled={index === 0}
-                      className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-foreground disabled:opacity-40"
-                      aria-label="Move left"
-                    >
-                      ←
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => movePhoto(index, 1)}
-                      disabled={index === photos.length - 1}
-                      className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-foreground disabled:opacity-40"
-                      aria-label="Move right"
-                    >
-                      →
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(index)}
-                    className="rounded bg-red-500/90 px-1.5 py-0.5 text-[11px] font-medium text-white hover:bg-red-600"
-                    aria-label="Remove photo"
+          <>
+            <p className="text-xs text-muted-foreground">
+              Drag to reorder. The first photo is the cover image shown on
+              listing cards and search results.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {photos.map((photo, index) => {
+                const isDragging = draggedIndex === index;
+                const isDropTarget =
+                  dropIndex === index && draggedIndex !== null && draggedIndex !== index;
+                return (
+                  <div
+                    key={`${photo.url}-${index}`}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedIndex(index);
+                      e.dataTransfer.effectAllowed = "move";
+                      // Required for Firefox to actually fire dragover
+                      try {
+                        e.dataTransfer.setData("text/plain", String(index));
+                      } catch {
+                        /* noop */
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (draggedIndex === null) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dropIndex !== index) setDropIndex(index);
+                    }}
+                    onDragLeave={() => {
+                      if (dropIndex === index) setDropIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedIndex !== null) {
+                        reorderPhoto(draggedIndex, index);
+                      }
+                      setDraggedIndex(null);
+                      setDropIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedIndex(null);
+                      setDropIndex(null);
+                    }}
+                    className={`group relative aspect-square overflow-hidden rounded-md border bg-muted cursor-move transition-all ${
+                      isDragging ? "opacity-40 scale-95" : ""
+                    } ${
+                      isDropTarget
+                        ? "ring-2 ring-primary ring-offset-2"
+                        : ""
+                    }`}
                   >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={`Listing photo ${index + 1}`}
+                      className="h-full w-full object-cover pointer-events-none"
+                    />
+                    {index === 0 && (
+                      <span className="absolute top-1 left-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        Cover
+                      </span>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            movePhoto(index, -1);
+                          }}
+                          disabled={index === 0}
+                          className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-foreground disabled:opacity-40"
+                          aria-label="Move left"
+                        >
+                          ←
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            movePhoto(index, 1);
+                          }}
+                          disabled={index === photos.length - 1}
+                          className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-foreground disabled:opacity-40"
+                          aria-label="Move right"
+                        >
+                          →
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePhoto(index);
+                        }}
+                        className="rounded bg-red-500/90 px-1.5 py-0.5 text-[11px] font-medium text-white hover:bg-red-600"
+                        aria-label="Remove photo"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
@@ -1950,16 +2028,22 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
               disabled={isSubmitting}
               className="gap-2 min-w-[160px]"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {mode === "create" ? "Publishing..." : "Saving..."}
-                </>
-              ) : mode === "create" ? (
-                "Publish Listing"
-              ) : (
-                "Save Changes"
-              )}
+              {(() => {
+                // If we're editing a draft (the underlying listing has
+                // status=DRAFT), this button publishes it, not "saves." If
+                // we're editing a live listing, "Save Changes" is right.
+                const isPublishing =
+                  mode === "create" || formData.status === "DRAFT";
+                if (isSubmitting) {
+                  return (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      {isPublishing ? "Publishing..." : "Saving..."}
+                    </>
+                  );
+                }
+                return isPublishing ? "Publish Listing" : "Save Changes";
+              })()}
             </Button>
           )}
         </div>

@@ -39,6 +39,16 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      // S3 virtual-hosted URLs for uploaded listing photos and avatars.
+      // Without this, next/image refuses to render images from the bucket.
+      {
+        protocol: "https",
+        hostname: "*.s3.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.s3.*.amazonaws.com",
+      },
     ],
   },
 };

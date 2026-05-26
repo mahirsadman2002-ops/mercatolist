@@ -11,6 +11,7 @@ import {
   Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ListingMap } from "./ListingMap";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +22,15 @@ interface PhotoGalleryProps {
   title: string;
   latitude?: number;
   longitude?: number;
+  /**
+   * Location context for the interactive map slide. When provided, the final
+   * slide renders a real Mapbox map (with privacy circle if hideAddress) instead
+   * of the static placeholder.
+   */
+  hideAddress?: boolean;
+  address?: string;
+  neighborhood?: string;
+  borough?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +49,10 @@ export function PhotoGallery({
   title,
   latitude,
   longitude,
+  hideAddress = false,
+  address,
+  neighborhood,
+  borough,
 }: PhotoGalleryProps) {
   const sortedPhotos = [...photos].sort((a, b) => a.order - b.order);
   const hasCoords =
@@ -140,6 +154,12 @@ export function PhotoGallery({
   const isMapSlide = (index: number) =>
     hasCoords && index === sortedPhotos.length;
 
+  // The interactive map can only be rendered if we have all the location
+  // context. If a caller only passes coords (no neighborhood/borough), fall
+  // back to the static placeholder so we don't crash ListingMap.
+  const canRenderInteractiveMap =
+    hasCoords && neighborhood !== undefined && borough !== undefined;
+
   // -----------------------------------------------------------------------
   // Render: Map Placeholder slide
   // -----------------------------------------------------------------------
@@ -204,7 +224,21 @@ export function PhotoGallery({
         ---------------------------------------------------------------- */}
         <div className="group/main relative aspect-video w-full overflow-hidden bg-muted">
           {isMapSlide(activeIndex) ? (
-            <MapPlaceholder className="h-full w-full" />
+            canRenderInteractiveMap ? (
+              <div className="absolute inset-0">
+                <ListingMap
+                  latitude={latitude!}
+                  longitude={longitude!}
+                  hideAddress={hideAddress}
+                  address={address}
+                  neighborhood={neighborhood!}
+                  borough={borough!}
+                  embedded
+                />
+              </div>
+            ) : (
+              <MapPlaceholder className="h-full w-full" />
+            )
           ) : (
             <Image
               src={sortedPhotos[activeIndex].url}
@@ -366,7 +400,21 @@ export function PhotoGallery({
             onClick={(e) => e.stopPropagation()}
           >
             {isMapSlide(activeIndex) ? (
-              <MapPlaceholder className="h-full max-h-[80vh] w-full max-w-5xl rounded-xl" />
+              canRenderInteractiveMap ? (
+                <div className="h-full max-h-[80vh] w-full max-w-5xl overflow-hidden rounded-xl">
+                  <ListingMap
+                    latitude={latitude!}
+                    longitude={longitude!}
+                    hideAddress={hideAddress}
+                    address={address}
+                    neighborhood={neighborhood!}
+                    borough={borough!}
+                    embedded
+                  />
+                </div>
+              ) : (
+                <MapPlaceholder className="h-full max-h-[80vh] w-full max-w-5xl rounded-xl" />
+              )
             ) : (
               <div className="relative h-full w-full max-h-[80vh] max-w-5xl">
                 <Image

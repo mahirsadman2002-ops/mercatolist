@@ -497,6 +497,10 @@ export default async function ListingDetailPage({
               title={listing.title}
               latitude={listing.latitude}
               longitude={listing.longitude}
+              hideAddress={listing.hideAddress}
+              address={listing.hideAddress ? undefined : listing.address}
+              neighborhood={listing.neighborhood}
+              borough={listing.borough}
             />
           ) : (
             <div className="h-[400px] w-full overflow-hidden rounded-xl">

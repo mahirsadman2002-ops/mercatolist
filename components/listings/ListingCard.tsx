@@ -3,10 +3,11 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, MapPin, Clock, Building2 } from "lucide-react";
+import { Heart, MapPin, Clock, Building2, User } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,7 @@ interface ListingCardProps {
       displayName?: string | null;
       role: string;
       brokerageName?: string | null;
+      avatarUrl?: string | null;
     };
   };
   isSaved?: boolean;
@@ -168,6 +170,7 @@ export function ListingCard({
     listing.listedBy.role === "BROKER" && listing.listedBy.brokerageName
       ? ` \u00B7 ${listing.listedBy.brokerageName}`
       : "";
+  const listerInitial = (listerName?.[0] ?? "?").toUpperCase();
 
   const handleSelectClick = useCallback(
     (e: React.MouseEvent) => {
@@ -378,13 +381,27 @@ export function ListingCard({
                       : `${daysOnMarket} days on market`}
               </span>
             </div>
-            <span
-              className="truncate text-xs text-muted-foreground/70 max-w-[45%] text-right"
+            <div
+              className="flex items-center gap-1.5 max-w-[55%] min-w-0"
               title={`${listerName}${brokerageSuffix}`}
             >
-              {listerName}
-              {brokerageSuffix}
-            </span>
+              <Avatar size="sm" className="size-5 shrink-0">
+                {listing.listedBy.avatarUrl && (
+                  <AvatarImage src={listing.listedBy.avatarUrl} alt={listerName} />
+                )}
+                <AvatarFallback className="text-[10px] font-medium">
+                  {listerInitial !== "?" ? (
+                    listerInitial
+                  ) : (
+                    <User className="size-2.5" strokeWidth={2} />
+                  )}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate text-xs text-muted-foreground/70">
+                {listerName}
+                {brokerageSuffix}
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>

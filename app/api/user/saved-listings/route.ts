@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
                   displayName: true,
                   role: true,
                   brokerageName: true,
+                  avatarUrl: true,
                 },
               },
             },

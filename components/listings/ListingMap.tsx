@@ -11,6 +11,12 @@ interface ListingMapProps {
   address?: string;
   neighborhood: string;
   borough: string;
+  /**
+   * When true, drop the rounded card chrome and fill the parent container's
+   * height instead of using the default 400px. Used when the map is rendered
+   * inside another framed surface (e.g. the photo gallery slide).
+   */
+  embedded?: boolean;
 }
 
 function formatBorough(borough: string): string {
@@ -60,6 +66,7 @@ export function ListingMap({
   address,
   neighborhood,
   borough,
+  embedded = false,
 }: ListingMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -155,8 +162,19 @@ export function ListingMap({
   // Fallback when no token is configured
   if (!token) {
     return (
-      <div className="overflow-hidden rounded-xl border border-border/60">
-        <div className="relative flex h-[400px] w-full flex-col items-center justify-center gap-4 bg-muted px-6 text-center">
+      <div
+        className={cn(
+          "overflow-hidden",
+          !embedded && "rounded-xl border border-border/60",
+          embedded && "h-full"
+        )}
+      >
+        <div
+          className={cn(
+            "relative flex w-full flex-col items-center justify-center gap-4 bg-muted px-6 text-center",
+            embedded ? "h-full" : "h-[400px]"
+          )}
+        >
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted-foreground/10">
             <MapPin className="h-8 w-8 text-muted-foreground" strokeWidth={1.75} />
           </div>
@@ -195,8 +213,19 @@ export function ListingMap({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60">
-      <div className="relative h-[400px] w-full">
+    <div
+      className={cn(
+        "overflow-hidden",
+        !embedded && "rounded-xl border border-border/60",
+        embedded && "h-full"
+      )}
+    >
+      <div
+        className={cn(
+          "relative w-full",
+          embedded ? "h-full" : "h-[400px]"
+        )}
+      >
         <div ref={mapContainer} className="h-full w-full" />
         {/* Overlay info while map loads or always visible */}
         {hideAddress && mapLoaded && (

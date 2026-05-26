@@ -48,6 +48,7 @@ interface SavedListingData {
       displayName?: string | null;
       role: string;
       brokerageName?: string | null;
+      avatarUrl?: string | null;
     };
   };
 }

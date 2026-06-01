@@ -278,6 +278,28 @@ function generateJsonLd(listing: any) {
     };
   }
 
+  // telephone — only expose when the seller has opted in to showing it
+  // publicly. Brokers' brokeragePhone is preferred over personal phone.
+  if (listing.showPhoneNumber) {
+    const phone =
+      listing.listedBy?.brokeragePhone || listing.listedBy?.phone || null;
+    if (phone) jsonLd.telephone = phone;
+  }
+
+  // priceRange — Google's recommended $-tier glyph derived from asking price.
+  // Tiers roughly track NYC small-business deal-size buckets.
+  const price = typeof listing.askingPrice === "number" ? listing.askingPrice : null;
+  if (price != null) {
+    jsonLd.priceRange =
+      price < 250_000
+        ? "$"
+        : price < 1_000_000
+          ? "$$"
+          : price < 5_000_000
+            ? "$$$"
+            : "$$$$";
+  }
+
   // Offer for asking price
   jsonLd.makesOffer = {
     "@type": "Offer",

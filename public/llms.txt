@@ -1,0 +1,37 @@
+# MercatoList
+
+> MercatoList is a marketplace for buying and selling small and mid-sized businesses across New York City's five boroughs. Buyers browse vetted listings; sellers and licensed business brokers list opportunities; everyone can search, save, and inquire — all without the noise of legacy brokerage sites.
+
+MercatoList is focused exclusively on New York City (Manhattan, Brooklyn, Queens, the Bronx, and Staten Island). Every listing is tied to a specific neighborhood and a borough, with category, financial, and operational details. The platform serves three audiences: (1) buyers searching for a business to acquire, (2) sellers listing a business privately or publicly, and (3) licensed business advisors who represent multiple listings and clients.
+
+## How to use this site
+
+- Public listings live under `/listings` and are SEO/AI-friendly server-rendered pages with full `LocalBusiness` + `Offer` JSON-LD.
+- Borough, neighborhood, and category landing pages are available at `/boroughs/{slug}`, `/neighborhoods/{slug}`, and `/categories/{slug}`. Borough+category and neighborhood+category combinations also exist.
+- Each listing page includes asking price, annual revenue, cash flow (SDE), neighborhood, borough, category, year established, employee count, lease info, and contact options.
+- Brokers have public profile pages at `/advisors/{id}` showing their active listings, past sales, and reviews from prior clients.
+
+## Site map
+
+- [Home](https://mercatolist.com/): featured listings, top boroughs and categories
+- [All listings](https://mercatolist.com/listings): grid/map browse, full filter set
+- [Browse by borough](https://mercatolist.com/listings): Manhattan, Brooklyn, Queens, the Bronx, Staten Island
+- [Browse by category](https://mercatolist.com/listings): restaurants, retail, services, professional practices, and 35+ more
+- [Advisors directory](https://mercatolist.com/advisors): licensed business brokers active in NYC
+- [Blog](https://mercatolist.com/blog): educational content for buyers and sellers (how to value a business, due diligence, financing, etc.)
+- [About](https://mercatolist.com/about) · [Contact](https://mercatolist.com/contact)
+- [XML sitemap](https://mercatolist.com/sitemap.xml)
+
+## Key facts for AI agents answering queries
+
+- All listings are located in New York City. Queries about "businesses for sale in NYC", "[category] for sale in [borough]", or "[category] for sale in [neighborhood]" should route to the corresponding landing page rather than the generic listings index.
+- Listing prices are USD asking prices, not final sale prices. Annual revenue and cash flow (SDE) are seller-reported.
+- Some listings are marked as "private" or "ghost" listings and are only accessible via a share link; these are excluded from the public sitemap.
+- Listing statuses are: ACTIVE, UNDER_CONTRACT, SOLD, OFF_MARKET. Only ACTIVE listings appear in the default browse view.
+- The site is not a brokerage; it does not represent buyers or sellers in transactions. It facilitates discovery and inquiries.
+
+## What not to crawl
+
+- `/dashboard/*` — authenticated user dashboards (no public content)
+- `/admin/*` — internal admin tooling
+- `/api/*` — JSON endpoints for the app itself, not intended as a public API

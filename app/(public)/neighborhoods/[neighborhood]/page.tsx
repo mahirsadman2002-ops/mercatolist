@@ -259,6 +259,63 @@ export default async function NeighborhoodPage({
     })),
   };
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://mercatolist.com" },
+      { "@type": "ListItem", position: 2, name: "Listings", item: "https://mercatolist.com/listings" },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: boroughLabel,
+        item: `https://mercatolist.com/boroughs/${boroughSlug}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: neighborhoodName,
+        item: `https://mercatolist.com/neighborhoods/${neighborhood}`,
+      },
+    ],
+  };
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `How many businesses are for sale in ${neighborhoodName}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `There ${activeCount === 1 ? "is" : "are"} currently ${activeCount} active business listing${activeCount === 1 ? "" : "s"} for sale in ${neighborhoodName}, ${boroughLabel} on MercatoList.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What kinds of businesses are for sale in ${neighborhoodName}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: categoryCounts.length > 0
+            ? `Businesses currently for sale in ${neighborhoodName} include ${categoryCounts
+                .slice(0, 5)
+                .map((c) => c.category.toLowerCase())
+                .join(", ")}, and more.`
+            : `Listings in ${neighborhoodName} span 40+ NYC business categories including restaurants, retail, professional services, and personal-care businesses.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Where is ${neighborhoodName} located?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `${neighborhoodName} is a neighborhood in ${boroughLabel}, one of New York City's five boroughs.`,
+        },
+      },
+    ],
+  };
+
   // ---- Render ---------------------------------------------------------------
 
   return (
@@ -266,6 +323,14 @@ export default async function NeighborhoodPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
       <div className="container mx-auto px-4 py-8">

@@ -294,6 +294,48 @@ function generateJsonLd(listing: any) {
   return jsonLd;
 }
 
+// BreadcrumbList tells crawlers + AI agents the hierarchical path from the
+// root to this listing — Home > [Borough] > [Category] > [Listing].
+function generateBreadcrumbJsonLd(listing: any) {
+  const borough = formatBoroughDisplay(listing.borough);
+  const boroughSlug = listing.borough.toLowerCase().replace(/_/g, "-");
+  const categorySlug = listing.category
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://mercatolist.com",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: `${borough}, NYC`,
+        item: `https://mercatolist.com/boroughs/${boroughSlug}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: `${listing.category} in ${borough}`,
+        item: `https://mercatolist.com/boroughs/${boroughSlug}/${categorySlug}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: listing.title,
+        item: `https://mercatolist.com/listings/${listing.slug}`,
+      },
+    ],
+  };
+}
+
 // =============================================================================
 // Page Component
 // =============================================================================
@@ -370,6 +412,7 @@ export default async function ListingDetailPage({
   const borough = formatBoroughDisplay(listing.borough);
   const daysOnMarket = calculateDaysOnMarket(new Date(listing.createdAt));
   const jsonLd = generateJsonLd(listing);
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(listing);
 
   return (
     <>
@@ -377,6 +420,11 @@ export default async function ListingDetailPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        suppressHydrationWarning
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
         suppressHydrationWarning
       />
 

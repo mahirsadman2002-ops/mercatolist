@@ -262,6 +262,64 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
     })),
   };
 
+  // Breadcrumbs help LLMs understand the page's place in the hierarchy.
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://mercatolist.com" },
+      { "@type": "ListItem", position: 2, name: "Listings", item: "https://mercatolist.com/listings" },
+      { "@type": "ListItem", position: 3, name: label, item: `https://mercatolist.com/boroughs/${borough}` },
+    ],
+  };
+
+  // FAQs that AI search engines (and Google's AI Overviews) commonly surface
+  // as direct answers. Values are computed from real data on the page so the
+  // schema stays accurate as inventory shifts.
+  const topCategoryName = categoryCounts[0]?.category ?? "restaurants";
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `How many businesses are for sale in ${label}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `There ${activeCount === 1 ? "is" : "are"} currently ${activeCount} active business listing${activeCount === 1 ? "" : "s"} for sale in ${label} on MercatoList.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What types of businesses are for sale in ${label}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The most common categories of businesses for sale in ${label} include ${categoryCounts
+            .slice(0, 5)
+            .map((c) => c.category.toLowerCase())
+            .join(", ")}. MercatoList covers 40+ NYC business categories.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How do I buy a business in ${label}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Browse active listings on MercatoList, save the ones that fit your buy box, and send inquiries directly to the seller or their broker. Many listings include detailed financials (revenue, cash flow / SDE, asking price) so you can prequalify before reaching out.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How much do businesses sell for in ${label}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Asking prices in ${label} vary by category, revenue, and lease terms. Small service businesses commonly list under $250,000 while established restaurants and retail can list well into seven figures. View live listings for current pricing.`,
+        },
+      },
+    ],
+  };
+  void topCategoryName;
+
   // ---- Render ---------------------------------------------------------------
 
   return (
@@ -269,6 +327,14 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
       <div className="container mx-auto px-4 py-8">

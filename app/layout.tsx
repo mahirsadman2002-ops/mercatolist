@@ -57,6 +57,45 @@ export const metadata: Metadata = {
   ),
 };
 
+// Site-wide structured data. Lives in the root layout so it renders on every
+// SSR page, giving search engines + AI agents a stable canonical description
+// of the org and a sitelinks search box hint.
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.com";
+
+const SITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}#organization`,
+      name: "MercatoList",
+      url: SITE_URL,
+      logo: `${SITE_URL}/og-default.jpg`,
+      description:
+        "New York City's marketplace for buying and selling small and mid-sized businesses across all five boroughs.",
+      areaServed: {
+        "@type": "City",
+        name: "New York City",
+      },
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}#website`,
+      url: SITE_URL,
+      name: "MercatoList",
+      publisher: { "@id": `${SITE_URL}#organization` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/listings?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,6 +106,10 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} ${plusJakarta.variable} font-sans antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSON_LD) }}
+        />
         <SessionProvider>
           <TooltipProvider>
             <a

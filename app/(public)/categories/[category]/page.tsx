@@ -263,12 +263,74 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     })),
   };
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://mercatolist.com" },
+      { "@type": "ListItem", position: 2, name: "Listings", item: "https://mercatolist.com/listings" },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: categoryName,
+        item: `https://mercatolist.com/categories/${categorySlug}`,
+      },
+    ],
+  };
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `How many ${categoryName.toLowerCase()} are for sale in NYC?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `There ${totalCount === 1 ? "is" : "are"} currently ${totalCount} ${categoryName.toLowerCase()} listing${totalCount === 1 ? "" : "s"} for sale across New York City on MercatoList.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Where in NYC can I find ${categoryName.toLowerCase()} for sale?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `${categoryName} are listed for sale across all five NYC boroughs — Manhattan, Brooklyn, Queens, the Bronx, and Staten Island — and in dozens of specific neighborhoods. Filter the listings page by borough or neighborhood to narrow your search.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What financials do ${categoryName.toLowerCase()} listings typically include?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Most listings include the asking price, annual revenue, cash flow (SDE), monthly rent, lease terms, employee count, and year established. Sellers may also share owner involvement, training/support terms, and reason for selling.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How do I inquire about a ${categoryName.toLowerCase()} listing?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Open any listing detail page and use the contact sidebar to message the seller or their broker. You can submit an anonymous inquiry without an account, or sign in to track and follow up on your conversations.`,
+        },
+      },
+    ],
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
       {/* Breadcrumbs */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { geocodeAddress, searchAddresses } from "@/lib/mapbox";
+import { rateLimit } from "@/lib/ratelimit";
 
 // GET: Proxy Mapbox geocoding requests
 // Query params:
@@ -7,6 +8,14 @@ import { geocodeAddress, searchAddresses } from "@/lib/mapbox";
 //   - q: partial query for address autocomplete (returns multiple suggestions)
 export async function GET(request: NextRequest) {
   try {
+    const rl = await rateLimit(request, "geocode");
+    if (!rl.success) {
+      return NextResponse.json(
+        { success: false, error: "Too many requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
     const query = searchParams.get("q");

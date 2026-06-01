@@ -1,9 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import React from "react";
 import { sendEmail } from "@/lib/email";
+import { rateLimit } from "@/lib/ratelimit";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const rl = await rateLimit(request, "contact");
+    if (!rl.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Too many requests. Please try again shortly.",
+        },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
     const { name, email, subject, message } = body;
 

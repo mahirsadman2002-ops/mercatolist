@@ -20,7 +20,7 @@ if (!redis && process.env.NODE_ENV === "production") {
   );
 }
 
-type LimiterName = "contact" | "geocode" | "view";
+type LimiterName = "contact" | "geocode" | "view" | "feedback";
 
 // Sliding-window limits sized to each endpoint's blast radius:
 //   contact: 5 emails / 10 min per IP — enough for legit users, kills loops
@@ -47,8 +47,14 @@ const limiters: Record<LimiterName, Ratelimit | null> = redis
         analytics: true,
         prefix: "rl:view",
       }),
+      feedback: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(5, "10 m"),
+        analytics: true,
+        prefix: "rl:feedback",
+      }),
     }
-  : { contact: null, geocode: null, view: null };
+  : { contact: null, geocode: null, view: null, feedback: null };
 
 /**
  * Best-effort client IP. Behind Vercel the `x-forwarded-for` header is set

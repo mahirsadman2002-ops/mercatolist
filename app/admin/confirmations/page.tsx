@@ -27,12 +27,15 @@ interface ConfirmationListing {
   listedBy: { name: string; email: string };
   confirmationStatus: string;
   daysSinceConfirmation: number | null;
+  confirmationRemindersSent: number;
 }
 
 const CONFIRMATION_COLORS: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
   due_soon: "bg-yellow-100 text-yellow-700",
-  overdue: "bg-red-100 text-red-700",
+  overdue: "bg-orange-100 text-orange-700",
+  stale: "bg-red-100 text-red-700",
+  pending: "bg-blue-100 text-blue-700",
   never_confirmed: "bg-gray-100 text-gray-700",
 };
 
@@ -105,7 +108,7 @@ export default function AdminConfirmationsPage() {
       <div>
         <h1 className="text-3xl font-bold">Listing Status Confirmations</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track 7-day listing status confirmations from owners
+          Track monthly listing status confirmations from owners. &quot;Stale&quot; = overdue with 2+ reminders and no response.
         </p>
       </div>
 
@@ -115,6 +118,7 @@ export default function AdminConfirmationsPage() {
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="due_soon">Due Soon</TabsTrigger>
           <TabsTrigger value="overdue">Overdue</TabsTrigger>
+          <TabsTrigger value="stale">Stale</TabsTrigger>
           <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -130,6 +134,7 @@ export default function AdminConfirmationsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Last Confirmed</TableHead>
                 <TableHead>Days Since</TableHead>
+                <TableHead>Reminders</TableHead>
                 <TableHead>Confirmation</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -138,14 +143,14 @@ export default function AdminConfirmationsPage() {
               {loading ? (
                 [...Array(5)].map((_, i) => (
                   <TableRow key={i}>
-                    {[...Array(7)].map((_, j) => (
+                    {[...Array(8)].map((_, j) => (
                       <TableCell key={j}><div className="h-4 animate-pulse rounded bg-muted" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : listings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No listings found
                   </TableCell>
                 </TableRow>
@@ -175,6 +180,15 @@ export default function AdminConfirmationsPage() {
                       {listing.daysSinceConfirmation !== null
                         ? `${listing.daysSinceConfirmation}d`
                         : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {listing.confirmationRemindersSent > 0 ? (
+                        <span className={listing.confirmationRemindersSent >= 2 ? "font-semibold text-red-600" : ""}>
+                          {listing.confirmationRemindersSent}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge className={CONFIRMATION_COLORS[listing.confirmationStatus] || ""}>

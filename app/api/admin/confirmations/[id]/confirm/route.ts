@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import { CONFIRMATION_INTERVAL_DAYS } from "@/lib/listing-confirmation";
 
 export async function PUT(
   request: NextRequest,
@@ -24,14 +25,17 @@ export async function PUT(
     }
 
     const now = new Date();
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextDue = new Date(
+      now.getTime() + CONFIRMATION_INTERVAL_DAYS * 24 * 60 * 60 * 1000
+    );
 
     const [updatedListing] = await prisma.$transaction([
       prisma.businessListing.update({
         where: { id },
         data: {
           lastStatusConfirmation: now,
-          statusConfirmationDue: sevenDaysFromNow,
+          statusConfirmationDue: nextDue,
+          confirmationRemindersSent: 0,
         },
       }),
       prisma.listingStatusLog.create({

@@ -274,8 +274,12 @@ model BusinessListing {
   shareCount Int @default(0)
 
   // Listing Management
-  lastStatusConfirmation DateTime?
-  statusConfirmationDue  DateTime?
+  lastStatusConfirmation    DateTime?
+  statusConfirmationDue     DateTime?
+  // Non-response tracking: how many confirmation reminders have been sent
+  // since the owner last confirmed (reset to 0 on confirmation).
+  confirmationRemindersSent Int       @default(0)
+  lastReminderSentAt        DateTime?
 
   // Admin fields
   isFeatured Boolean @default(false)
@@ -722,4 +726,38 @@ model Client {
 
   @@unique([advisorId, email])
   @@index([advisorId])
+}
+
+// ─── Product Feedback / Bug Reports ──────────────────────────────────
+
+enum FeedbackType {
+  BUG
+  IDEA
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+// User-submitted bug reports and product ideas (the floating "Feedback"
+// widget). Distinct from Report, which is for flagging listings/users.
+// userId is a plain scalar (no FK) so feedback survives user deletion.
+model Feedback {
+  id         String         @id @default(uuid())
+  type       FeedbackType   @default(BUG)
+  message    String         @db.Text
+  email      String?
+  pageUrl    String?
+  userAgent  String?        @db.Text
+  userId     String?
+  status     FeedbackStatus @default(NEW)
+  adminNotes String?        @db.Text
+  createdAt  DateTime       @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+  @@index([createdAt])
 }

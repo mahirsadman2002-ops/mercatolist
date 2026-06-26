@@ -48,8 +48,8 @@ export default function StatusConfirmationRequest({
               Listing Status Check
             </Heading>
             <Text style={paragraph}>
-              Hi {ownerName}, it&apos;s been 7 days since you last confirmed the status
-              of your listing. Please take a moment to verify it&apos;s still accurate.
+              Hi {ownerName}, it&apos;s time for your monthly listing check-in. Please
+              take a moment to verify your listing is still active and accurate.
             </Text>
 
             {/* Listing Card */}
@@ -82,8 +82,8 @@ export default function StatusConfirmationRequest({
             </Section>
 
             <Text style={smallText}>
-              If you don&apos;t confirm within 48 hours, your listing may be flagged
-              for review by our admin team.
+              If we don&apos;t hear back, your listing may be flagged for review by
+              our team to keep MercatoList&apos;s inventory accurate.
             </Text>
           </Section>
 

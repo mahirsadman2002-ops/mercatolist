@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
+import { WelcomeModal } from "@/components/layout/WelcomeModal";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -121,6 +123,8 @@ export default function RootLayout({
             <Header />
             <main id="main-content" className="min-h-[calc(100vh-4rem)]">{children}</main>
             <Footer />
+            <FeedbackWidget />
+            <WelcomeModal />
             <Toaster position="bottom-right" />
           </TooltipProvider>
         </SessionProvider>

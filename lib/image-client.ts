@@ -132,21 +132,53 @@ async function compressToFit(blob: Blob, maxBytes: number): Promise<Blob> {
   }
 }
 
+type Heic2Any = (opts: {
+  blob: Blob;
+  toType?: string;
+  quality?: number;
+}) => Promise<Blob | Blob[]>;
+
+// heic2any is a UMD build; depending on the bundler's ESM interop the callable
+// can land on `.default`, `.default.default`, or the namespace itself. Resolve
+// defensively so we never call a non-function (which would fail every HEIC).
+function resolveHeic2Any(mod: unknown): Heic2Any {
+  const candidates = [
+    mod,
+    (mod as { default?: unknown })?.default,
+    (mod as { default?: { default?: unknown } })?.default?.default,
+  ];
+  const fn = candidates.find((c) => typeof c === "function");
+  if (!fn) throw new ImagePrepError("HEIC converter failed to load");
+  return fn as Heic2Any;
+}
+
 /** Convert a HEIC/HEIF file to a JPEG blob. */
 async function heicToJpeg(file: File): Promise<Blob> {
+  // First try the browser's own decoder — Safari (and iOS) decode HEIC
+  // natively, which is faster and more reliable than the WASM path.
   try {
-    const { default: heic2any } = await import("heic2any");
-    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
-    return Array.isArray(out) ? out[0] : out;
+    return await compressToFit(file, Number.MAX_SAFE_INTEGER);
   } catch {
-    // Safari can decode HEIC natively even where the WASM converter chokes.
-    try {
-      return await compressToFit(file, Number.MAX_SAFE_INTEGER);
-    } catch {
-      throw new ImagePrepError(
-        `Couldn't convert ${file.name} — try exporting it as JPEG and re-uploading`,
-      );
+    // Chrome/Firefox can't decode HEIC natively — fall back to heic2any WASM.
+  }
+
+  try {
+    const heic2any = resolveHeic2Any(await import("heic2any"));
+    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    if (!blob || blob.size === 0) {
+      throw new ImagePrepError("HEIC converter produced an empty image");
     }
+    return blob;
+  } catch (err) {
+    // Surface the real reason to the console for diagnosis; keep the toast
+    // user-friendly but include the underlying message when we have one.
+    console.error("[image] HEIC conversion failed:", err);
+    if (err instanceof ImagePrepError) throw err;
+    const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
+    throw new ImagePrepError(
+      `Couldn't convert ${file.name}${detail} — try exporting it as JPEG and re-uploading`,
+    );
   }
 }
 

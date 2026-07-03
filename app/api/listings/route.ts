@@ -6,6 +6,7 @@ import { slugify, generateShareToken } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import { requireVerifiedEmail } from "@/lib/require-verified";
 
 export async function GET(request: NextRequest) {
   try {
@@ -241,6 +242,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const isDraft = body?.status === "DRAFT" || body?.draft === true;
+
+    // Drafts are private, so allow them; publishing a live listing requires a
+    // verified email.
+    if (!isDraft) {
+      const verified = await requireVerifiedEmail(session.user.id, "publish a listing");
+      if (!verified.verified) return verified.response;
+    }
 
     // Drafts skip the full required-field validation so users can save partial
     // progress; we still validate types/lengths via the relaxed schema.

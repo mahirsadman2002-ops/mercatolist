@@ -140,12 +140,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           try {
             const dbUser = await prisma.user.findUnique({
               where: { email: token.email },
-              select: { id: true, role: true, name: true, avatarUrl: true },
+              select: { id: true, role: true, name: true, avatarUrl: true, emailVerified: true },
             });
             if (dbUser) {
               token.id = dbUser.id;
               token.role = dbUser.role;
               token.name = dbUser.name;
+              // Re-read every request so the banner clears the moment a user verifies.
+              token.isEmailVerified = !!dbUser.emailVerified;
               // Strip data: URLs to prevent JWT cookie bloat (>4KB cookies break sessions).
               // Real CDN/S3 URLs are fine, but base64 fallbacks would balloon the cookie.
               if (
@@ -190,6 +192,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.role = token.role as string;
           session.user.name = token.name as string;
           session.user.image = (token.picture as string) || null;
+          session.user.isEmailVerified = !!token.isEmailVerified;
         }
         return session;
       } catch (error) {

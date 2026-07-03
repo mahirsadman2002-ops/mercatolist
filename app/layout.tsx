@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
 import { WelcomeModal } from "@/components/layout/WelcomeModal";
+import { VerifyEmailBanner } from "@/components/layout/VerifyEmailBanner";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
 
@@ -128,6 +129,7 @@ export default function RootLayout({
               Skip to content
             </a>
             <Header />
+            <VerifyEmailBanner />
             <main id="main-content" className="min-h-[calc(100vh-4rem)]">{children}</main>
             <Footer />
             <FeedbackWidget />

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import NewMessage from "@/emails/new-message";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import { requireVerifiedEmail } from "@/lib/require-verified";
 
 const MAX_MESSAGE_LEN = 5000;
 
@@ -91,6 +92,10 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    // Sending messages requires a verified email.
+    const verified = await requireVerifiedEmail(session.user.id, "send messages");
+    if (!verified.verified) return verified.response;
 
     // Each thread message emails the counterparty — throttle per user.
     const limit = await rateLimit(request, "inquiry", session.user.id);

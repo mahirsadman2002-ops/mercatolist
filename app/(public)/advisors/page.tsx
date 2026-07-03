@@ -105,6 +105,24 @@ export default function AdvisorsPage() {
         </p>
       </div>
 
+      {/* Advisor signup CTA */}
+      <div className="flex flex-col gap-4 rounded-xl border border-accent/30 bg-accent/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+            <Star className="size-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Are you a business advisor?</h2>
+            <p className="text-sm text-muted-foreground">
+              Get featured in this directory, showcase your listings, and start collecting client reviews — free.
+            </p>
+          </div>
+        </div>
+        <Button asChild size="lg" className="shrink-0 sm:self-center">
+          <Link href="/register/advisor">Get Featured — Sign Up</Link>
+        </Button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">

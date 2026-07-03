@@ -526,6 +526,27 @@ export function FilterSidebar({
               </div>
             </AccordionContent>
           </AccordionItem>
+
+          <AccordionItem value="saleType">
+            <AccordionTrigger>Sale Type</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="assetSale"
+                  checked={filters.assetSale === "true"}
+                  onCheckedChange={(checked) =>
+                    updateFilter("assetSale", checked ? "true" : "")
+                  }
+                />
+                <Label
+                  htmlFor="assetSale"
+                  className="cursor-pointer text-sm font-normal"
+                >
+                  Asset sales only
+                </Label>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
       </div>
 

@@ -240,6 +240,9 @@ model BusinessListing {
   ffeIncluded           Boolean?
   sellerFinancing       Boolean  @default(false)
   sbaFinancingAvailable Boolean  @default(false)
+  // Asset sale: business sold for its assets (equipment, fixtures, lease, etc.)
+  // rather than as a going concern — revenue/profit figures are optional.
+  assetSale             Boolean  @default(false)
 
   // Business Details
   yearEstablished        Int?

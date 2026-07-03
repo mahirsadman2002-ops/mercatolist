@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       status: listing.status,
       category: listing.category,
       askingPrice: listing.askingPrice,
+      assetSale: listing.assetSale,
       neighborhood: listing.neighborhood,
       borough: listing.borough,
       viewCount: listing.viewCount,

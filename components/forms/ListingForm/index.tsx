@@ -66,6 +66,7 @@ interface FormData {
   ffeIncluded: boolean;
   sellerFinancing: boolean;
   sbaFinancingAvailable: boolean;
+  assetSale: boolean;
 
   // Step 3 — Business Details
   yearEstablished: string;
@@ -135,6 +136,7 @@ const INITIAL_FORM_DATA: FormData = {
   ffeIncluded: false,
   sellerFinancing: false,
   sbaFinancingAvailable: false,
+  assetSale: false,
   yearEstablished: "",
   numberOfEmployees: "",
   employeesWillingToStay: false,
@@ -183,6 +185,7 @@ function mergeInitialData(initial: any): FormData {
     ffeIncluded: initial.ffeIncluded ?? false,
     sellerFinancing: initial.sellerFinancing ?? false,
     sbaFinancingAvailable: initial.sbaFinancingAvailable ?? false,
+    assetSale: initial.assetSale ?? false,
     yearEstablished: initial.yearEstablished?.toString() ?? "",
     numberOfEmployees: initial.numberOfEmployees?.toString() ?? "",
     employeesWillingToStay: initial.employeesWillingToStay ?? false,
@@ -253,6 +256,7 @@ function preparePayload(data: FormData) {
     ffeIncluded: data.ffeIncluded,
     sellerFinancing: data.sellerFinancing,
     sbaFinancingAvailable: data.sbaFinancingAvailable,
+    assetSale: data.assetSale,
     yearEstablished: toInt(data.yearEstablished),
     numberOfEmployees: toInt(data.numberOfEmployees),
     employeesWillingToStay: data.employeesWillingToStay,
@@ -614,6 +618,30 @@ function StepFinancials({
               onChange={(val) => onChange("netIncome", val)}
               error={errors.netIncome}
             />
+          </div>
+
+          {/* Asset sale toggle */}
+          <div className="mt-5 rounded-lg border border-input bg-muted/30 p-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="assetSale"
+                checked={data.assetSale}
+                onCheckedChange={(checked) => onChange("assetSale", checked === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-1">
+                <Label htmlFor="assetSale" className="cursor-pointer font-medium">
+                  This is an asset sale
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  You&apos;re selling the equipment, fixtures, lease and other assets rather than an
+                  operating business. Revenue and profit figures are{" "}
+                  <span className="font-medium text-foreground">optional</span> for asset sales, and
+                  your listing will be labeled as an{" "}
+                  <span className="font-medium text-foreground">Asset Sale</span> on the marketplace.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1621,6 +1649,7 @@ function StepReview({
             <ReviewField label="FF&E Included" value={boolLabel(data.ffeIncluded)} />
             <ReviewField label="Seller Financing" value={boolLabel(data.sellerFinancing)} />
             <ReviewField label="SBA Financing" value={boolLabel(data.sbaFinancingAvailable)} />
+            <ReviewField label="Asset Sale" value={boolLabel(data.assetSale)} />
           </dl>
         </div>
 

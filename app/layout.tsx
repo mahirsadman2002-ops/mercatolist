@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
 import { WelcomeModal } from "@/components/layout/WelcomeModal";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -104,7 +105,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${plusJakarta.variable} font-sans antialiased`}
       >
@@ -112,6 +113,12 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSON_LD).replace(/</g, String.fromCharCode(92) + "u003c") }}
         />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
         <SessionProvider>
           <TooltipProvider>
             <a
@@ -128,6 +135,7 @@ export default function RootLayout({
             <Toaster position="bottom-right" />
           </TooltipProvider>
         </SessionProvider>
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

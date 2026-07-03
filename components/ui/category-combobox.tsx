@@ -56,7 +56,9 @@ export function CategoryCombobox({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "w-full justify-between font-normal",
+            // Force an explicit text color: the outline Button variant inherits
+            // ambient color, which turns the label white on dark hero sections.
+            "w-full justify-between font-normal text-foreground",
             !hasValue && !allowAll && "text-muted-foreground",
             className,
           )}
@@ -162,7 +164,7 @@ export function CategoryMultiCombobox({
             role="combobox"
             aria-expanded={open}
             disabled={disabled}
-            className="w-full justify-between font-normal"
+            className="w-full justify-between font-normal text-foreground"
           >
             <span
               className={cn(

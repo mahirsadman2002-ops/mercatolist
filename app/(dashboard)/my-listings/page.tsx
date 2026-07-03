@@ -57,6 +57,7 @@ interface ListingData {
   status: string;
   category: string;
   askingPrice: number | string;
+  assetSale?: boolean;
   neighborhood: string;
   borough: string;
   viewCount: number;
@@ -313,6 +314,11 @@ export default function MyListingsPage() {
                       >
                         {STATUS_LABELS[listing.status] || listing.status}
                       </Badge>
+                      {listing.assetSale && (
+                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                          Asset Sale
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">

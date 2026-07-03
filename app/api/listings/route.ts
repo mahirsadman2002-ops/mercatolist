@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || "";
     const sellerFinancing = searchParams.get("sellerFinancing");
     const sbaFinancing = searchParams.get("sbaFinancing");
+    const assetSale = searchParams.get("assetSale");
 
     const where: Prisma.BusinessListingWhereInput = {
       isGhostListing: false,
@@ -125,6 +126,7 @@ export async function GET(request: NextRequest) {
     // Financing filters
     if (sellerFinancing === "true") where.sellerFinancing = true;
     if (sbaFinancing === "true") where.sbaFinancingAvailable = true;
+    if (assetSale === "true") where.assetSale = true;
 
     // Sort
     let orderBy: Prisma.BusinessListingOrderByWithRelationInput;
@@ -186,6 +188,7 @@ export async function GET(request: NextRequest) {
     if (daysOnMarket) activeFilters.daysOnMarket = daysOnMarket;
     if (sellerFinancing === "true") activeFilters.sellerFinancing = "true";
     if (sbaFinancing === "true") activeFilters.sbaFinancing = "true";
+    if (assetSale === "true") activeFilters.assetSale = "true";
 
     const hasSearchIntent = Boolean(keyword) || Object.keys(activeFilters).length > 0;
     if (page === 1 && hasSearchIntent) {

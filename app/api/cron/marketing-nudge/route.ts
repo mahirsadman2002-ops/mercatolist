@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireCron } from "@/lib/cron-auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import MarketingNudge from "@/emails/marketing-nudge";
@@ -6,10 +7,8 @@ import MarketingNudge from "@/emails/marketing-nudge";
 // POST: Weekly marketing nudge emails for users with saved listings
 // Sends a "still interested?" email with stats about their saved listings.
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCron(request);
+  if (denied) return denied;
 
   try {
     // Find users who have active saved listings

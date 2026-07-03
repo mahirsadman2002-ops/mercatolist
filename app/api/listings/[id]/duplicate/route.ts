@@ -47,10 +47,15 @@ export async function POST(
       slug = `${baseSlug}-${Date.now().toString(36)}`;
     }
 
-    // Create duplicate (as ACTIVE, reset metrics)
+    // Reset per-listing identity/metrics on the copy. listingNumber is @unique
+    // and auto-incremented, so it MUST be dropped (copying it would violate the
+    // constraint / collide). The copy starts as a DRAFT — the owner reviews and
+    // publishes it, which routes through the verified-email publish gate rather
+    // than silently going live and bypassing it.
     const {
       id: _id,
       slug: _slug,
+      listingNumber: _listingNumber,
       createdAt: _createdAt,
       updatedAt: _updatedAt,
       viewCount: _viewCount,
@@ -68,7 +73,7 @@ export async function POST(
       data: {
         ...listingData,
         slug,
-        status: "ACTIVE",
+        status: "DRAFT",
         title: `${listing.title} (Copy)`,
         photos: {
           create: listing.photos.map((photo) => ({

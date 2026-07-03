@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import { requireVerifiedEmail } from "@/lib/require-verified";
+
+// Length caps: this endpoint sends MercatoList-branded email, so bound the
+// attacker-controllable fields to keep it a "share a listing" tool rather than
+// a general-purpose branded relay.
+const MAX_SUBJECT = 200;
+const MAX_MESSAGE = 2000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +18,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Require a verified sender. Sending branded email from our domain to
+    // arbitrary recipients is a phishing/spam vector; a verified email raises
+    // the bar and gives accountability for abuse.
+    const verified = await requireVerifiedEmail(session.user.id, "send email");
+    if (!verified.verified) return verified.response;
 
     // This route emails an arbitrary recipient — throttle hard per user so it
     // can't be turned into a spam relay / email-bomb tool.
@@ -27,8 +40,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      typeof subject !== "string" ||
+      typeof message !== "string" ||
+      subject.length > MAX_SUBJECT ||
+      message.length > MAX_MESSAGE
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Subject or message too long" },
+        { status: 400 }
+      );
+    }
+
     // Validate email
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    if (typeof to !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
       return NextResponse.json(
         { success: false, error: "Invalid email address" },
         { status: 400 }

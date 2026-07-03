@@ -283,7 +283,10 @@ export async function PUT(
         const client = await prisma.client.findUnique({
           where: { id: clientId },
         });
-        if (!client) {
+        // Must exist AND belong to the caller — otherwise an owner could attach
+        // another advisor's client to their collection and read that client's
+        // name/email/phone back via GET (cross-tenant PII disclosure).
+        if (!client || client.advisorId !== session.user.id) {
           return NextResponse.json(
             { success: false, error: "Client not found" },
             { status: 404 }

@@ -38,3 +38,27 @@ export function calculateDaysOnMarket(createdAt: Date): number {
 export function generateShareToken(): string {
   return uuidv4().replace(/-/g, "").substring(0, 16);
 }
+
+/**
+ * Sanitize a post-auth redirect target (e.g. ?callbackUrl=) to a same-origin
+ * relative path. Rejects absolute URLs and protocol-relative "//evil.com"
+ * values, which would otherwise be an open redirect for phishing.
+ */
+export function safeInternalPath(
+  raw: string | null | undefined,
+  fallback = "/"
+): string {
+  if (!raw || typeof raw !== "string") return fallback;
+  // Must start with a single "/" — not "//" (protocol-relative), "/\" (some
+  // browsers treat backslash as slash), and not an encoded variant.
+  if (
+    !raw.startsWith("/") ||
+    raw.startsWith("//") ||
+    raw.startsWith("/\\") ||
+    raw.startsWith("/%2F") ||
+    raw.startsWith("/%5C")
+  ) {
+    return fallback;
+  }
+  return raw;
+}

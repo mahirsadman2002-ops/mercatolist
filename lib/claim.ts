@@ -11,12 +11,22 @@ function appUrl() {
 
 /** Stable HMAC over the user id — acts as the claim secret in the link. */
 export function claimToken(userId: string) {
-  const secret = process.env.NEXTAUTH_SECRET || "";
+  const secret = process.env.NEXTAUTH_SECRET;
+  // Fail closed: an empty key would make every claim token forgeable, which is
+  // account takeover of managed/unclaimed accounts. Never sign with "".
+  if (!secret) {
+    throw new Error("NEXTAUTH_SECRET is not set — cannot sign claim tokens");
+  }
   return crypto.createHmac("sha256", secret).update(`claim:${userId}`).digest("hex");
 }
 
 export function verifyClaimToken(userId: string, token: string) {
-  const expected = claimToken(userId);
+  let expected: string;
+  try {
+    expected = claimToken(userId);
+  } catch {
+    return false; // No secret → reject, never accept.
+  }
   // Constant-time compare.
   const a = Buffer.from(token || "", "hex");
   const b = Buffer.from(expected, "hex");

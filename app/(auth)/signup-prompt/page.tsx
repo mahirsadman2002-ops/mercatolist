@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { safeInternalPath } from "@/lib/utils";
 import {
   Heart,
   MessageCircle,
@@ -185,7 +186,8 @@ function SignupPromptContent() {
   const searchParams = useSearchParams();
 
   const action = searchParams.get("action") as ActionKey | null;
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  // Same-origin only — guards the post-auth redirect against open-redirect abuse.
+  const callbackUrl = safeInternalPath(searchParams.get("callbackUrl"));
 
   const config = (action && ACTION_MAP[action]) || DEFAULT_ACTION;
   const Icon = config.icon;

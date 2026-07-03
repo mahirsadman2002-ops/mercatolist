@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import { safeInternalPath } from "@/lib/utils";
 
 // Google SVG icon
 function GoogleIcon({ className }: { className?: string }) {
@@ -49,7 +50,9 @@ export default function LoginPage() {
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  // Sanitize to a same-origin path — never trust ?callbackUrl= for redirects
+  // (open-redirect / phishing guard).
+  const callbackUrl = safeInternalPath(searchParams.get("callbackUrl"));
   const error = searchParams.get("error");
 
   const [email, setEmail] = useState("");

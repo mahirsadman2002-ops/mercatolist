@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
+import { requireCron } from "@/lib/cron-auth";
 import { prisma } from "@/lib/prisma";
 import { sendClaimEmail } from "@/lib/claim";
 
 // Daily reminder to managed accounts that still haven't been claimed.
 // Secured with CRON_SECRET. Sends at most once/day per user (lastClaimReminderAt).
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCron(request);
+  if (denied) return denied;
 
   try {
     const now = new Date();

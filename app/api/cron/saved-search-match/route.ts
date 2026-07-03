@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireCron } from "@/lib/cron-auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import SavedSearchMatch from "@/emails/saved-search-match";
@@ -17,10 +18,8 @@ interface SearchCriteria {
 // POST: Check for new listings matching saved searches
 // Runs on the configured frequency (daily/weekly) and emails users about new matches.
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCron(request);
+  if (denied) return denied;
 
   try {
     // Get all active saved searches that are due for checking

@@ -207,6 +207,13 @@ model User {
   isBanned     Boolean @default(false)
   bannedReason String?
 
+  // Managed accounts: created by an admin on a seller's behalf. "Unclaimed"
+  // until the person sets a password via the claim link. Reminders run until
+  // claimedAt is set; lastClaimReminderAt throttles them to once/day.
+  isManaged           Boolean   @default(false)
+  claimedAt           DateTime?
+  lastClaimReminderAt DateTime?
+
   @@index([role])
   @@index([email])
 }

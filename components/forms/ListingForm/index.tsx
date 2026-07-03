@@ -11,6 +11,7 @@ import {
   Upload,
   ImagePlus,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -993,6 +994,19 @@ function StepBusinessDetails({
   );
 }
 
+// NYC borough from a 5-digit ZIP. ZIP ranges are deterministic per borough,
+// unlike Mapbox's city field which returns "New York" for all of them.
+function boroughFromZip(zip: string): string {
+  const n = parseInt((zip || "").slice(0, 5), 10);
+  if (!n) return "";
+  if (n >= 10001 && n <= 10282) return "MANHATTAN";
+  if (n >= 10301 && n <= 10314) return "STATEN_ISLAND";
+  if (n >= 10451 && n <= 10475) return "BRONX";
+  if (n >= 11201 && n <= 11256) return "BROOKLYN";
+  if ((n >= 11001 && n <= 11109) || (n >= 11351 && n <= 11697)) return "QUEENS";
+  return "";
+}
+
 function StepLocation({
   data,
   errors,
@@ -1009,8 +1023,9 @@ function StepLocation({
     (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim() || null;
 
   function handleAutofillRetrieve(res: unknown) {
-    const features = (res as { features?: unknown[] })?.features;
-    const feature = (features?.[0] || null) as {
+    // Be tolerant of the response shape across @mapbox/search-js versions.
+    const asColl = res as { features?: unknown[] };
+    const feature = (asColl?.features?.[0] || res || null) as {
       geometry?: { coordinates?: number[] };
       properties?: Record<string, string | undefined>;
     } | null;
@@ -1019,20 +1034,36 @@ function StepLocation({
     const coords = feature.geometry?.coordinates;
 
     if (props.address_line1) onChange("address", props.address_line1);
-    if (props.postcode) onChange("zipCode", props.postcode);
-    // Best-effort borough mapping from Mapbox's address levels.
-    const borough = (props.address_level2 || props.place || "").toUpperCase();
-    const boroughMap: Record<string, string> = {
-      MANHATTAN: "MANHATTAN",
-      "NEW YORK": "MANHATTAN",
-      BROOKLYN: "BROOKLYN",
-      QUEENS: "QUEENS",
-      BRONX: "BRONX",
-      "STATEN ISLAND": "STATEN_ISLAND",
-    };
-    if (boroughMap[borough]) {
-      onChange("borough", boroughMap[borough]);
+    const zip = (props.postcode || "").trim();
+    if (zip) onChange("zipCode", zip);
+
+    // Borough: Mapbox reports every NYC borough's city as "New York", so its
+    // city field can't distinguish them. ZIP code IS deterministic for NYC —
+    // use it first, and only fall back to the city name if there's no ZIP.
+    let boroughVal = boroughFromZip(zip);
+    if (!boroughVal) {
+      const city = (props.address_level2 || props.place || "").toUpperCase();
+      boroughVal =
+        ({
+          BROOKLYN: "BROOKLYN",
+          QUEENS: "QUEENS",
+          BRONX: "BRONX",
+          "STATEN ISLAND": "STATEN_ISLAND",
+          MANHATTAN: "MANHATTAN",
+        } as Record<string, string>)[city] || "";
     }
+    if (boroughVal) {
+      onChange("borough", boroughVal);
+      // If Mapbox's neighborhood matches one of ours for this borough, set it.
+      const cand = (props.neighborhood || props.address_level3 || "").trim().toLowerCase();
+      if (cand) {
+        const match = (NEIGHBORHOODS[boroughVal] || []).find(
+          (n) => n.toLowerCase() === cand
+        );
+        if (match) onChange("neighborhood", match);
+      }
+    }
+
     if (coords && coords.length >= 2) {
       onChange("longitude", String(coords[0]));
       onChange("latitude", String(coords[1]));
@@ -1185,18 +1216,40 @@ function StepLocation({
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Address privacy — deliberately prominent so skeptical sellers see it */}
+            <label
+              htmlFor="hideAddress"
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-colors ${
+                data.hideAddress
+                  ? "border-teal bg-teal/5"
+                  : "border-dashed border-input hover:border-teal/50 hover:bg-muted/40"
+              }`}
+            >
               <Checkbox
                 id="hideAddress"
                 checked={data.hideAddress}
                 onCheckedChange={(checked) =>
                   onChange("hideAddress", checked === true)
                 }
+                className="mt-0.5"
               />
-              <Label htmlFor="hideAddress" className="cursor-pointer">
-                Hide exact address on public listing (show approximate location only)
-              </Label>
-            </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className={`h-4 w-4 ${data.hideAddress ? "text-teal" : "text-muted-foreground"}`} />
+                  <span className="font-semibold">Keep my exact address private</span>
+                  {data.hideAddress && (
+                    <span className="rounded-full bg-teal px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      On
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Recommended for confidential sales. Buyers see only an approximate area (a privacy
+                  circle on the map) — never your street address — until you choose to share it with a
+                  serious inquirer.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
 

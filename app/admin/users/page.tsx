@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,8 +48,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck } from "lucide-react";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
+
+interface UserListing {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  askingPrice: number;
+  borough: string;
+  neighborhood: string;
+}
 
 interface User {
   id: string;
@@ -77,6 +88,12 @@ export default function AdminUsersPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [sellersOnly, setSellersOnly] = useState(false);
+
+  // Per-user listing drill-down (expand a row to see + edit their listings).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [listingsByUser, setListingsByUser] = useState<Record<string, UserListing[]>>({});
+  const [listingsLoading, setListingsLoading] = useState<string | null>(null);
 
   // Modals
   const [roleModal, setRoleModal] = useState<{ user: User; newRole: string } | null>(null);
@@ -89,6 +106,7 @@ export default function AdminUsersPage() {
     const params = new URLSearchParams({ page: String(page), limit: "25" });
     if (search) params.set("search", search);
     if (roleFilter !== "all") params.set("role", roleFilter);
+    if (sellersOnly) params.set("hasListings", "true");
 
     fetch(`/api/admin/users?${params}`)
       .then((r) => r.json())
@@ -101,9 +119,32 @@ export default function AdminUsersPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [page, search, roleFilter]);
+  }, [page, search, roleFilter, sellersOnly]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const toggleExpand = async (userId: string) => {
+    if (expandedId === userId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(userId);
+    // Fetch this user's listings once, then cache.
+    if (!listingsByUser[userId]) {
+      setListingsLoading(userId);
+      try {
+        const res = await fetch(`/api/admin/listings?userId=${userId}&limit=100`);
+        const data = await res.json();
+        if (data.success) {
+          setListingsByUser((prev) => ({ ...prev, [userId]: data.data }));
+        }
+      } catch {
+        toast.error("Failed to load listings");
+      } finally {
+        setListingsLoading(null);
+      }
+    }
+  };
 
   const handleRoleChange = async () => {
     if (!roleModal) return;
@@ -189,14 +230,23 @@ export default function AdminUsersPage() {
               />
             </div>
             <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-[140px]"><SelectValue placeholder="Role" /></SelectTrigger>
+              <SelectTrigger className="w-[170px]"><SelectValue placeholder="Type" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="USER">User</SelectItem>
-                <SelectItem value="BROKER">Business Advisor</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="USER">Sellers &amp; Buyers</SelectItem>
+                <SelectItem value="BROKER">Brokers / Advisors</SelectItem>
+                <SelectItem value="ADMIN">Admins</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant={sellersOnly ? "default" : "outline"}
+              onClick={() => { setSellersOnly((v) => !v); setPage(1); }}
+              className="gap-1.5"
+            >
+              <Building2 className="h-4 w-4" />
+              With listings
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -232,8 +282,13 @@ export default function AdminUsersPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
-                  <TableRow key={user.id}>
+                users.map((user) => {
+                  const isExpanded = expandedId === user.id;
+                  const canExpand = user._count.listings > 0;
+                  const userListings = listingsByUser[user.id] || [];
+                  return (
+                  <Fragment key={user.id}>
+                  <TableRow className={isExpanded ? "border-b-0" : ""}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -249,7 +304,24 @@ export default function AdminUsersPage() {
                     <TableCell>
                       <Badge className={ROLE_COLORS[user.role] || ""}>{user.role}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">{user._count.listings}</TableCell>
+                    <TableCell className="text-right">
+                      {canExpand ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(user.id)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-medium hover:bg-muted"
+                        >
+                          {user._count.listings}
+                          {isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </TableCell>
@@ -293,7 +365,60 @@ export default function AdminUsersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
+
+                  {/* Expanded: this user's listings, each editable by admin */}
+                  {isExpanded && (
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableCell colSpan={7} className="p-0">
+                        <div className="px-6 py-4">
+                          {listingsLoading === user.id ? (
+                            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" /> Loading listings…
+                            </div>
+                          ) : userListings.length === 0 ? (
+                            <p className="py-3 text-sm text-muted-foreground">No listings for this user.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                {user.name}&apos;s listings ({userListings.length})
+                              </p>
+                              {userListings.map((l) => (
+                                <div
+                                  key={l.id}
+                                  className="flex items-center gap-3 rounded-md border bg-background px-3 py-2"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate text-sm font-medium">{l.title}</span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {l.status.replace("_", " ")}
+                                      </Badge>
+                                    </div>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      ${Number(l.askingPrice).toLocaleString()} · {l.neighborhood}, {l.borough.replace("_", " ")}
+                                    </p>
+                                  </div>
+                                  <Button asChild variant="ghost" size="sm" className="h-8 gap-1">
+                                    <a href={`/listings/${l.slug}`} target="_blank" rel="noreferrer">
+                                      <ExternalLink className="h-3.5 w-3.5" /> View
+                                    </a>
+                                  </Button>
+                                  <Button asChild variant="outline" size="sm" className="h-8 gap-1">
+                                    <Link href={`/my-listings/${l.id}/edit`}>
+                                      <Pencil className="h-3.5 w-3.5" /> Edit
+                                    </Link>
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </Fragment>
+                  );
+                })
               )}
             </TableBody>
           </Table>

@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
       where.role = role;
     }
 
+    // "Sellers" = users who actually have at least one listing.
+    if (searchParams.get("hasListings") === "true") {
+      where.listings = { some: {} };
+    }
+
     if (banned === "true") {
       where.isBanned = true;
     } else if (banned === "false") {

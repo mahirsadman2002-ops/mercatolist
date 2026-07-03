@@ -29,6 +29,8 @@ import {
   Plus,
   Star,
   StickyNote,
+  Search,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -781,6 +783,12 @@ export function ListingContactSidebar({
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [sendingToClientId, setSendingToClientId] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState("");
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [addingClient, setAddingClient] = useState(false);
+  const [lastSentClientId, setLastSentClientId] = useState<string | null>(null);
 
   // Track whether auto-action has been executed
   const autoActionExecuted = useRef(false);
@@ -1117,6 +1125,13 @@ export function ListingContactSidebar({
           throw new Error(data.error || "Failed to send listing");
         }
         toast.success(`Listing sent to ${clientName}`);
+        // Remember who we last sent to so they float to the top next time.
+        try {
+          localStorage.setItem("ml_last_client", clientId);
+          setLastSentClientId(clientId);
+        } catch {
+          /* ignore */
+        }
         setClientPopoverOpen(false);
       } catch (err) {
         toast.error(
@@ -1129,15 +1144,77 @@ export function ListingContactSidebar({
     [listing.id]
   );
 
+  const handleAddClient = useCallback(async () => {
+    const name = newClientName.trim();
+    const email = newClientEmail.trim();
+    if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter a name and a valid email");
+      return;
+    }
+    setAddingClient(true);
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to add client");
+      }
+      const created = data.data;
+      // Add to the list and immediately share the listing with them.
+      setClients((prev) =>
+        [...prev, { id: created.id, name: created.name, email: created.email }].sort(
+          (a, b) => a.name.localeCompare(b.name)
+        )
+      );
+      setNewClientName("");
+      setNewClientEmail("");
+      setShowAddClient(false);
+      toast.success(`Added ${created.name}`);
+      await handleShareWithClient(created.id, created.name);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add client");
+    } finally {
+      setAddingClient(false);
+    }
+  }, [newClientName, newClientEmail, handleShareWithClient]);
+
   const handleClientPopoverOpen = useCallback(
     (open: boolean) => {
       setClientPopoverOpen(open);
       if (open) {
         fetchClients();
+        setClientSearch("");
+        setShowAddClient(false);
+        try {
+          setLastSentClientId(localStorage.getItem("ml_last_client"));
+        } catch {
+          /* ignore */
+        }
       }
     },
     [fetchClients]
   );
+
+  // Clients to show: filtered by search, alphabetical, with the last-sent
+  // client floated to the top so a broker with many clients sees it first.
+  const visibleClients = (() => {
+    const q = clientSearch.trim().toLowerCase();
+    const filtered = q
+      ? clients.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)
+        )
+      : clients;
+    if (!lastSentClientId) return filtered;
+    const idx = filtered.findIndex((c) => c.id === lastSentClientId);
+    if (idx <= 0) return filtered;
+    const copy = [...filtered];
+    const [recent] = copy.splice(idx, 1);
+    return [recent, ...copy];
+  })();
 
   // ---- Ghost listing share link ----
   const ghostShareUrl =
@@ -1429,23 +1506,102 @@ export function ListingContactSidebar({
                   Share with Client
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="center" className="w-64 p-0">
-                <div className="p-3 pb-2">
+              <PopoverContent align="center" className="w-72 p-0">
+                <div className="flex items-center justify-between gap-2 p-3 pb-2">
                   <p className="text-sm font-semibold">Send to Client</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-xs"
+                    onClick={() => setShowAddClient((v) => !v)}
+                  >
+                    <Plus className="size-3.5" />
+                    New
+                  </Button>
                 </div>
+
+                {/* Inline add-client form */}
+                {showAddClient && (
+                  <div className="space-y-2 border-t bg-muted/30 p-3">
+                    <Input
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      placeholder="Client name"
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="email"
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
+                      placeholder="client@email.com"
+                      className="h-8 text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !addingClient) handleAddClient();
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 w-full gap-1.5"
+                      onClick={handleAddClient}
+                      disabled={addingClient}
+                    >
+                      {addingClient ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Send className="size-3.5" />
+                      )}
+                      Add &amp; send listing
+                    </Button>
+                  </div>
+                )}
+
+                {/* Search — only when the list is long enough to warrant it */}
+                {!showAddClient && clients.length > 6 && (
+                  <div className="border-t p-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        placeholder="Search clients…"
+                        className="h-8 pl-7 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <Separator />
-                <div className="max-h-48 overflow-y-auto p-2">
+                <div className="max-h-56 overflow-y-auto p-2">
                   {isLoadingClients ? (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="size-4 animate-spin text-muted-foreground" />
                     </div>
                   ) : clients.length === 0 ? (
+                    <div className="px-2 py-4 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        No clients yet.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 gap-1.5"
+                        onClick={() => setShowAddClient(true)}
+                      >
+                        <Plus className="size-3.5" />
+                        Add your first client
+                      </Button>
+                    </div>
+                  ) : visibleClients.length === 0 ? (
                     <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                      No clients yet. Add clients from your dashboard.
+                      No clients match “{clientSearch}”.
                     </p>
                   ) : (
-                    clients.map((client) => {
+                    visibleClients.map((client) => {
                       const isSending = sendingToClientId === client.id;
+                      const isRecent = client.id === lastSentClientId;
                       return (
                         <button
                           key={client.id}
@@ -1460,7 +1616,14 @@ export function ListingContactSidebar({
                             <Send className="size-3.5 shrink-0 text-muted-foreground" />
                           )}
                           <div className="flex flex-col items-start min-w-0">
-                            <span className="truncate text-sm">{client.name}</span>
+                            <span className="flex items-center gap-1.5 truncate text-sm">
+                              {client.name}
+                              {isRecent && (
+                                <span className="rounded bg-muted px-1 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  Recent
+                                </span>
+                              )}
+                            </span>
                             <span className="truncate text-xs text-muted-foreground">{client.email}</span>
                           </div>
                         </button>
@@ -1468,6 +1631,16 @@ export function ListingContactSidebar({
                     })
                   )}
                 </div>
+
+                {/* Manage all clients */}
+                <Separator />
+                <Link
+                  href="/clients"
+                  className="flex items-center justify-center gap-1.5 p-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Users className="size-3.5" />
+                  Manage all clients
+                </Link>
               </PopoverContent>
             </Popover>
           )}

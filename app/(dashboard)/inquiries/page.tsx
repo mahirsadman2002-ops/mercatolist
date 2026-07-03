@@ -20,7 +20,6 @@ import {
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -51,9 +50,12 @@ interface InquiryMessage {
   createdAt: string;
 }
 
+type Direction = "sent" | "received";
+
 interface Inquiry {
   id: string;
   type: "ANONYMOUS_FORM" | "MESSAGE_THREAD";
+  direction: Direction;
   senderName?: string | null;
   senderEmail?: string | null;
   senderPhone?: string | null;
@@ -105,19 +107,18 @@ function timeAgo(dateStr: string): string {
 
 function InquiryRow({
   inquiry,
-  tab,
   isSelected,
   onClick,
 }: {
   inquiry: Inquiry;
-  tab: string;
   isSelected: boolean;
   onClick: () => void;
 }) {
   const isThread = inquiry.type === "MESSAGE_THREAD";
   const isUnread = !inquiry.isRead || inquiry.unreadMessageCount > 0;
+  const isSent = inquiry.direction === "sent";
   const contactName =
-    tab === "sent"
+    isSent
       ? inquiry.receiver.displayName || inquiry.receiver.name
       : inquiry.sender?.displayName ||
         inquiry.sender?.name ||
@@ -166,11 +167,18 @@ function InquiryRow({
         <div className="flex items-center justify-between gap-2">
           <span
             className={cn(
-              "text-sm truncate",
+              "flex items-center gap-1 text-sm truncate",
               isUnread ? "font-semibold" : "font-medium"
             )}
           >
-            {contactName}
+            {isSent ? (
+              <Send className="size-3 shrink-0 text-muted-foreground" />
+            ) : (
+              <Inbox className="size-3 shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate">
+              {isSent ? `To ${contactName}` : contactName}
+            </span>
           </span>
           <span className="text-[10px] text-muted-foreground shrink-0">
             {timeAgo(inquiry.messages[0]?.createdAt || inquiry.createdAt)}
@@ -342,17 +350,25 @@ export default function InquiriesPage() {
   );
 }
 
+type InquiryFilter = "all" | "received" | "sent";
+
 function InquiriesPageContent() {
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState(searchParams.get("tab") || "received");
+  // Back-compat: an old ?tab=sent|received link maps onto the new filter.
+  const initialFilter = ((): InquiryFilter => {
+    const t = searchParams.get("tab");
+    return t === "sent" || t === "received" ? t : "all";
+  })();
+  const [filter, setFilter] = useState<InquiryFilter>(initialFilter);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch inquiries
+  // Fetch the full inbox (both directions) once; filtering is client-side so
+  // switching tabs is instant and doesn't refetch.
   const fetchInquiries = useCallback(async () => {
     try {
-      const res = await fetch(`/api/inquiries?tab=${tab}`);
+      const res = await fetch(`/api/inquiries?tab=all`);
       if (!res.ok) throw new Error("Failed to fetch");
       const json = await res.json();
       if (json.success) {
@@ -363,7 +379,7 @@ function InquiriesPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [tab]);
+  }, []);
 
   useEffect(() => {
     setIsLoading(true);
@@ -400,10 +416,24 @@ function InquiriesPageContent() {
     [inquiries]
   );
 
+  // Counts per direction, and the visible (filtered) list.
+  const receivedCount = inquiries.filter((i) => i.direction === "received").length;
+  const sentCount = inquiries.filter((i) => i.direction === "sent").length;
+  const visibleInquiries =
+    filter === "all"
+      ? inquiries
+      : inquiries.filter((i) => i.direction === filter);
   const selectedInquiry = inquiries.find((i) => i.id === selectedId);
+  // Unread badge tracks received inquiries (the ones that need a reply).
   const unreadCount = inquiries.filter(
-    (i) => !i.isRead || i.unreadMessageCount > 0
+    (i) => i.direction === "received" && (!i.isRead || i.unreadMessageCount > 0)
   ).length;
+
+  const FILTERS: { key: InquiryFilter; label: string; count: number }[] = [
+    { key: "all", label: "All", count: inquiries.length },
+    { key: "received", label: "Received", count: receivedCount },
+    { key: "sent", label: "Sent", count: sentCount },
+  ];
 
   return (
     <div className="space-y-4">
@@ -415,27 +445,45 @@ function InquiriesPageContent() {
         </p>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="received" className="gap-1.5">
-            <Inbox className="size-4" />
-            Received
-            {tab !== "received" && unreadCount > 0 && (
+      {/* Direction filter — one unified list, filterable by All / Received / Sent */}
+      <div className="inline-flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => {
+              setFilter(f.key);
+              // Clear selection if the chosen inquiry is no longer visible.
+              if (
+                f.key !== "all" &&
+                selectedInquiry &&
+                selectedInquiry.direction !== f.key
+              ) {
+                setSelectedId(null);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              filter === f.key
+                ? "bg-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {f.key === "received" && <Inbox className="size-3.5" />}
+            {f.key === "sent" && <Send className="size-3.5" />}
+            {f.label}
+            <span className="text-xs text-muted-foreground">{f.count}</span>
+            {f.key === "received" && unreadCount > 0 && (
               <Badge
                 variant="destructive"
-                className="ml-1 h-5 min-w-[20px] justify-center px-1.5 text-[10px]"
+                className="ml-0.5 h-5 min-w-[20px] justify-center px-1.5 text-[10px]"
               >
                 {unreadCount}
               </Badge>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="gap-1.5">
-            <Send className="size-4" />
-            Sent
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+          </button>
+        ))}
+      </div>
 
       {/* Split Layout */}
       <div className="flex h-[calc(100vh-220px)] min-h-[400px] overflow-hidden rounded-lg border bg-background">
@@ -450,31 +498,34 @@ function InquiriesPageContent() {
             <div className="flex flex-1 items-center justify-center">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
-          ) : inquiries.length === 0 ? (
+          ) : visibleInquiries.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
-              {tab === "received" ? (
-                <MailOpen className="size-12 text-muted-foreground/40" />
-              ) : (
+              {filter === "sent" ? (
                 <Send className="size-12 text-muted-foreground/40" />
+              ) : (
+                <MailOpen className="size-12 text-muted-foreground/40" />
               )}
               <p className="text-sm font-medium">
-                {tab === "received"
-                  ? "No inquiries received yet"
-                  : "No inquiries sent yet"}
+                {filter === "sent"
+                  ? "No inquiries sent yet"
+                  : filter === "received"
+                    ? "No inquiries received yet"
+                    : "No inquiries yet"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {tab === "received"
-                  ? "When buyers contact you about your listings, they'll appear here."
-                  : "Inquiries and messages you send to listing owners will appear here."}
+                {filter === "sent"
+                  ? "Inquiries and messages you send to listing owners will appear here."
+                  : filter === "received"
+                    ? "When buyers contact you about your listings, they'll appear here."
+                    : "Your sent and received inquiries will all appear here."}
               </p>
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto">
-              {inquiries.map((inq) => (
+              {visibleInquiries.map((inq) => (
                 <InquiryRow
                   key={inq.id}
                   inquiry={inq}
-                  tab={tab}
                   isSelected={selectedId === inq.id}
                   onClick={() => handleSelect(inq.id)}
                 />
@@ -506,7 +557,7 @@ function InquiriesPageContent() {
                     </Button>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-semibold truncate">
-                        {tab === "sent"
+                        {selectedInquiry.direction === "sent"
                           ? selectedInquiry.receiver.displayName ||
                             selectedInquiry.receiver.name
                           : selectedInquiry.sender?.displayName ||

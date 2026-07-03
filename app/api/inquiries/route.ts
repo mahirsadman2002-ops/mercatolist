@@ -49,10 +49,19 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") || "";
     const read = searchParams.get("read") || "";
 
+    // tab=all returns both directions in one list (the unified inbox). "sent"
+    // and "received" remain for callers that still want a single side.
     const where: Record<string, unknown> =
-      tab === "sent"
-        ? { senderId: session.user.id }
-        : { receiverId: session.user.id };
+      tab === "all"
+        ? {
+            OR: [
+              { senderId: session.user.id },
+              { receiverId: session.user.id },
+            ],
+          }
+        : tab === "sent"
+          ? { senderId: session.user.id }
+          : { receiverId: session.user.id };
 
     if (listingId) {
       where.listingId = listingId;
@@ -116,6 +125,10 @@ export async function GET(request: NextRequest) {
         }
         return {
           ...inq,
+          // Which side of the conversation the current user is on, so the
+          // unified inbox can label + filter without a second request.
+          direction:
+            inq.senderId === session.user.id ? "sent" : "received",
           unreadMessageCount: unreadCount,
         };
       })

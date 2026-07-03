@@ -57,6 +57,11 @@ import {
 import { CategoryMultiCombobox } from "@/components/ui/category-combobox";
 import { toast } from "sonner";
 import { BOROUGHS } from "@/lib/constants";
+import {
+  prepareImageForUpload,
+  looksLikeImage,
+  ImagePrepError,
+} from "@/lib/image-client";
 
 interface LicenseData {
   id: string;
@@ -417,18 +422,25 @@ export default function SettingsPage() {
     }
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!looksLikeImage(file)) {
       toast.error("Please select an image file");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5MB");
-      return;
+    setUploadingAvatar(true);
+    try {
+      // Converts HEIC and other odd formats to JPEG, compresses if over 5MB.
+      const prepared = await prepareImageForUpload(file, 5 * 1024 * 1024);
+      await handleAvatarUpload(prepared);
+    } catch (err) {
+      toast.error(
+        err instanceof ImagePrepError ? err.message : "Couldn't process image",
+      );
+    } finally {
+      setUploadingAvatar(false);
     }
-    handleAvatarUpload(file);
   }
 
   function handleRemoveAvatar() {
@@ -713,7 +725,7 @@ export default function SettingsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 onChange={handleFileSelect}
                 className="hidden"
               />

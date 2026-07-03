@@ -35,6 +35,11 @@ import {
   NEIGHBORHOODS,
 } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
+import {
+  prepareImageForUpload,
+  looksLikeImage,
+  ImagePrepError,
+} from "@/lib/image-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1366,22 +1371,35 @@ function StepPhotos({
       toast.error(`You've hit the ${MAX_PHOTOS}-photo limit`);
       return;
     }
-    const accepted: File[] = [];
-    for (const f of filesArray.slice(0, remaining)) {
-      if (!f.type.startsWith("image/")) {
+    // Quick pre-filter on "is this an image at all" (mime OR extension —
+    // browsers report an empty type for HEIC and some other formats).
+    const candidates = filesArray.slice(0, remaining).filter((f) => {
+      if (!looksLikeImage(f)) {
         toast.error(`${f.name} isn't an image`);
-        continue;
+        return false;
       }
-      if (f.size > MAX_PHOTO_BYTES) {
-        toast.error(`${f.name} is too large (max 10MB)`);
-        continue;
-      }
-      accepted.push(f);
-    }
-    if (accepted.length === 0) return;
+      return true;
+    });
+    if (candidates.length === 0) return;
 
-    setUploadingCount((c) => c + accepted.length);
-    const results = await Promise.all(accepted.map(uploadFile));
+    setUploadingCount((c) => c + candidates.length);
+    // Convert HEIC/odd formats to JPEG and compress oversized files, then
+    // upload. Per-file: one bad photo never blocks the rest of the batch.
+    const results = await Promise.all(
+      candidates.map(async (f) => {
+        try {
+          const prepared = await prepareImageForUpload(f, MAX_PHOTO_BYTES);
+          return await uploadFile(prepared);
+        } catch (err) {
+          toast.error(
+            err instanceof ImagePrepError
+              ? err.message
+              : `Couldn't process ${f.name}`,
+          );
+          return null;
+        }
+      }),
+    );
     const successful = results.filter(
       (r): r is { url: string; key: string } => r !== null,
     );
@@ -1399,7 +1417,7 @@ function StepPhotos({
         `Uploaded ${successful.length} photo${successful.length === 1 ? "" : "s"}`,
       );
     }
-    setUploadingCount((c) => Math.max(0, c - accepted.length));
+    setUploadingCount((c) => Math.max(0, c - candidates.length));
   }
 
   function removePhoto(index: number) {
@@ -1446,7 +1464,7 @@ function StepPhotos({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -1512,8 +1530,9 @@ function StepPhotos({
               )}
             </Button>
             <p className="text-xs text-muted-foreground">
-              PNG, JPG, or WEBP. Max 10MB per file. {photos.length}/
-              {MAX_PHOTOS} photos used.
+              JPG, PNG, HEIC, or any photo format — large images are
+              compressed automatically. {photos.length}/{MAX_PHOTOS} photos
+              used.
             </p>
           </div>
         </div>

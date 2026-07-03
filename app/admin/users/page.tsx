@@ -48,7 +48,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2 } from "lucide-react";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -94,6 +94,17 @@ export default function AdminUsersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [listingsByUser, setListingsByUser] = useState<Record<string, UserListing[]>>({});
   const [listingsLoading, setListingsLoading] = useState<string | null>(null);
+
+  // Create-user (managed account) dialog.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    accountType: "SELLER" as "SELLER" | "ADVISOR",
+    brokerageName: "",
+  });
 
   // Modals
   const [roleModal, setRoleModal] = useState<{ user: User; newRole: string } | null>(null);
@@ -209,11 +220,54 @@ export default function AdminUsersPage() {
     } catch { toast.error("Failed to delete user"); }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUser.name.trim() || !newUser.email.trim()) {
+      toast.error("Name and email are required");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch("/api/admin/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const { created, claimEmailSent } = data.data;
+        toast.success(
+          created
+            ? claimEmailSent
+              ? "Account created — a claim link was emailed so they can set a password."
+              : "Account created (claim email couldn't be sent)."
+            : claimEmailSent
+              ? "That account already existed and is unclaimed — resent the claim link."
+              : "That account already exists."
+        );
+        setCreateOpen(false);
+        setNewUser({ name: "", email: "", phone: "", accountType: "SELLER", brokerageName: "" });
+        fetchUsers();
+      } else {
+        toast.error(data.error || "Failed to create user");
+      }
+    } catch {
+      toast.error("Failed to create user");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Manage Users</h1>
-        <p className="text-sm text-muted-foreground mt-1">{total} total users</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Manage Users</h1>
+          <p className="text-sm text-muted-foreground mt-1">{total} total users</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
+          <UserPlus className="h-4 w-4" />
+          Create user
+        </Button>
       </div>
 
       {/* Filters */}
@@ -498,6 +552,86 @@ export default function AdminUsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create user (managed account) */}
+      <Dialog open={createOpen} onOpenChange={(open) => !open && setCreateOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a user</DialogTitle>
+            <DialogDescription>
+              Sets up an account on their behalf. They&apos;ll get an email with a
+              link to set a password and claim it — until then it&apos;s a managed,
+              unclaimed account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="cu-name">Full name</Label>
+              <Input
+                id="cu-name"
+                value={newUser.name}
+                onChange={(e) => setNewUser((u) => ({ ...u, name: e.target.value }))}
+                placeholder="Jane Doe"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cu-email">Email</Label>
+              <Input
+                id="cu-email"
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser((u) => ({ ...u, email: e.target.value }))}
+                placeholder="jane@example.com"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cu-phone">Phone (optional)</Label>
+                <Input
+                  id="cu-phone"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser((u) => ({ ...u, phone: e.target.value }))}
+                  placeholder="(212) 555-0100"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Account type</Label>
+                <Select
+                  value={newUser.accountType}
+                  onValueChange={(v) =>
+                    setNewUser((u) => ({ ...u, accountType: v as "SELLER" | "ADVISOR" }))
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SELLER">Seller / Buyer</SelectItem>
+                    <SelectItem value="ADVISOR">Broker / Advisor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {newUser.accountType === "ADVISOR" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="cu-brokerage">Brokerage (optional)</Label>
+                <Input
+                  id="cu-brokerage"
+                  value={newUser.brokerageName}
+                  onChange={(e) => setNewUser((u) => ({ ...u, brokerageName: e.target.value }))}
+                  placeholder="Acme Business Brokers"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={creating}>
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create & send claim link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

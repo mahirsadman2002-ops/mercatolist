@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { sendClaimEmail } from "@/lib/claim";
+import { findOrCreateManagedUser } from "@/lib/create-managed-user";
 
 export type SellerInput = {
   email?: string;
@@ -61,35 +62,20 @@ export async function createListingForSeller(
     return { ok: false, status: 400, error: "Listing needs at least a title, category, and asking price." };
   }
 
-  const role = seller.accountType === "ADVISOR" ? "BROKER" : "USER";
-
-  // Owner: find or create (auto-verified, no password = unclaimed).
-  let owner = await prisma.user.findUnique({ where: { email } });
-  let ownerCreated = false;
-  if (!owner) {
-    owner = await prisma.user.create({
-      data: {
-        email,
-        name,
-        phone: seller.phone ? String(seller.phone).trim() : null,
-        role,
-        brokerageName:
-          role === "BROKER" && seller.brokerageName ? String(seller.brokerageName).trim() : null,
-        emailVerified: new Date(),
-        // Admin-created on the seller's behalf — unclaimed until they set a password.
-        isManaged: true,
-      },
-    });
-    ownerCreated = true;
-  } else if (role === "BROKER" && owner.role === "USER") {
-    owner = await prisma.user.update({
-      where: { id: owner.id },
-      data: {
-        role: "BROKER",
-        brokerageName: seller.brokerageName ? String(seller.brokerageName).trim() : owner.brokerageName,
-      },
-    });
+  // Owner: find or create a managed (auto-verified, unclaimed) account —
+  // shared with the standalone admin "Create user" flow.
+  const ownerResult = await findOrCreateManagedUser({
+    email,
+    name,
+    phone: seller.phone,
+    accountType: seller.accountType,
+    brokerageName: seller.brokerageName,
+  });
+  if (!ownerResult.ok) {
+    return { ok: false, status: ownerResult.status, error: ownerResult.error };
   }
+  const owner = ownerResult.user;
+  const ownerCreated = ownerResult.created;
 
   const baseTitle = String(listing.title).trim();
   let slug = slugify(baseTitle);

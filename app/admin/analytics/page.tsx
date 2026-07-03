@@ -44,21 +44,27 @@ export default function AdminAnalyticsPage() {
   const [usersData, setUsersData] = useState<any>(null);
   const [engagementData, setEngagementData] = useState<any>(null);
   const [searchData, setSearchData] = useState<any>(null);
+  const [dailyData, setDailyData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
+    // Daily chart caps at 90 points; 1y/All fall back to the 90-day window.
+    const rangeDays = DATE_RANGES.find((r) => r.label === dateRange)?.days || 30;
+    const dailyDays = rangeDays === 0 || rangeDays > 90 ? 90 : rangeDays;
     Promise.all([
       fetch("/api/admin/analytics/listings").then((r) => r.json()),
       fetch("/api/admin/analytics/users").then((r) => r.json()),
       fetch("/api/admin/analytics/engagement").then((r) => r.json()),
       fetch("/api/admin/analytics/searches").then((r) => r.json()),
+      fetch(`/api/admin/analytics/daily?days=${dailyDays}`).then((r) => r.json()),
     ])
-      .then(([listings, users, engagement, searches]) => {
+      .then(([listings, users, engagement, searches, daily]) => {
         if (listings.success) setListingsData(listings.data);
         if (users.success) setUsersData(users.data);
         if (engagement.success) setEngagementData(engagement.data);
         if (searches.success) setSearchData(searches.data);
+        if (daily.success) setDailyData(daily.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -111,6 +117,86 @@ export default function AdminAnalyticsPage() {
           ))}
         </div>
       </div>
+
+      {/* Daily Activity Section */}
+      {dailyData?.series && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Daily Activity</h2>
+            <p className="text-sm text-muted-foreground">
+              Site visits, new listings, new users, and inquiries per day
+              (last {dailyData.days} days).
+            </p>
+          </div>
+
+          {/* Totals for the window */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              { label: "Site Visits", value: dailyData.totals.visits, color: "#3b82f6" },
+              { label: "New Listings", value: dailyData.totals.listings, color: "#10b981" },
+              { label: "New Users", value: dailyData.totals.users, color: "#f59e0b" },
+              { label: "Inquiries Sent", value: dailyData.totals.inquiries, color: "#ef4444" },
+            ].map((tile) => (
+              <Card key={tile.label}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="size-2.5 rounded-full"
+                      style={{ backgroundColor: tile.color }}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {tile.label}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-2xl font-bold tabular-nums">
+                    {tile.value.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Daily trend */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Daily Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={dailyData.series} margin={{ left: -10, right: 8 }}>
+                  <defs>
+                    {[
+                      { id: "gVisits", c: "#3b82f6" },
+                      { id: "gListings", c: "#10b981" },
+                      { id: "gUsers", c: "#f59e0b" },
+                      { id: "gInquiries", c: "#ef4444" },
+                    ].map((g) => (
+                      <linearGradient key={g.id} id={g.id} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={g.c} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={g.c} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(d: string) => d.slice(5)}
+                    minTickGap={24}
+                  />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={40} />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="visits" name="Visits" stroke="#3b82f6" fill="url(#gVisits)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="listings" name="Listings" stroke="#10b981" fill="url(#gListings)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="users" name="Users" stroke="#f59e0b" fill="url(#gUsers)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="inquiries" name="Inquiries" stroke="#ef4444" fill="url(#gInquiries)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* Listings Section */}
       <section className="space-y-4">

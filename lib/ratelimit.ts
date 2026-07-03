@@ -24,6 +24,7 @@ type LimiterName =
   | "contact"
   | "geocode"
   | "view"
+  | "visit"
   | "feedback"
   | "login"
   | "register"
@@ -62,6 +63,7 @@ const limiters: Record<LimiterName, Ratelimit | null> = redis
       contact: makeLimiter("contact", 5, "10 m"),
       geocode: makeLimiter("geocode", 30, "1 m"),
       view: makeLimiter("view", 60, "1 m"),
+      visit: makeLimiter("visit", 120, "1 h"),
       feedback: makeLimiter("feedback", 5, "10 m"),
       login: makeLimiter("login", 10, "15 m"),
       register: makeLimiter("register", 5, "1 h"),
@@ -76,6 +78,7 @@ const limiters: Record<LimiterName, Ratelimit | null> = redis
       contact: null,
       geocode: null,
       view: null,
+      visit: null,
       feedback: null,
       login: null,
       register: null,

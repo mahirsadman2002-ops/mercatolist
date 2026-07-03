@@ -10,6 +10,7 @@ import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
 import { WelcomeModal } from "@/components/layout/WelcomeModal";
 import { VerifyEmailBanner } from "@/components/layout/VerifyEmailBanner";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { VisitTracker } from "@/components/analytics/VisitTracker";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -139,6 +140,7 @@ export default function RootLayout({
         </SessionProvider>
         </ThemeProvider>
         <Analytics />
+        <VisitTracker />
       </body>
     </html>
   );

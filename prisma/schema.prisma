@@ -773,3 +773,18 @@ model Feedback {
   @@index([status])
   @@index([createdAt])
 }
+
+// One row per (anonymous visitor, day) — powers the admin "daily site visits"
+// metric. visitorId is a random cookie value (not tied to a user account), so
+// this is a coarse traffic counter, not PII. The unique constraint makes the
+// tracking endpoint idempotent per visitor per day (dedup happens in the DB),
+// so a visitor is counted once/day no matter how many pages they load.
+model DailyVisit {
+  id        String   @id @default(uuid())
+  visitorId String
+  day       String // YYYY-MM-DD in UTC
+  createdAt DateTime @default(now())
+
+  @@unique([visitorId, day])
+  @@index([day])
+}

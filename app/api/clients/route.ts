@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 // GET: List all clients for current broker from the Client model
 export async function GET() {
@@ -87,6 +88,10 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    // Creating a client can fire an invite email to an arbitrary address.
+    const limit = await rateLimit(request, "brokerEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const body = await request.json();
     const {

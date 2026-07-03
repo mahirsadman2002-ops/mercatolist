@@ -64,10 +64,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Apply address privacy — but skip for the listing owner
+    // Apply address privacy — but skip for the listing owner / admins.
     const session = await auth();
     const isOwner = session?.user?.id === listing.listedById;
-    const sanitizedListing = isOwner ? listing : applyAddressPrivacy(listing as any);
+    const isPrivileged = isOwner || session?.user?.role === "ADMIN";
+
+    let sanitizedListing: typeof listing = listing;
+    if (!isPrivileged) {
+      sanitizedListing = applyAddressPrivacy(listing as any);
+
+      // Never expose seller/broker email publicly — contact happens through
+      // the inquiry system. Only expose phone numbers when the lister opted in
+      // via showPhoneNumber. This prevents scraping seller PII at scale.
+      if (sanitizedListing.listedBy) {
+        sanitizedListing.listedBy.email = "";
+        if (!listing.showPhoneNumber) {
+          sanitizedListing.listedBy.phone = null;
+          sanitizedListing.listedBy.brokeragePhone = null;
+        }
+      }
+      if (!listing.showPhoneNumber && Array.isArray(sanitizedListing.coBrokers)) {
+        sanitizedListing.coBrokers = sanitizedListing.coBrokers.map((cb) => ({
+          ...cb,
+          phone: null,
+        }));
+      }
+    }
 
     return NextResponse.json({ success: true, data: sanitizedListing });
   } catch (error) {

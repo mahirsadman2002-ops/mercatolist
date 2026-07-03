@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import { sendStatusConfirmationEmail } from "@/lib/listing-confirmation";
 
 export async function POST(
   request: NextRequest,
@@ -28,10 +29,8 @@ export async function POST(
       );
     }
 
-    // Placeholder: log the reminder email instead of sending
-    console.log(
-      `[Reminder] Sending status confirmation reminder to ${listing.listedBy.email} for listing "${listing.title}" (ID: ${listing.id})`
-    );
+    // Actually send the confirmation email and bump the non-response counters.
+    await sendStatusConfirmationEmail(listing);
 
     return NextResponse.json({
       success: true,

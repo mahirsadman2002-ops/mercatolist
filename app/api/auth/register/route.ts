@@ -4,9 +4,15 @@ import { v4 as uuidv4 } from "uuid";
 import { prisma } from "@/lib/prisma";
 import { userRegistrationSchema } from "@/lib/validations";
 import { attachPendingInvites } from "@/lib/attach-pending-invites";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function POST(request: NextRequest) {
   try {
+    // Cap signups per IP: unbounded row creation + verification email to an
+    // attacker-chosen address (email-bomb surface).
+    const limit = await rateLimit(request, "register");
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     const body = await request.json();
 
     // Validate input

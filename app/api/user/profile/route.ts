@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { profileUpdateSchema } from "@/lib/validations";
@@ -167,9 +168,9 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { success: false, error: "Validation failed", details: error },
+        { success: false, error: "Validation failed", details: error.flatten().fieldErrors },
         { status: 400 }
       );
     }

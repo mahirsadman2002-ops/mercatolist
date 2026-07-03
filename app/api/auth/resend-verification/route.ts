@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function POST(request: NextRequest) {
   try {
+    // IP-level cap on top of the per-user token throttle below, so one caller
+    // can't email-bomb many different victim addresses.
+    const limit = await rateLimit(request, "authEmail");
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     const { email } = await request.json();
 
     if (!email) {

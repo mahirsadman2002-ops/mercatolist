@@ -119,6 +119,9 @@ export function Header() {
           <span className="font-heading text-xl font-bold tracking-tight">
             MercatoList
           </span>
+          <span className="rounded-full border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-accent">
+            Beta
+          </span>
         </Link>
 
         {/* Desktop Navigation */}

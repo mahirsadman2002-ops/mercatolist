@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
 import { sendEmail } from "@/lib/email";
 import ReviewRequestEmail from "@/emails/review-request";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function POST(
   request: NextRequest,
@@ -17,6 +18,10 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    // Emails an arbitrary client address — throttle per user.
+    const limit = await rateLimit(request, "brokerEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const { id } = await params;
 

@@ -43,6 +43,7 @@ export default function AdminAnalyticsPage() {
   const [listingsData, setListingsData] = useState<any>(null);
   const [usersData, setUsersData] = useState<any>(null);
   const [engagementData, setEngagementData] = useState<any>(null);
+  const [searchData, setSearchData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,11 +52,13 @@ export default function AdminAnalyticsPage() {
       fetch("/api/admin/analytics/listings").then((r) => r.json()),
       fetch("/api/admin/analytics/users").then((r) => r.json()),
       fetch("/api/admin/analytics/engagement").then((r) => r.json()),
+      fetch("/api/admin/analytics/searches").then((r) => r.json()),
     ])
-      .then(([listings, users, engagement]) => {
+      .then(([listings, users, engagement, searches]) => {
         if (listings.success) setListingsData(listings.data);
         if (users.success) setUsersData(users.data);
         if (engagement.success) setEngagementData(engagement.data);
+        if (searches.success) setSearchData(searches.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -119,12 +122,13 @@ export default function AdminAnalyticsPage() {
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`}>
+                    <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2}>
                       {statusData.map((_: any, i: number) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip formatter={(value, name) => [value, name]} />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -238,13 +242,13 @@ export default function AdminAnalyticsPage() {
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={roleData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                    <Pie data={roleData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
                       {roleData.map((_: any, i: number) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
-                    <Legend />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -335,6 +339,77 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      {/* Search Section */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Search</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground">Total Searches</p>
+              <p className="text-2xl font-bold mt-1">{(searchData?.totalSearches ?? 0).toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground">Searches With No Results</p>
+              <p className="text-2xl font-bold mt-1">
+                {(searchData?.zeroResultCount ?? 0).toLocaleString()}
+                {searchData?.totalSearches > 0 && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    ({((searchData.zeroResultCount / searchData.totalSearches) * 100).toFixed(0)}%)
+                  </span>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Top Search Terms</CardTitle></CardHeader>
+            <CardContent>
+              {(!searchData?.topSearches || searchData.topSearches.length === 0) ? (
+                <p className="text-sm text-muted-foreground py-4">No searches logged yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {searchData.topSearches.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <p className="truncate font-medium">{item.query}</p>
+                      <Badge variant="secondary" className="shrink-0 ml-2">
+                        {item.count} {item.count === 1 ? "search" : "searches"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Unmet Demand (Zero Results)</CardTitle>
+              <p className="text-xs text-muted-foreground">What buyers search for that you don&apos;t have — recruit this inventory.</p>
+            </CardHeader>
+            <CardContent>
+              {(!searchData?.zeroResultSearches || searchData.zeroResultSearches.length === 0) ? (
+                <p className="text-sm text-muted-foreground py-4">No zero-result searches yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {searchData.zeroResultSearches.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <p className="truncate font-medium">{item.query}</p>
+                      <Badge variant="outline" className="shrink-0 ml-2 border-amber-500/40 text-amber-600">
+                        {item.count}×
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>

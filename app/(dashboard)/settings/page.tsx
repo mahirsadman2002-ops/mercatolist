@@ -372,7 +372,7 @@ export default function SettingsPage() {
       const presignRes = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileType: file.type, folder: "avatars" }),
+        body: JSON.stringify({ fileType: file.type, folder: "avatars", fileSize: file.size }),
       });
       const presignJson = await presignRes.json();
 

@@ -1,11 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/ratelimit";
 
 export async function POST(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    // Unauthenticated view counter — throttle per IP so it can't be inflated.
+    // Over-limit is treated as success so the client-side incrementer stays quiet.
+    const limit = await rateLimit(request, "view");
+    if (!limit.success) {
+      return NextResponse.json({ success: true });
+    }
+
     const { slug } = await params;
 
     await prisma.blogPost.update({

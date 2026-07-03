@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 import {
   Html,
   Head,
@@ -29,6 +30,9 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    const limit = await rateLimit(request, "brokerEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     // Verify user is a broker
     const user = await prisma.user.findUnique({

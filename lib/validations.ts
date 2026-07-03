@@ -338,3 +338,26 @@ export const adminReportUpdateSchema = z.object({
   status: z.enum(["PENDING", "REVIEWED", "DISMISSED", "ACTION_TAKEN"]),
   adminNotes: z.string().max(2000).optional().nullable(),
 });
+
+// ─── Feedback / Bug Reports ──────────────────────────────────────────
+
+export const feedbackSchema = z.object({
+  type: z.enum(["BUG", "IDEA"]),
+  message: z
+    .string()
+    .trim()
+    .min(5, "Please add a little more detail (at least 5 characters).")
+    .max(2000, "Please keep it under 2000 characters."),
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email.")
+    .optional()
+    .or(z.literal("")),
+  pageUrl: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
+export const adminFeedbackUpdateSchema = z.object({
+  status: z.enum(["NEW", "IN_PROGRESS", "RESOLVED", "DISMISSED"]),
+  adminNotes: z.string().trim().max(2000).nullable().optional(),
+});

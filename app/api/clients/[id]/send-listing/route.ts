@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import SendListing from "@/emails/send-listing";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 // POST: Send a specific listing to a client via email
 export async function POST(
@@ -17,6 +18,9 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    const limit = await rateLimit(request, "brokerEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     // Verify user is a broker
     const user = await prisma.user.findUnique({

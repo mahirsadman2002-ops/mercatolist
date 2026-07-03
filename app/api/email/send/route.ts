@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,11 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // This route emails an arbitrary recipient — throttle hard per user so it
+    // can't be turned into a spam relay / email-bomb tool.
+    const limit = await rateLimit(request, "emailSend", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const body = await request.json();
     const { to, subject, message, template, listing } = body;

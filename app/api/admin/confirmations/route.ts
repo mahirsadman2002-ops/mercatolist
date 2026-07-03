@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get("filter") || "all";
 
     const now = new Date();
-    const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const where: Record<string, unknown> = {};
 
@@ -22,15 +22,22 @@ export async function GET(request: NextRequest) {
       case "due_soon":
         where.statusConfirmationDue = {
           gte: now,
-          lte: twoDaysFromNow,
+          lte: threeDaysFromNow,
         };
         break;
       case "overdue":
         where.statusConfirmationDue = { lt: now };
         where.status = "ACTIVE";
         break;
+      case "stale":
+        // Non-responders: overdue AND we've already sent at least 2 reminders
+        // with no confirmation back.
+        where.statusConfirmationDue = { lt: now };
+        where.status = "ACTIVE";
+        where.confirmationRemindersSent = { gte: 2 };
+        break;
       case "confirmed":
-        where.lastStatusConfirmation = { gte: sevenDaysAgo };
+        where.lastStatusConfirmation = { gte: thirtyDaysAgo };
         break;
       case "all":
       default:
@@ -54,29 +61,39 @@ export async function GET(request: NextRequest) {
       prisma.businessListing.count({ where }),
     ]);
 
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
     const listingsWithStatus = listings.map((listing) => {
       let confirmationStatus: string;
 
+      const isOverdue =
+        listing.statusConfirmationDue && listing.statusConfirmationDue < now;
+
       if (
         listing.lastStatusConfirmation &&
-        listing.lastStatusConfirmation >= sevenDaysAgo
+        listing.lastStatusConfirmation >= thirtyDaysAgo
       ) {
         confirmationStatus = "confirmed";
-      } else if (
-        listing.statusConfirmationDue &&
-        listing.statusConfirmationDue < now
-      ) {
+      } else if (isOverdue && (listing.confirmationRemindersSent ?? 0) >= 2) {
+        confirmationStatus = "stale";
+      } else if (isOverdue) {
         confirmationStatus = "overdue";
       } else if (
         listing.statusConfirmationDue &&
-        listing.statusConfirmationDue <= twoDaysFromNow
+        listing.statusConfirmationDue <= threeDaysFromNow
       ) {
         confirmationStatus = "due_soon";
+      } else if (!listing.lastStatusConfirmation) {
+        confirmationStatus = "never_confirmed";
       } else {
         confirmationStatus = "pending";
       }
 
-      return { ...listing, confirmationStatus };
+      const daysSinceConfirmation = listing.lastStatusConfirmation
+        ? Math.floor((now.getTime() - listing.lastStatusConfirmation.getTime()) / DAY_MS)
+        : null;
+
+      return { ...listing, confirmationStatus, daysSinceConfirmation };
     });
 
     return NextResponse.json({

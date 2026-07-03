@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import NewMessage from "@/emails/new-message";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+
+const MAX_MESSAGE_LEN = 5000;
 
 export async function GET(request: NextRequest) {
   try {
@@ -147,6 +150,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Throttle per user — each inquiry emails the listing owner, so this is an
+    // email-bomb vector without a cap.
+    const limit = await rateLimit(request, "inquiry", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     // Validate required fields
     if (!body.listingId || typeof body.listingId !== "string") {
       return NextResponse.json(
@@ -161,6 +169,12 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { success: false, error: "Message is required" },
+        { status: 400 }
+      );
+    }
+    if (body.message.length > MAX_MESSAGE_LEN) {
+      return NextResponse.json(
+        { success: false, error: `Message is too long (max ${MAX_MESSAGE_LEN} characters).` },
         { status: 400 }
       );
     }

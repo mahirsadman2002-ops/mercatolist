@@ -5,6 +5,7 @@ import { listingCreateSchema, listingDraftSchema } from "@/lib/validations";
 import { slugify, generateShareToken } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -170,6 +171,39 @@ export async function GET(request: NextRequest) {
     // Apply address privacy to listings with hideAddress=true
     const sanitizedListings = applyAddressPrivacyToList(listings as any[]);
 
+    // Log meaningful searches (keyword or any filter) on the first page only, so
+    // pagination and plain browsing don't flood the table. Best-effort: a failure
+    // here must never break the search response.
+    const activeFilters: Record<string, string> = {};
+    if (category) activeFilters.category = category;
+    if (borough) activeFilters.borough = borough;
+    if (neighborhood) activeFilters.neighborhood = neighborhood;
+    if (zipCode) activeFilters.zipCode = zipCode;
+    if (priceMin) activeFilters.priceMin = priceMin;
+    if (priceMax) activeFilters.priceMax = priceMax;
+    if (revenueMin) activeFilters.revenueMin = revenueMin;
+    if (revenueMax) activeFilters.revenueMax = revenueMax;
+    if (daysOnMarket) activeFilters.daysOnMarket = daysOnMarket;
+    if (sellerFinancing === "true") activeFilters.sellerFinancing = "true";
+    if (sbaFinancing === "true") activeFilters.sbaFinancing = "true";
+
+    const hasSearchIntent = Boolean(keyword) || Object.keys(activeFilters).length > 0;
+    if (page === 1 && hasSearchIntent) {
+      try {
+        const session = await auth();
+        await prisma.searchLog.create({
+          data: {
+            query: keyword,
+            filters: Object.keys(activeFilters).length > 0 ? activeFilters : undefined,
+            resultCount: total,
+            userId: session?.user?.id ?? null,
+          },
+        });
+      } catch (logError) {
+        console.error("Failed to log search:", logError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: sanitizedListings,
@@ -198,6 +232,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const body = await request.json();
     const isDraft = body?.status === "DRAFT" || body?.draft === true;

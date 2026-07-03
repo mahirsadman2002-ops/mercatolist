@@ -20,17 +20,12 @@ function hasSessionCookie(request: NextRequest): boolean {
 }
 
 export function middleware(request: NextRequest) {
+  // Cheap edge gate: redirect page navigations to /login when no session
+  // cookie is present. This is UX only — real authorization is enforced in
+  // every API route and server component, which validate the actual session.
   if (hasSessionCookie(request)) {
     return NextResponse.next();
   }
-
-  // Log the attempt so we can diagnose redirect loops from Vercel logs.
-  console.warn(
-    "[middleware] no session cookie for",
-    request.nextUrl.pathname,
-    "— available cookies:",
-    request.cookies.getAll().map((c) => c.name),
-  );
 
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);

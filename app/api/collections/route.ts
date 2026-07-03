@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 // GET: List all collections for the current user (owned + collaborator + assigned via client)
 export async function GET() {
@@ -216,6 +217,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     const body = await request.json();
     const { name, description, clientId } = body;
 
@@ -225,13 +229,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (name.length > 200 || (description && description.length > 2000)) {
+      return NextResponse.json(
+        { success: false, error: "Name or description is too long." },
+        { status: 400 }
+      );
+    }
 
-    // Validate clientId if provided
+    // Validate clientId if provided — and confirm it belongs to THIS advisor,
+    // otherwise a broker could attach another advisor's client (IDOR).
     if (clientId) {
       const client = await prisma.client.findUnique({
         where: { id: clientId },
       });
-      if (!client) {
+      if (!client || client.advisorId !== session.user.id) {
         return NextResponse.json(
           { success: false, error: "Client not found" },
           { status: 404 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { CONFIRMATION_INTERVAL_DAYS } from "@/lib/listing-confirmation";
 
 // GET /api/listings/[id]/confirm?token=xxx
 // One-click confirmation endpoint — no auth required, HMAC-signed token validation
@@ -48,14 +49,17 @@ export async function GET(
     }
 
     const now = new Date();
-    const nextDue = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextDue = new Date(
+      now.getTime() + CONFIRMATION_INTERVAL_DAYS * 24 * 60 * 60 * 1000
+    );
 
-    // Update confirmation timestamps
+    // Update confirmation timestamps and clear the non-response counter.
     await prisma.businessListing.update({
       where: { id },
       data: {
         lastStatusConfirmation: now,
         statusConfirmationDue: nextDue,
+        confirmationRemindersSent: 0,
       },
     });
 
@@ -90,7 +94,7 @@ export async function GET(
           <div class="card">
             <div class="check">&#10003;</div>
             <h1>Status Confirmed!</h1>
-            <p>Your listing "<strong>${listing.title}</strong>" has been confirmed as ${listing.status.replace("_", " ").toLowerCase()}. We'll check in again in 7 days.</p>
+            <p>Your listing "<strong>${listing.title}</strong>" has been confirmed as ${listing.status.replace("_", " ").toLowerCase()}. We'll check in again in ${CONFIRMATION_INTERVAL_DAYS} days.</p>
             <a href="${appUrl}/my-listings">View My Listings</a>
           </div>
         </body>

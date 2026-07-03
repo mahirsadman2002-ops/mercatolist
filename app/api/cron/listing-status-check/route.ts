@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
-import crypto from "crypto";
-import StatusConfirmationRequest from "@/emails/status-confirmation-request";
+import {
+  sendStatusConfirmationEmail,
+  CONFIRMATION_INTERVAL_DAYS,
+} from "@/lib/listing-confirmation";
 
-// POST: 7-day listing status confirmation emails
+// POST: 30-day listing status confirmation emails (one per listing)
 // Secured with CRON_SECRET header
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -15,9 +16,12 @@ export async function POST(request: Request) {
   try {
     const now = new Date();
 
-    // Find listings that are due for confirmation
-    // Either: statusConfirmationDue is in the past, or it's null and listing is > 7 days old
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // Find listings that are due for confirmation.
+    // Either: statusConfirmationDue is in the past, or it's null and the listing
+    // is older than one confirmation interval (so brand-new listings get a grace period).
+    const intervalAgo = new Date(
+      now.getTime() - CONFIRMATION_INTERVAL_DAYS * 24 * 60 * 60 * 1000
+    );
 
     const listings = await prisma.businessListing.findMany({
       where: {
@@ -26,7 +30,7 @@ export async function POST(request: Request) {
           { statusConfirmationDue: { lt: now } },
           {
             statusConfirmationDue: null,
-            createdAt: { lt: sevenDaysAgo },
+            createdAt: { lt: intervalAgo },
           },
         ],
       },
@@ -41,41 +45,10 @@ export async function POST(request: Request) {
     let processed = 0;
     let errors = 0;
 
+    // Each listing gets its own individual email, even if one owner has several.
     for (const listing of listings) {
       try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.com";
-        const secret = process.env.NEXTAUTH_SECRET || "";
-
-        // Generate HMAC token for one-click confirm
-        const token = crypto
-          .createHmac("sha256", secret)
-          .update(listing.id)
-          .digest("hex");
-
-        const confirmUrl = `${appUrl}/api/listings/${listing.id}/confirm?token=${token}`;
-        const updateUrl = `${appUrl}/my-listings`;
-
-        await sendEmail({
-          to: listing.listedBy.email,
-          subject: `Is "${listing.title}" still active? — MercatoList`,
-          react: StatusConfirmationRequest({
-            listingTitle: listing.title,
-            listingCategory: listing.category,
-            listingBorough: listing.borough.replace("_", " "),
-            askingPrice: `$${Number(listing.askingPrice).toLocaleString()}`,
-            confirmUrl,
-            updateUrl,
-            ownerName: listing.listedBy.name,
-          }),
-        });
-
-        // Set next due date to 7 days from now
-        const nextDue = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        await prisma.businessListing.update({
-          where: { id: listing.id },
-          data: { statusConfirmationDue: nextDue },
-        });
-
+        await sendStatusConfirmationEmail(listing);
         processed++;
       } catch (error) {
         console.error(`Failed to process listing ${listing.id}:`, error);

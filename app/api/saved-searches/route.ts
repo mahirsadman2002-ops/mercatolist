@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 // GET: List all saved searches for current user
 export async function GET() {
@@ -39,12 +40,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     const body = await request.json();
     const { name, criteria, checkFrequency, emailFrequency, clientEmail } = body;
 
     if (!criteria || typeof criteria !== "object") {
       return NextResponse.json(
         { success: false, error: "Search criteria is required and must be an object" },
+        { status: 400 }
+      );
+    }
+    if (name && (typeof name !== "string" || name.length > 200)) {
+      return NextResponse.json(
+        { success: false, error: "Name is too long." },
+        { status: 400 }
+      );
+    }
+    // Cap the serialized criteria size to prevent oversized JSON payloads.
+    if (JSON.stringify(criteria).length > 10000) {
+      return NextResponse.json(
+        { success: false, error: "Search criteria is too large." },
         { status: 400 }
       );
     }

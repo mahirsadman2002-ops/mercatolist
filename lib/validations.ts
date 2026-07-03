@@ -1,6 +1,35 @@
 import { z } from "zod";
 import { BUSINESS_CATEGORIES } from "./constants";
 
+/**
+ * Fields a listing MUST have before it can go live (publish). Returns a list
+ * of human-readable labels for anything missing/invalid — empty means the
+ * listing is complete. Used to gate DRAFT -> ACTIVE so a half-filled draft
+ * can't be published into a broken public listing.
+ *
+ * Accepts a loosely-typed DB row (Decimals, nulls) so callers don't have to
+ * pre-serialize.
+ */
+export function getMissingListingFields(listing: Record<string, any>): string[] {
+  const missing: string[] = [];
+  const str = (v: any) => (typeof v === "string" ? v.trim() : "");
+  const num = (v: any) => (v == null ? NaN : Number(v));
+
+  if (str(listing.title).length < 5) missing.push("Title (at least 5 characters)");
+  if (str(listing.description).length < 50)
+    missing.push("Description (at least 50 characters)");
+  if (!str(listing.category)) missing.push("Category");
+  if (!(num(listing.askingPrice) > 0)) missing.push("Asking price");
+  if (str(listing.address).length < 5) missing.push("Address");
+  if (!str(listing.neighborhood)) missing.push("Neighborhood");
+  if (!str(listing.borough)) missing.push("Borough");
+  if (!/^\d{5}$/.test(str(listing.zipCode))) missing.push("ZIP code");
+  if (!Number.isFinite(num(listing.latitude)) || !Number.isFinite(num(listing.longitude)))
+    missing.push("Map location");
+
+  return missing;
+}
+
 const SOCIAL_DOMAINS = {
   instagram: ["instagram.com", "instagr.am"],
   linkedin: ["linkedin.com", "lnkd.in"],

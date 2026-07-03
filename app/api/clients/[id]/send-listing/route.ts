@@ -67,8 +67,15 @@ export async function POST(
     }
 
     // Get the listing details
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: listingId },
+    // Only genuinely-public listings can be emailed out — never a ghost or a
+    // not-yet-live DRAFT/OFF_MARKET listing (which would leak private details
+    // to whoever guesses/knows the UUID).
+    const listing = await prisma.businessListing.findFirst({
+      where: {
+        id: listingId,
+        isGhostListing: false,
+        status: { in: ["ACTIVE", "UNDER_CONTRACT", "SOLD"] },
+      },
       include: {
         photos: {
           orderBy: { order: "asc" },

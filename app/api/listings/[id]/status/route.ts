@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { statusChangeSchema } from "@/lib/validations";
+import { statusChangeSchema, getMissingListingFields } from "@/lib/validations";
 import { requireVerifiedEmail } from "@/lib/require-verified";
 
 export async function PUT(
@@ -21,7 +21,21 @@ export async function PUT(
 
     const listing = await prisma.businessListing.findUnique({
       where: { id },
-      select: { listedById: true, status: true },
+      select: {
+        listedById: true,
+        status: true,
+        // Needed to validate completeness before allowing publish.
+        title: true,
+        description: true,
+        category: true,
+        askingPrice: true,
+        address: true,
+        neighborhood: true,
+        borough: true,
+        zipCode: true,
+        latitude: true,
+        longitude: true,
+      },
     });
 
     if (!listing) {
@@ -54,10 +68,24 @@ export async function PUT(
       );
     }
 
-    // Making a listing live (ACTIVE) requires a verified email.
+    // Making a listing live (ACTIVE) requires a verified email AND a complete
+    // listing — a half-filled draft can't be published into a broken public
+    // page.
     if (validated.status === "ACTIVE") {
       const verified = await requireVerifiedEmail(session.user.id, "publish a listing");
       if (!verified.verified) return verified.response;
+
+      const missing = getMissingListingFields(listing);
+      if (missing.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Complete these before publishing: ${missing.join(", ")}.`,
+            missingFields: missing,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const updateData: Record<string, unknown> = {

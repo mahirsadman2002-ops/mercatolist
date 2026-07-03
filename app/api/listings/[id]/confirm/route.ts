@@ -21,14 +21,27 @@ export async function GET(
       );
     }
 
-    // Verify HMAC token
-    const secret = process.env.NEXTAUTH_SECRET || "";
+    // Verify HMAC token. Fail closed if the secret is missing (an empty key
+    // would make tokens forgeable), and compare in constant time.
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret) {
+      console.error("[confirm] NEXTAUTH_SECRET is not set");
+      return NextResponse.json(
+        { success: false, error: "Server misconfigured" },
+        { status: 500 }
+      );
+    }
     const expectedToken = crypto
       .createHmac("sha256", secret)
       .update(id)
       .digest("hex");
 
-    if (token !== expectedToken) {
+    const tokenBuf = Buffer.from(token, "hex");
+    const expectedBuf = Buffer.from(expectedToken, "hex");
+    const tokenValid =
+      tokenBuf.length === expectedBuf.length &&
+      crypto.timingSafeEqual(tokenBuf, expectedBuf);
+    if (!tokenValid) {
       return NextResponse.json(
         { success: false, error: "Invalid confirmation token" },
         { status: 403 }
@@ -73,6 +86,16 @@ export async function GET(
       },
     });
 
+    // Escape the (user-controlled) title before interpolating into HTML.
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    const safeTitle = escapeHtml(listing.title);
+
     // Redirect to a confirmation success page or return HTML
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.com";
     const html = `
@@ -94,7 +117,7 @@ export async function GET(
           <div class="card">
             <div class="check">&#10003;</div>
             <h1>Status Confirmed!</h1>
-            <p>Your listing "<strong>${listing.title}</strong>" has been confirmed as ${listing.status.replace("_", " ").toLowerCase()}. We'll check in again in ${CONFIRMATION_INTERVAL_DAYS} days.</p>
+            <p>Your listing "<strong>${safeTitle}</strong>" has been confirmed as ${listing.status.replace("_", " ").toLowerCase()}. We'll check in again in ${CONFIRMATION_INTERVAL_DAYS} days.</p>
             <a href="${appUrl}/my-listings">View My Listings</a>
           </div>
         </body>

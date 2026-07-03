@@ -109,12 +109,41 @@ export async function PUT(
       );
     }
 
-    // Validate criteria if provided
-    if (criteria && typeof criteria !== "object") {
-      return NextResponse.json(
-        { success: false, error: "Criteria must be an object" },
-        { status: 400 }
-      );
+    // Validate criteria if provided — same guards as POST: cap serialized
+    // size and require at least one allowlisted key.
+    if (criteria !== undefined) {
+      if (typeof criteria !== "object" || criteria === null) {
+        return NextResponse.json(
+          { success: false, error: "Criteria must be an object" },
+          { status: 400 }
+        );
+      }
+      if (JSON.stringify(criteria).length > 10000) {
+        return NextResponse.json(
+          { success: false, error: "Search criteria is too large." },
+          { status: 400 }
+        );
+      }
+      const allowedCriteriaKeys = [
+        "category",
+        "borough",
+        "neighborhood",
+        "priceMin",
+        "priceMax",
+        "revenueMin",
+        "revenueMax",
+      ];
+      const keys = Object.keys(criteria);
+      if (keys.length === 0 || !keys.some((k) => allowedCriteriaKeys.includes(k))) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Criteria must include at least one of: category, borough, neighborhood, priceMin, priceMax, revenueMin, revenueMax",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const updateData: Record<string, unknown> = {};

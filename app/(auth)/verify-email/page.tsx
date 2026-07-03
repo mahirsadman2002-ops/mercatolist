@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ export default function VerifyEmailPage() {
 
 function VerifyEmailPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { data: session, status: authStatus, update } = useSession();
   const token = searchParams.get("token");
 
   const [status, setStatus] = useState<"loading" | "success" | "error" | "no-token">(
@@ -33,6 +36,8 @@ function VerifyEmailPageContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [resendEmail, setResendEmail] = useState("");
   const [isResending, setIsResending] = useState(false);
+
+  const isLoggedIn = authStatus === "authenticated";
 
   useEffect(() => {
     if (!token) return;
@@ -44,6 +49,15 @@ function VerifyEmailPageContent() {
 
         if (res.ok && data.success) {
           setStatus("success");
+          // If the visitor is already signed in (the common case — they
+          // clicked the link in the same browser), refresh their session so
+          // the new verified status propagates and the "verify your email"
+          // banner clears. No need to send them to a login page.
+          try {
+            await update();
+          } catch {
+            /* non-fatal — session will refresh on next navigation */
+          }
         } else {
           setStatus("error");
           setErrorMessage(data.error || "Verification failed");
@@ -55,6 +69,8 @@ function VerifyEmailPageContent() {
     }
 
     verifyToken();
+    // update/isLoggedIn intentionally excluded — verify once per token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const handleResend = async () => {
@@ -110,12 +126,31 @@ function VerifyEmailPageContent() {
                 <CheckCircle2 className="h-8 w-8 text-emerald-600" />
               </div>
               <CardTitle className="text-xl">Email verified!</CardTitle>
-              <p className="text-muted-foreground">Your email has been verified. You can now sign in to your account.</p>
-              <Link href="/login">
-                <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold">
-                  Go to Sign In
-                </Button>
-              </Link>
+              {isLoggedIn ? (
+                <>
+                  <p className="text-muted-foreground">
+                    You&apos;re all set{session?.user?.name ? `, ${session.user.name}` : ""}.
+                    Your account is verified.
+                  </p>
+                  <Button
+                    onClick={() => router.push("/my-listings")}
+                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
+                  >
+                    Go to Dashboard
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground">
+                    Your email has been verified. You can now sign in to your account.
+                  </p>
+                  <Link href="/login">
+                    <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold">
+                      Go to Sign In
+                    </Button>
+                  </Link>
+                </>
+              )}
             </>
           )}
 

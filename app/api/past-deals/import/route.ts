@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 interface ImportDeal {
   businessName?: string;
@@ -22,6 +23,10 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Bulk write endpoint — throttle so it can't be looped to flood the DB.
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const body = await request.json();
 

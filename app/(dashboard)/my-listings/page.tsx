@@ -174,6 +174,14 @@ export default function MyListingsPage() {
       if (res.ok) {
         toast.success("Listing published — it's now live");
         fetchListings();
+      } else if (Array.isArray(json.missingFields) && json.missingFields.length) {
+        // Incomplete draft — tell them what's missing and take them to the editor.
+        toast.error(json.error || "Complete the listing before publishing", {
+          action: {
+            label: "Complete it",
+            onClick: () => router.push(`/my-listings/${id}/edit`),
+          },
+        });
       } else {
         toast.error(json.error || "Failed to publish listing");
       }

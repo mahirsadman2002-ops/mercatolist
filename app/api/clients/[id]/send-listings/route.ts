@@ -102,8 +102,14 @@ export async function POST(
     }
 
     // Fetch all listings
+    // Only genuinely-public listings can be emailed out — never ghost or
+    // not-yet-live listings (silently dropped from the batch).
     const listings = await prisma.businessListing.findMany({
-      where: { id: { in: listingIds } },
+      where: {
+        id: { in: listingIds },
+        isGhostListing: false,
+        status: { in: ["ACTIVE", "UNDER_CONTRACT", "SOLD"] },
+      },
       include: {
         photos: {
           orderBy: { order: "asc" },

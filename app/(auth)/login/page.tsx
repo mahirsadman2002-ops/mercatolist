@@ -76,10 +76,27 @@ function LoginPageContent() {
       if (result?.error) {
         setFormError("Invalid email or password");
       } else {
+        // A broker who never finished onboarding should resume setup instead
+        // of landing on home. Everyone else goes to their callbackUrl.
+        let destination = callbackUrl;
+        try {
+          const res = await fetch("/api/user/profile");
+          if (res.ok) {
+            const { data } = await res.json();
+            if (
+              data?.role === "BROKER" &&
+              (!data.brokerageName || !data.brokeragePhone)
+            ) {
+              destination = "/register/advisor-details";
+            }
+          }
+        } catch {
+          // Non-fatal — fall back to callbackUrl.
+        }
         // Full page navigation so the new session cookie is picked up by both
         // server components and the client useSession() cache. router.push +
         // refresh leaves useSession stale until its next periodic poll.
-        window.location.assign(callbackUrl);
+        window.location.assign(destination);
       }
     } catch {
       toast.error("Something went wrong. Please try again.");

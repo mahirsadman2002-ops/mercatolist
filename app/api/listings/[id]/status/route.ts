@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { statusChangeSchema } from "@/lib/validations";
+import { requireVerifiedEmail } from "@/lib/require-verified";
 
 export async function PUT(
   request: NextRequest,
@@ -39,6 +40,12 @@ export async function PUT(
 
     const body = await request.json();
     const validated = statusChangeSchema.parse(body);
+
+    // Making a listing live (ACTIVE) requires a verified email.
+    if (validated.status === "ACTIVE") {
+      const verified = await requireVerifiedEmail(session.user.id, "publish a listing");
+      if (!verified.verified) return verified.response;
+    }
 
     const updateData: Record<string, unknown> = {
       status: validated.status,

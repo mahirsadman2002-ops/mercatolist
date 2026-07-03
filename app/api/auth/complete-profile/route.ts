@@ -24,6 +24,20 @@ export async function PUT(request: NextRequest) {
       linkedinUrl, instagramUrl, twitterUrl, facebookUrl, tiktokUrl,
     } = body;
 
+    // Brokers must provide a company name and phone before their profile is
+    // saved — enforce it server-side, not just in the browser.
+    if (role === "BROKER") {
+      if (!brokerageName?.trim() || !brokeragePhone?.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Company name and phone number are required for advisor profiles.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: Record<string, any> = {};
 

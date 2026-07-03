@@ -129,10 +129,10 @@ export default function AdvisorDetailsPage() {
 
   const handleEssentialsNext = () => {
     const newErrors: Record<string, string> = {};
+    // Only company name and phone are required at signup; boroughs and
+    // specialties are optional and can be added later from the profile.
     if (!brokerageName.trim()) newErrors.brokerageName = "Company/firm name is required";
     if (!brokeragePhone.trim()) newErrors.brokeragePhone = "Phone number is required";
-    if (boroughsServed.length === 0) newErrors.boroughsServed = "Select at least one borough";
-    if (specialties.length === 0) newErrors.specialties = "Select at least one specialty";
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -287,7 +287,7 @@ export default function AdvisorDetailsPage() {
 
               {/* Boroughs Served */}
               <div className="space-y-2">
-                <Label>Boroughs You Serve *</Label>
+                <Label>Boroughs You Serve <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <div className="flex flex-wrap gap-2">
                   {BOROUGHS.map((b) => (
                     <button
@@ -310,7 +310,7 @@ export default function AdvisorDetailsPage() {
 
               {/* Specialties */}
               <div className="space-y-2">
-                <Label>Specialties *</Label>
+                <Label>Specialties <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <CategoryMultiCombobox
                   values={specialties}
                   onValuesChange={(next) => {

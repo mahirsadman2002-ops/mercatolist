@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import NewMessage from "@/emails/new-message";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import { requireVerifiedEmail } from "@/lib/require-verified";
 
 const MAX_MESSAGE_LEN = 5000;
 
@@ -149,6 +150,10 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Contacting sellers requires a verified email.
+    const verified = await requireVerifiedEmail(session.user.id, "contact sellers");
+    if (!verified.verified) return verified.response;
 
     // Throttle per user — each inquiry emails the listing owner, so this is an
     // email-bomb vector without a cap.

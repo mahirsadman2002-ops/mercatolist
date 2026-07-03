@@ -20,41 +20,72 @@ if (!redis && process.env.NODE_ENV === "production") {
   );
 }
 
-type LimiterName = "contact" | "geocode" | "view" | "feedback";
+type LimiterName =
+  | "contact"
+  | "geocode"
+  | "view"
+  | "feedback"
+  | "login"
+  | "register"
+  | "authEmail"
+  | "emailSend"
+  | "inquiry"
+  | "brokerEmail"
+  | "upload"
+  | "write";
 
-// Sliding-window limits sized to each endpoint's blast radius:
-//   contact: 5 emails / 10 min per IP — enough for legit users, kills loops
-//   geocode: 30 / min — autocomplete fires while typing, so this needs headroom
-//   view:    60 / min — covers a user clicking through many listings; spam
-//             writes to the DB hit a wall fast
+// Sliding-window limits sized to each endpoint's blast radius. IP-keyed unless
+// the caller passes an identifier (e.g. a userId) — see rateLimit() below.
+//   contact:     5 / 10 min  — unauth email to admin inbox
+//   geocode:     30 / min    — autocomplete fires while typing; needs headroom
+//   view:        60 / min    — clicking through many listings; DB write spam
+//   feedback:    5 / 10 min  — unauth email to admin + DB row
+//   login:       10 / 15 min — password brute-force / credential-stuffing (IP)
+//   register:    5 / hour    — unauth signup + verify-email send (IP)
+//   authEmail:   10 / hour   — verify-email / resend-verification sends (IP)
+//   emailSend:   10 / hour   — the arbitrary-recipient email/send route (userId)
+//   inquiry:     10 / 10 min — inquiry + thread messages email the counterparty
+//   brokerEmail: 30 / hour   — broker/collection email fan-out (userId)
+//   upload:      30 / 10 min — S3 presigned URL minting (userId)
+//   write:       30 / min    — generic authed create endpoints (userId)
+function makeLimiter(name: string, max: number, window: Parameters<typeof Ratelimit.slidingWindow>[1]) {
+  return new Ratelimit({
+    redis: redis!,
+    limiter: Ratelimit.slidingWindow(max, window),
+    analytics: true,
+    prefix: `rl:${name}`,
+  });
+}
+
 const limiters: Record<LimiterName, Ratelimit | null> = redis
   ? {
-      contact: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(5, "10 m"),
-        analytics: true,
-        prefix: "rl:contact",
-      }),
-      geocode: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(30, "1 m"),
-        analytics: true,
-        prefix: "rl:geocode",
-      }),
-      view: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(60, "1 m"),
-        analytics: true,
-        prefix: "rl:view",
-      }),
-      feedback: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(5, "10 m"),
-        analytics: true,
-        prefix: "rl:feedback",
-      }),
+      contact: makeLimiter("contact", 5, "10 m"),
+      geocode: makeLimiter("geocode", 30, "1 m"),
+      view: makeLimiter("view", 60, "1 m"),
+      feedback: makeLimiter("feedback", 5, "10 m"),
+      login: makeLimiter("login", 10, "15 m"),
+      register: makeLimiter("register", 5, "1 h"),
+      authEmail: makeLimiter("authEmail", 10, "1 h"),
+      emailSend: makeLimiter("emailSend", 10, "1 h"),
+      inquiry: makeLimiter("inquiry", 10, "10 m"),
+      brokerEmail: makeLimiter("brokerEmail", 30, "1 h"),
+      upload: makeLimiter("upload", 30, "10 m"),
+      write: makeLimiter("write", 30, "1 m"),
     }
-  : { contact: null, geocode: null, view: null, feedback: null };
+  : {
+      contact: null,
+      geocode: null,
+      view: null,
+      feedback: null,
+      login: null,
+      register: null,
+      authEmail: null,
+      emailSend: null,
+      inquiry: null,
+      brokerEmail: null,
+      upload: null,
+      write: null,
+    };
 
 /**
  * Best-effort client IP. Behind Vercel the `x-forwarded-for` header is set
@@ -71,16 +102,34 @@ function getClientIp(request: NextRequest): string {
   return "no-ip";
 }
 
+/**
+ * Enforce a named rate limit. By default the key is the client IP; pass
+ * `identifier` (e.g. `session.user.id` or an email) to key on the actor
+ * instead — the right choice for authenticated abuse where one user behind
+ * one IP shouldn't be able to spam, and where NAT shouldn't punish innocents.
+ */
 export async function rateLimit(
   request: NextRequest,
-  limiter: LimiterName
+  limiter: LimiterName,
+  identifier?: string
+): Promise<{ success: true } | { success: false; retryAfterSec: number }> {
+  const key = identifier ? `id:${identifier}` : getClientIp(request);
+  return rateLimitByKey(limiter, key);
+}
+
+/**
+ * Rate-limit against an arbitrary key with no request object — for contexts
+ * that don't have a NextRequest (e.g. NextAuth's `authorize`). Key on the
+ * email/account being attacked so brute-force is throttled per target.
+ */
+export async function rateLimitByKey(
+  limiter: LimiterName,
+  key: string
 ): Promise<{ success: true } | { success: false; retryAfterSec: number }> {
   const limit = limiters[limiter];
   if (!limit) return { success: true };
 
-  const ip = getClientIp(request);
-  const result = await limit.limit(ip);
-
+  const result = await limit.limit(key);
   if (result.success) return { success: true };
 
   const retryAfterSec = Math.max(
@@ -88,4 +137,14 @@ export async function rateLimit(
     Math.ceil((result.reset - Date.now()) / 1000)
   );
   return { success: false, retryAfterSec };
+}
+
+/**
+ * Standard 429 JSON response for a failed rate-limit check.
+ */
+export function rateLimitResponse(retryAfterSec: number) {
+  return Response.json(
+    { success: false, error: "Too many requests. Please try again shortly." },
+    { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+  );
 }

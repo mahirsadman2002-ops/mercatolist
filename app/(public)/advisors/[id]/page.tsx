@@ -229,7 +229,7 @@ export default async function AdvisorProfilePage({
     <div className="container mx-auto px-4 py-8">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, String.fromCharCode(92) + "u003c") }}
       />
 
       {/* Boroughs served & specialties badges */}

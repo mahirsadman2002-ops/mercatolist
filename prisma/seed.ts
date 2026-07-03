@@ -13,9 +13,21 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Seeding database...");
 
-  // Create users
-  const adminPassword = await bcrypt.hash("Admin123!", 12);
-  const userPassword = await bcrypt.hash("User1234!", 12);
+  // Never seed against production, and source the demo admin password from the
+  // environment so a weak, git-committed password can't create a compromised
+  // admin. Falls back to a random password (unusable without a reset) if unset.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Refusing to run seed in production.");
+  }
+  const { randomUUID } = await import("crypto");
+  const adminPassword = await bcrypt.hash(
+    process.env.SEED_ADMIN_PASSWORD || randomUUID(),
+    12
+  );
+  const userPassword = await bcrypt.hash(
+    process.env.SEED_USER_PASSWORD || randomUUID(),
+    12
+  );
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@mercatolist.com" },

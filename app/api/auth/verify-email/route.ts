@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function GET(request: NextRequest) {
   try {
+    const limit = await rateLimit(request, "authEmail");
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     const token = request.nextUrl.searchParams.get("token");
 
     if (!token) {

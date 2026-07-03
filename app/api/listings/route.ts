@@ -5,6 +5,7 @@ import { listingCreateSchema, listingDraftSchema } from "@/lib/validations";
 import { slugify, generateShareToken } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -231,6 +232,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const body = await request.json();
     const isDraft = body?.status === "DRAFT" || body?.draft === true;

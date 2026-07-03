@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import NewMessage from "@/emails/new-message";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+
+const MAX_MESSAGE_LEN = 5000;
 
 export async function GET(
   request: NextRequest,
@@ -89,12 +92,22 @@ export async function POST(
       );
     }
 
+    // Each thread message emails the counterparty — throttle per user.
+    const limit = await rateLimit(request, "inquiry", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
     const { id } = await params;
     const body = await request.json();
 
     if (!body.content?.trim()) {
       return NextResponse.json(
         { success: false, error: "Message content is required" },
+        { status: 400 }
+      );
+    }
+    if (body.content.length > MAX_MESSAGE_LEN) {
+      return NextResponse.json(
+        { success: false, error: `Message is too long (max ${MAX_MESSAGE_LEN} characters).` },
         { status: 400 }
       );
     }

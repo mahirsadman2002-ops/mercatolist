@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { rateLimitByKey } from "@/lib/ratelimit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -50,6 +51,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const email = credentials.email as string;
         const password = credentials.password as string;
+
+        // Throttle brute-force / credential-stuffing per target account.
+        const rl = await rateLimitByKey("login", `login:${email.toLowerCase()}`);
+        if (!rl.success) {
+          throw new Error("Too many sign-in attempts. Please try again later.");
+        }
 
         const user = await prisma.user.findUnique({
           where: { email },

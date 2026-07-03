@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import CollectionNoteEmail from "@/emails/collection-note";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 // GET: Fetch notes for a collection, optionally filtered by listingId
 export async function GET(
@@ -103,6 +104,10 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    // A note fans out an email to every other participant — throttle per user.
+    const limit = await rateLimit(request, "brokerEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const { id } = await params;
 

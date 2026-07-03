@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import CollectionInvite from "@/emails/collection-invite";
 import ClientInvite from "@/emails/client-invite";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 // POST: Invite a collaborator to a collection.
 // Owner or editor can invite. If the invitee doesn't have a MercatoList
@@ -20,6 +21,9 @@ export async function POST(
         { status: 401 },
       );
     }
+
+    const limit = await rateLimit(request, "brokerEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const { id } = await params;
 

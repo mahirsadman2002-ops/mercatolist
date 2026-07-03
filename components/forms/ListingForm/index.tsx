@@ -1233,6 +1233,7 @@ function StepPhotos({
         body: JSON.stringify({
           fileType: file.type,
           folder: "listings",
+          fileSize: file.size,
         }),
       });
       presignJson = await presignRes.json();

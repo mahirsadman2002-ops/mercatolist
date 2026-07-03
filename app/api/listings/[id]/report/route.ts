@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { reportFormSchema } from "@/lib/validations";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -16,6 +17,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const { id } = await params;
     const body = await request.json();

@@ -110,7 +110,7 @@ export default function RootLayout({
       >
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSON_LD) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSON_LD).replace(/</g, String.fromCharCode(92) + "u003c") }}
         />
         <SessionProvider>
           <TooltipProvider>

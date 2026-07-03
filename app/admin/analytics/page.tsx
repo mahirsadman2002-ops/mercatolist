@@ -92,8 +92,14 @@ export default function AdminAnalyticsPage() {
     : [];
 
   const categoryData = listingsData?.byCategory || [];
-  const boroughData = listingsData?.byBorough
-    ? Object.entries(listingsData.byBorough).map(([name, value]) => ({ name: name.replace("_", " "), value }))
+  // byBorough is an array of { borough, count } (not a Record) — map it to the
+  // { name, value } shape the chart's dataKeys expect. Rendering the raw
+  // objects is what caused React error #31.
+  const boroughData = Array.isArray(listingsData?.byBorough)
+    ? listingsData.byBorough.map((b: { borough: string; count: number }) => ({
+        name: String(b.borough).replace("_", " "),
+        value: b.count,
+      }))
     : [];
 
   const roleData = usersData?.byRole

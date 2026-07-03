@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Search, Star, StarOff, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { MoreHorizontal, Search, Star, StarOff, ExternalLink, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface Listing {
@@ -338,6 +338,11 @@ export default function AdminListingsPage() {
                           <DropdownMenuItem asChild>
                             <a href={`/listings/${listing.slug}`} target="_blank" rel="noreferrer">
                               <ExternalLink className="h-4 w-4 mr-2" /> View
+                            </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <a href={`/my-listings/${listing.id}/edit`}>
+                              <Pencil className="h-4 w-4 mr-2" /> Edit listing
                             </a>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />

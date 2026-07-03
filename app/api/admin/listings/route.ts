@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || undefined;
     const category = searchParams.get("category") || undefined;
     const borough = searchParams.get("borough") || undefined;
+    const userId = searchParams.get("userId") || undefined;
     const sort = searchParams.get("sort") || "createdAt";
     const order = searchParams.get("order") || "desc";
     const featured = searchParams.get("featured");
@@ -28,6 +29,11 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.title = { contains: search, mode: "insensitive" };
+    }
+
+    // Scope to a single seller/advisor's listings (admin drill-down).
+    if (userId) {
+      where.listedById = userId;
     }
 
     if (status) {

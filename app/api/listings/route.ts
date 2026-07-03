@@ -34,12 +34,20 @@ export async function GET(request: NextRequest) {
       isGhostListing: false,
     };
 
-    // Status filter
+    // Status filter. This is a PUBLIC, unauthenticated endpoint, so callers may
+    // only ever see published statuses — never DRAFT or OFF_MARKET, which are
+    // private to the owner (drafts skip email verification precisely because
+    // they aren't public). Any requested status outside the allowlist is
+    // dropped rather than honored.
+    const PUBLIC_STATUSES = ["ACTIVE", "UNDER_CONTRACT", "SOLD"];
     if (status) {
-      const statuses = status.split(",").filter(Boolean);
-      if (statuses.length > 0) {
-        where.status = { in: statuses as any[] };
-      }
+      const statuses = status
+        .split(",")
+        .filter(Boolean)
+        .filter((s) => PUBLIC_STATUSES.includes(s));
+      where.status = {
+        in: (statuses.length > 0 ? statuses : PUBLIC_STATUSES) as any[],
+      };
     } else {
       where.status = "ACTIVE";
     }

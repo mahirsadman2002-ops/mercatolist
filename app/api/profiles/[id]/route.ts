@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyAddressPrivacyToList } from "@/lib/address-privacy";
 
 export async function GET(
   request: NextRequest,
@@ -67,9 +68,11 @@ export async function GET(
         ownedBusiness: user.ownedBusiness,
         buyBox: user.buyBox,
         memberSince: user.createdAt,
-        activeListings,
-        soldListings,
-        underContractListings,
+        activeListings: applyAddressPrivacyToList(activeListings as any),
+        soldListings: applyAddressPrivacyToList(soldListings as any),
+        underContractListings: applyAddressPrivacyToList(
+          underContractListings as any
+        ),
       },
     });
   } catch (error) {

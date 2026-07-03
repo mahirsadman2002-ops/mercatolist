@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   ChevronRight,
   ChevronLeft,
+  Eye,
   MapPin,
   Clock,
   Tag,
@@ -73,9 +74,12 @@ function ViewCountIncrementerScript({ listingId }: { listingId: string }) {
 // and broken save/contact/inquiry flows. Now queries the real database.
 // =============================================================================
 
+const PUBLIC_LISTING_STATUSES = ["ACTIVE", "UNDER_CONTRACT", "SOLD"];
+
 async function getListingBySlug(
   slug: string,
-  token?: string | null
+  token?: string | null,
+  viewer?: { id?: string | null; role?: string | null } | null
 ): Promise<any | null> {
   const listing = await prisma.businessListing.findUnique({
     where: { slug },
@@ -109,9 +113,18 @@ async function getListingBySlug(
 
   if (!listing) return null;
 
+  const isOwner = !!viewer?.id && viewer.id === listing.listedById;
+  const isPrivileged = isOwner || viewer?.role === "ADMIN";
+
+  // DRAFT / OFF_MARKET listings are private previews — only the owner (or an
+  // admin) may view them. Everyone else gets a 404.
+  if (!isPrivileged && !PUBLIC_LISTING_STATUSES.includes(listing.status)) {
+    return null;
+  }
+
   // Ghost listing access check
   if (listing.isGhostListing && listing.shareToken) {
-    if (token !== listing.shareToken) {
+    if (token !== listing.shareToken && !isPrivileged) {
       return null;
     }
   }
@@ -138,9 +151,38 @@ async function getListingBySlug(
     photos: listing.photos.map((p) => ({ id: p.id, url: p.url, order: p.order })),
   };
 
-  // Apply address privacy for non-owner views (server component can't check session easily,
-  // so the API layer handles owner exemption — here we apply it for all public views)
-  return listing.hideAddress ? applyAddressPrivacy(serialized) : serialized;
+  // Owners / admins see everything unredacted (so they can preview drafts and
+  // verify their own contact details). For everyone else:
+  //  - never expose the seller/broker email (contact goes through inquiries);
+  //    prevents PII scraping at scale from the page's HTML/RSC payload
+  //  - hide phone numbers unless the lister opted in via showPhoneNumber
+  //  - apply address privacy when the lister set hideAddress
+  if (isPrivileged) {
+    return { ...serialized, isPreview: !PUBLIC_LISTING_STATUSES.includes(listing.status) };
+  }
+
+  const scrubbed: any = listing.hideAddress
+    ? applyAddressPrivacy(serialized)
+    : serialized;
+
+  if (scrubbed.listedBy) {
+    scrubbed.listedBy = {
+      ...scrubbed.listedBy,
+      email: "",
+      phone: listing.showPhoneNumber ? scrubbed.listedBy.phone : null,
+      brokeragePhone: listing.showPhoneNumber
+        ? scrubbed.listedBy.brokeragePhone
+        : null,
+    };
+  }
+  if (!listing.showPhoneNumber && Array.isArray(scrubbed.coBrokers)) {
+    scrubbed.coBrokers = scrubbed.coBrokers.map((cb: any) => ({
+      ...cb,
+      phone: null,
+    }));
+  }
+
+  return scrubbed;
 }
 
 // =============================================================================
@@ -378,10 +420,9 @@ export default async function ListingDetailPage({
   let listing;
   let session;
   try {
-    [listing, session] = await Promise.all([
-      getListingBySlug(slug, token),
-      auth().catch(() => null), // Don't let auth failure crash the page
-    ]);
+    // Resolve the viewer first so listing lookup can gate drafts / scrub PII.
+    session = await auth().catch(() => null);
+    listing = await getListingBySlug(slug, token, session?.user);
   } catch (error) {
     console.error("Error loading listing:", error);
     notFound();
@@ -450,13 +491,35 @@ export default async function ListingDetailPage({
         suppressHydrationWarning
       />
 
-      {/* View Count Incrementer */}
-      <ViewCountIncrementerScript listingId={listing.id} />
+      {/* View Count Incrementer — never count the owner's own preview views */}
+      {!listing.isPreview && <ViewCountIncrementerScript listingId={listing.id} />}
 
       {/* Browse-mode banner — only renders when ?addToCollection=X is present */}
       <BrowseModeBanner listingId={listing.id} listingSlug={slug} />
 
       <div className="min-h-screen bg-background">
+        {/* Preview banner — owner/admin viewing a not-yet-live listing */}
+        {listing.isPreview && (
+          <div className="bg-slate-900 text-white">
+            <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 text-sm min-w-0">
+                <Eye className="h-4 w-4 shrink-0" />
+                <span className="font-medium">
+                  Preview — this listing isn&apos;t live yet.
+                </span>
+                <span className="text-white/70 hidden sm:inline">
+                  Only you can see this page. Publish it from My Listings to go live.
+                </span>
+              </div>
+              <Link
+                href={`/my-listings/${listing.id}/edit`}
+                className="shrink-0 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition-colors hover:bg-white/90"
+              >
+                Edit listing
+              </Link>
+            </div>
+          </div>
+        )}
         {/* ================================================================
             Breadcrumb Navigation
         ================================================================ */}

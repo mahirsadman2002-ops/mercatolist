@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyAddressPrivacyToList } from "@/lib/address-privacy";
+
+function publicReview(r: any) {
+  return {
+    id: r.id,
+    rating: r.rating,
+    text: r.text,
+    createdAt: r.createdAt,
+    response: r.response ?? null,
+    responseAt: r.responseAt ?? null,
+    reviewer: r.reviewer,
+  };
+}
 
 export async function GET(
   request: NextRequest,
@@ -112,10 +125,12 @@ export async function GET(
           avgRating: Math.round(avgRating * 10) / 10,
         },
         ratingBreakdown,
-        activeListings,
-        underContractListings,
-        soldListings,
-        reviews,
+        activeListings: applyAddressPrivacyToList(activeListings as any),
+        underContractListings: applyAddressPrivacyToList(
+          underContractListings as any
+        ),
+        soldListings: applyAddressPrivacyToList(soldListings as any),
+        reviews: reviews.map(publicReview),
       },
     });
   } catch (error) {

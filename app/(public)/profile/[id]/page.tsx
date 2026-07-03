@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { PublicProfile } from "@/components/profiles/PublicProfile";
 import { notFound } from "next/navigation";
 
@@ -76,10 +77,12 @@ export default async function UserProfilePage({
     notFound();
   }
 
-  // If this is a broker, redirect logic could be added, but for now show generic profile
-  const activeListings = user.listings.filter((l) => l.status === "ACTIVE");
-  const soldListings = user.listings.filter((l) => l.status === "SOLD");
-  const underContractListings = user.listings.filter(
+  // Redact exact address / jitter coordinates on hideAddress listings before
+  // they reach the public profile.
+  const privListings = user.listings.map((l) => applyAddressPrivacy(l as any));
+  const activeListings = privListings.filter((l) => l.status === "ACTIVE");
+  const soldListings = privListings.filter((l) => l.status === "SOLD");
+  const underContractListings = privListings.filter(
     (l) => l.status === "UNDER_CONTRACT"
   );
 

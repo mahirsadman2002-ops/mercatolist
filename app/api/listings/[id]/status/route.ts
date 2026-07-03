@@ -41,6 +41,19 @@ export async function PUT(
     const body = await request.json();
     const validated = statusChangeSchema.parse(body);
 
+    // A draft isn't live yet, so its only valid transition is to publish
+    // (ACTIVE). It can't jump straight to Under Contract / Sold / Off Market —
+    // those only make sense once the listing has actually gone live.
+    if (listing.status === "DRAFT" && validated.status !== "ACTIVE") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Publish this listing before changing its status.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Making a listing live (ACTIVE) requires a verified email.
     if (validated.status === "ACTIVE") {
       const verified = await requireVerifiedEmail(session.user.id, "publish a listing");

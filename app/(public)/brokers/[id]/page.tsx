@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { BrokerProfile } from "@/components/profiles/BrokerProfile";
 import { notFound } from "next/navigation";
 
@@ -123,7 +124,9 @@ export default async function BrokerProfilePage({
     count: reviews.filter((r) => r.rating === rating).length,
   }));
 
-  const serializeListing = (l: (typeof broker.listings)[0]) => ({
+  const serializeListing = (raw: (typeof broker.listings)[0]) => {
+    const l = applyAddressPrivacy(raw as any) as typeof raw;
+    return {
     ...l,
     askingPrice: Number(l.askingPrice),
     annualRevenue: l.annualRevenue ? Number(l.annualRevenue) : null,
@@ -132,7 +135,8 @@ export default async function BrokerProfilePage({
     soldDate: l.soldDate?.toISOString() || null,
     createdAt: l.createdAt.toISOString(),
     updatedAt: l.updatedAt.toISOString(),
-  });
+    };
+  };
 
   const brokerData = {
     id: broker.id,

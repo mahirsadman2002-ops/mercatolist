@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { BrokerProfile } from "@/components/profiles/BrokerProfile";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -133,7 +134,10 @@ export default async function AdvisorProfilePage({
     count: reviews.filter((r) => r.rating === rating).length,
   }));
 
-  const serializeListing = (l: (typeof advisor.listings)[0]) => ({
+  const serializeListing = (raw: (typeof advisor.listings)[0]) => {
+    // Redact exact address / jitter coordinates on hideAddress listings.
+    const l = applyAddressPrivacy(raw as any) as typeof raw;
+    return {
     ...l,
     askingPrice: Number(l.askingPrice),
     annualRevenue: l.annualRevenue ? Number(l.annualRevenue) : null,
@@ -142,7 +146,8 @@ export default async function AdvisorProfilePage({
     soldDate: l.soldDate?.toISOString() || null,
     createdAt: l.createdAt.toISOString(),
     updatedAt: l.updatedAt.toISOString(),
-  });
+    };
+  };
 
   // Past deals summary stats
   const pastDeals = advisor.pastDeals;

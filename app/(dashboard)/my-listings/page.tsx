@@ -73,6 +73,7 @@ interface ListingData {
 }
 
 const STATUS_STYLES: Record<string, string> = {
+  DRAFT: "bg-slate-200 text-slate-800 border-slate-300",
   ACTIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
   UNDER_CONTRACT: "bg-amber-100 text-amber-800 border-amber-200",
   SOLD: "bg-blue-100 text-blue-800 border-blue-200",
@@ -80,6 +81,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
   ACTIVE: "Active",
   UNDER_CONTRACT: "Under Contract",
   SOLD: "Sold",
@@ -155,6 +157,28 @@ export default function MyListingsPage() {
       }
     } catch {
       toast.error("Failed to update status");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePublish = async (id: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/listings/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ACTIVE" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success("Listing published — it's now live");
+        fetchListings();
+      } else {
+        toast.error(json.error || "Failed to publish listing");
+      }
+    } catch {
+      toast.error("Failed to publish listing");
     } finally {
       setActionLoading(false);
     }
@@ -400,20 +424,30 @@ export default function MyListingsPage() {
                         }
                       >
                         <ExternalLink className="mr-2 h-4 w-4" />
-                        View Listing
+                        {listing.status === "DRAFT" ? "Preview" : "View Listing"}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() =>
-                          setStatusDialog({
-                            id: listing.id,
-                            currentStatus: listing.status,
-                          })
-                        }
-                      >
-                        <ArrowUpDown className="mr-2 h-4 w-4" />
-                        Change Status
-                      </DropdownMenuItem>
+                      {listing.status === "DRAFT" ? (
+                        <DropdownMenuItem
+                          disabled={actionLoading}
+                          onClick={() => handlePublish(listing.id)}
+                        >
+                          <ArrowUpDown className="mr-2 h-4 w-4" />
+                          Publish
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setStatusDialog({
+                              id: listing.id,
+                              currentStatus: listing.status,
+                            })
+                          }
+                        >
+                          <ArrowUpDown className="mr-2 h-4 w-4" />
+                          Change Status
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDuplicate(listing.id)}
                       >

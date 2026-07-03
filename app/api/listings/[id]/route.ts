@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { applyAddressPrivacy } from "@/lib/address-privacy";
+import { listingDraftSchema } from "@/lib/validations";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -69,6 +70,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const isOwner = session?.user?.id === listing.listedById;
     const isPrivileged = isOwner || session?.user?.role === "ADMIN";
 
+    // DRAFT / OFF_MARKET listings are private to the owner (and admins). Anyone
+    // else gets a 404 — indistinguishable from "doesn't exist" so we don't
+    // leak that a private listing is here.
+    const PUBLIC_STATUSES = ["ACTIVE", "UNDER_CONTRACT", "SOLD"];
+    if (!isPrivileged && !PUBLIC_STATUSES.includes(listing.status)) {
+      return NextResponse.json(
+        { success: false, error: "Listing not found" },
+        { status: 404 }
+      );
+    }
+
     let sanitizedListing: typeof listing = listing;
     if (!isPrivileged) {
       sanitizedListing = applyAddressPrivacy(listing as any);
@@ -130,8 +142,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    // Separate photos out — they're handled via the nested relation, not a column.
-    const { photos: photoUpdates, ...rest } = body;
+    // Allowlist editable fields via the draft schema. Zod strips every key not
+    // in the schema, so a caller can't mass-assign privileged columns —
+    // listedById (would hijack the listing onto a victim), status (bypasses the
+    // verified-email publish gate), viewCount/saveCount (fake metrics),
+    // shareToken, listingNumber, createdAt, etc.
+    const parsed = listingDraftSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: "Validation failed" },
+        { status: 400 }
+      );
+    }
+    // Photos are handled via the nested relation, not a scalar column.
+    // (Cast to any: the Zod parse above is the security boundary — it has
+    // already stripped every non-editable field.)
+    const { photos: photoUpdates, ...rest } = parsed.data as any;
 
     const annualRevenue = rest.annualRevenue ?? listing.annualRevenue;
     const netIncome = rest.netIncome ?? listing.netIncome;

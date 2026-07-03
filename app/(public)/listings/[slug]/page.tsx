@@ -608,6 +608,11 @@ export default async function ListingDetailPage({
 
                 {/* Quick info badges */}
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  {listing.listingNumber != null && (
+                    <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-medium text-foreground">
+                      ML-{listing.listingNumber}
+                    </span>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <Tag className="h-4 w-4 text-teal" />
                     <span className="font-semibold text-foreground">

@@ -44,14 +44,20 @@ export async function GET(request: NextRequest) {
       where.status = "ACTIVE";
     }
 
-    // Keyword search
+    // Keyword search. If it looks like a listing number ("ML-1042", "#1042",
+    // or "1042"), match that exact listing instead of a text search.
     if (keyword) {
-      where.OR = [
-        { title: { contains: keyword, mode: "insensitive" } },
-        { description: { contains: keyword, mode: "insensitive" } },
-        { neighborhood: { contains: keyword, mode: "insensitive" } },
-        { address: { contains: keyword, mode: "insensitive" } },
-      ];
+      const numMatch = keyword.trim().match(/^(?:ml[-\s]?|#)?(\d{1,9})$/i);
+      if (numMatch) {
+        where.listingNumber = parseInt(numMatch[1], 10);
+      } else {
+        where.OR = [
+          { title: { contains: keyword, mode: "insensitive" } },
+          { description: { contains: keyword, mode: "insensitive" } },
+          { neighborhood: { contains: keyword, mode: "insensitive" } },
+          { address: { contains: keyword, mode: "insensitive" } },
+        ];
+      }
     }
 
     // Category filter (comma-separated)

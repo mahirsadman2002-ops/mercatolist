@@ -213,6 +213,8 @@ model User {
 
 model BusinessListing {
   id             String        @id @default(uuid())
+  // Short human-friendly sequential ID (e.g. "ML-1042") that buyers can search by.
+  listingNumber  Int           @unique @default(autoincrement())
   slug           String        @unique
   status         ListingStatus @default(ACTIVE)
   isGhostListing Boolean       @default(false)

@@ -17,6 +17,7 @@ import {
   X,
   Handshake,
   MessageSquare,
+  DownloadCloud,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/listings", label: "Listings", icon: Building2 },
+  { href: "/admin/import", label: "Import", icon: DownloadCloud },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/reports", label: "Reports", icon: Flag, badgeKey: "pendingReports" as const },
   { href: "/admin/transactions", label: "Transactions", icon: Handshake, badgeKey: "pendingTransactions" as const },

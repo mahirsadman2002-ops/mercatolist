@@ -55,3 +55,55 @@ export async function generatePresignedUploadUrl(
 export function getCdnUrl(key: string): string {
   return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 }
+
+/**
+ * Upload raw image bytes to S3 from the server (used by the import flow to
+ * re-host photos). Returns the public object URL.
+ */
+export async function uploadBufferToS3(
+  buffer: Buffer,
+  contentType: string,
+  folder: string = "listings"
+): Promise<string> {
+  const ext = ALLOWED_MIME[contentType] || "jpg";
+  const safeFolder = ["listings", "avatars"].includes(folder) ? folder : "listings";
+  const key = `${safeFolder}/${uuidv4()}.${ext}`;
+
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET!,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  );
+
+  return getCdnUrl(key);
+}
+
+/**
+ * Best-effort: fetch a remote image server-side and re-host it to S3. Returns
+ * null if the fetch fails or isn't an allowed image type (e.g. blocked by the
+ * source's bot protection). Callers should treat photos as optional.
+ */
+export async function rehostImageFromUrl(
+  url: string,
+  folder: string = "listings"
+): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+      },
+    });
+    if (!res.ok) return null;
+    const contentType = (res.headers.get("content-type") || "").split(";")[0].trim();
+    if (!ALLOWED_MIME[contentType]) return null;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > MAX_UPLOAD_BYTES) return null;
+    return await uploadBufferToS3(bytes, contentType, folder);
+  } catch {
+    return null;
+  }
+}

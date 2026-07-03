@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import { createListingForSeller } from "@/lib/create-listing-for-seller";
 import { Prisma } from "@prisma/client";
 
 // GET: Paginated listing management with filters
@@ -118,5 +119,26 @@ export async function GET(request: NextRequest) {
       { success: false, error: "Failed to fetch listings" },
       { status: 500 }
     );
+  }
+}
+
+// POST: Admin creates a listing on behalf of a seller/advisor (session-authed).
+export async function POST(request: NextRequest) {
+  const { authorized, response } = await requireAdmin();
+  if (!authorized) return response;
+
+  try {
+    const body = await request.json();
+    const result = await createListingForSeller(body.seller ?? {}, body.listing ?? {});
+    if (!result.ok) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+    }
+    return NextResponse.json(
+      { success: true, data: { listing: result.listing, owner: result.owner } },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Admin create-listing error:", error);
+    return NextResponse.json({ success: false, error: "Failed to create listing" }, { status: 500 });
   }
 }

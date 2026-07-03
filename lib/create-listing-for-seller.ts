@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
+import { sendClaimEmail } from "@/lib/claim";
 
 export type SellerInput = {
   email?: string;
@@ -75,6 +76,8 @@ export async function createListingForSeller(
         brokerageName:
           role === "BROKER" && seller.brokerageName ? String(seller.brokerageName).trim() : null,
         emailVerified: new Date(),
+        // Admin-created on the seller's behalf — unclaimed until they set a password.
+        isManaged: true,
       },
     });
     ownerCreated = true;
@@ -139,6 +142,10 @@ export async function createListingForSeller(
     data,
     select: { id: true, slug: true, title: true },
   });
+
+  // Nudge the owner to claim their account (best-effort — never blocks creation).
+  // New account → "created"; existing unclaimed managed account → "listing".
+  await sendClaimEmail(owner, ownerCreated ? "created" : "listing", { listingTitle: created.title });
 
   return {
     ok: true,

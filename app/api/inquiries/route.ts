@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import NewMessage from "@/emails/new-message";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 import { requireVerifiedEmail } from "@/lib/require-verified";
+import { sendClaimEmail } from "@/lib/claim";
 
 const MAX_MESSAGE_LEN = 5000;
 
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
         listedById: true,
         photos: { orderBy: { order: "asc" }, take: 1 },
         listedBy: {
-          select: { email: true, name: true },
+          select: { id: true, email: true, name: true, isManaged: true, claimedAt: true },
         },
       },
     });
@@ -260,6 +261,9 @@ export async function POST(request: NextRequest) {
         console.error("Failed to send new message email:", e);
       }
 
+      // Nudge an unclaimed managed owner to claim their account.
+      await sendClaimEmail(listing.listedBy, "inquiry", { listingTitle: listing.title });
+
       return NextResponse.json(
         {
           success: true,
@@ -311,6 +315,9 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error("Failed to send email:", emailError);
     }
+
+    // Nudge an unclaimed managed owner to claim their account.
+    await sendClaimEmail(listing.listedBy, "inquiry", { listingTitle: listing.title });
 
     return NextResponse.json(
       { success: true, data: inquiry },

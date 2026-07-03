@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
-import { slugify } from "@/lib/utils";
+import { createListingForSeller } from "@/lib/create-listing-for-seller";
 import { Prisma } from "@prisma/client";
 
 // GET: Paginated listing management with filters
@@ -122,165 +122,23 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Admin creates a listing on behalf of a seller/advisor.
-// - Finds or creates the owner account (auto-verified, no password = "unclaimed").
-// - Publishes the listing live immediately, bypassing the email-verification gate.
+// POST: Admin creates a listing on behalf of a seller/advisor (session-authed).
 export async function POST(request: NextRequest) {
   const { authorized, response } = await requireAdmin();
   if (!authorized) return response;
 
   try {
     const body = await request.json();
-    const seller = body.seller ?? {};
-    const listing = body.listing ?? {};
-
-    // --- Validate the owner ---
-    const email = String(seller.email || "").trim().toLowerCase();
-    const name = String(seller.name || "").trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json(
-        { success: false, error: "A valid seller email is required." },
-        { status: 400 }
-      );
+    const result = await createListingForSeller(body.seller ?? {}, body.listing ?? {});
+    if (!result.ok) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.status });
     }
-    if (!name) {
-      return NextResponse.json(
-        { success: false, error: "Seller name is required." },
-        { status: 400 }
-      );
-    }
-    // "ADVISOR" maps to the BROKER role; "SELLER" to a regular USER.
-    const role = seller.accountType === "ADVISOR" ? "BROKER" : "USER";
-
-    // --- Minimal listing validation (admin is trusted; keep it light) ---
-    if (!listing.title || !listing.category || listing.askingPrice == null) {
-      return NextResponse.json(
-        { success: false, error: "Listing needs at least a title, category, and asking price." },
-        { status: 400 }
-      );
-    }
-
-    // --- Find or create the owner account ---
-    let owner = await prisma.user.findUnique({ where: { email } });
-    let ownerCreated = false;
-    if (!owner) {
-      owner = await prisma.user.create({
-        data: {
-          email,
-          name,
-          phone: seller.phone ? String(seller.phone).trim() : null,
-          role,
-          brokerageName:
-            role === "BROKER" && seller.brokerageName
-              ? String(seller.brokerageName).trim()
-              : null,
-          // Auto-verified so the listing is public and the owner is trusted;
-          // no hashedPassword yet — that's set when they claim the account.
-          emailVerified: new Date(),
-        },
-      });
-      ownerCreated = true;
-    } else if (role === "BROKER" && owner.role === "USER") {
-      // Upgrade an existing plain user to advisor if requested.
-      owner = await prisma.user.update({
-        where: { id: owner.id },
-        data: {
-          role: "BROKER",
-          brokerageName: seller.brokerageName
-            ? String(seller.brokerageName).trim()
-            : owner.brokerageName,
-        },
-      });
-    }
-
-    // --- Build the listing ---
-    const baseTitle = String(listing.title).trim();
-    let slug = slugify(baseTitle);
-    const existing = await prisma.businessListing.findUnique({ where: { slug } });
-    if (existing) slug = `${slug}-${Date.now().toString(36)}`;
-
-    const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
-
-    const askingPrice = Number(listing.askingPrice);
-    const annualRevenue = num(listing.annualRevenue);
-    const netIncome = num(listing.netIncome);
-    const cashFlowSDE = num(listing.cashFlowSDE);
-
-    const profitMargin =
-      annualRevenue && netIncome
-        ? Number(((netIncome / annualRevenue) * 100).toFixed(2))
-        : null;
-    const askingMultiple =
-      askingPrice && cashFlowSDE && cashFlowSDE > 0
-        ? Number((askingPrice / cashFlowSDE).toFixed(2))
-        : null;
-
-    const photos: Array<{ url: string; order?: number }> = Array.isArray(listing.photos)
-      ? listing.photos
-      : [];
-
-    const data: Prisma.BusinessListingUncheckedCreateInput = {
-      slug,
-      status: "ACTIVE",
-      title: baseTitle,
-      description: String(listing.description || "").trim(),
-      category: String(listing.category),
-      askingPrice,
-      annualRevenue,
-      cashFlowSDE,
-      netIncome,
-      assetSale: !!listing.assetSale,
-      sellerFinancing: !!listing.sellerFinancing,
-      sbaFinancingAvailable: !!listing.sbaFinancingAvailable,
-      yearEstablished: listing.yearEstablished ? Number(listing.yearEstablished) : null,
-      address: String(listing.address || "").trim(),
-      hideAddress: !!listing.hideAddress,
-      neighborhood: String(listing.neighborhood || "").trim(),
-      borough:
-        (listing.borough as Prisma.BusinessListingUncheckedCreateInput["borough"]) ||
-        "MANHATTAN",
-      zipCode: String(listing.zipCode || "").trim() || "00000",
-      latitude: num(listing.latitude) ?? 0,
-      longitude: num(listing.longitude) ?? 0,
-      profitMargin,
-      askingMultiple,
-      listedById: owner.id,
-      photos:
-        photos.length > 0
-          ? {
-              create: photos.map((p, idx) => ({
-                url: p.url,
-                order: typeof p.order === "number" ? p.order : idx,
-              })),
-            }
-          : undefined,
-    };
-
-    const created = await prisma.businessListing.create({
-      data,
-      select: { id: true, slug: true, title: true },
-    });
-
     return NextResponse.json(
-      {
-        success: true,
-        data: {
-          listing: created,
-          owner: {
-            id: owner.id,
-            email: owner.email,
-            role: owner.role,
-            created: ownerCreated,
-          },
-        },
-      },
+      { success: true, data: { listing: result.listing, owner: result.owner } },
       { status: 201 }
     );
   } catch (error) {
     console.error("Admin create-listing error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to create listing" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to create listing" }, { status: 500 });
   }
 }

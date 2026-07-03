@@ -9,7 +9,7 @@ const TOP_CATEGORIES = [
   "Retail Stores",
   "Laundromats & Dry Cleaners",
   "Salons & Barbershops",
-  "Delis & Grocery Stores",
+  "Delis & Bodegas",
   "Convenience Stores",
   "Gyms & Fitness Studios",
   "Liquor Stores",

@@ -50,8 +50,10 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
     "NYC's iconic commercial corridors and massive foot traffic make retail a dynamic sector. From boutique shops in the Village to high-volume stores in Midtown, retail opportunities abound.",
   Bakeries:
     "New York's bakery scene is iconic, from neighborhood bagel shops to artisan patisseries. These businesses enjoy loyal customer bases and strong daily foot traffic across all five boroughs.",
-  "Delis & Grocery Stores":
-    "Delis and grocery stores are a cornerstone of New York City life. With high population density and constant demand for convenient food options, these businesses serve as essential neighborhood anchors.",
+  "Delis & Bodegas":
+    "Delis and bodegas are a cornerstone of New York City life. With high population density and constant demand for convenient food, coffee, and everyday essentials, these businesses serve as essential neighborhood anchors with loyal, recurring customers.",
+  "Grocery Stores & Supermarkets":
+    "Grocery stores and supermarkets serve NYC's dense neighborhoods with steady, recession-resistant demand. From independent markets to full-size supermarkets, these businesses combine high volume with essential, everyday foot traffic across all five boroughs.",
   "Salons & Barbershops":
     "The personal care industry thrives in New York City, where millions of residents seek regular grooming services. Salons and barbershops benefit from recurring clientele and strong neighborhood loyalty.",
   "Convenience Stores":

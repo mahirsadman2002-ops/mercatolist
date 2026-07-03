@@ -218,7 +218,7 @@ const MOCK_LISTINGS: ListingData[] = [
     id: "6",
     slug: "jackson-heights-grocery",
     title: "Jackson Heights Grocery & Deli -- High Traffic",
-    category: "Delis & Grocery Stores",
+    category: "Delis & Bodegas",
     status: "ACTIVE",
     askingPrice: 500000,
     annualRevenue: 1100000,

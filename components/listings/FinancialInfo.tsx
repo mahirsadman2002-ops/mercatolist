@@ -38,6 +38,7 @@ interface FinancialInfoProps {
     ffeIncluded?: boolean | null;
     sellerFinancing: boolean;
     sbaFinancingAvailable: boolean;
+    assetSale?: boolean | null;
   };
 }
 
@@ -298,9 +299,22 @@ export function FinancialInfo({ listing }: FinancialInfoProps) {
     <TooltipProvider delayDuration={200}>
       <Card className="overflow-hidden">
         <CardHeader className="border-b pb-4">
-          <CardTitle className="text-lg font-semibold tracking-tight">
-            Financial Information
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Financial Information
+            </CardTitle>
+            {listing.assetSale && (
+              <Badge variant="secondary" className="shrink-0">
+                Asset Sale
+              </Badge>
+            )}
+          </div>
+          {listing.assetSale && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              This is an asset sale — the business is being sold for its equipment, fixtures and
+              other assets. Revenue and profit figures may not be provided.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-border/50">

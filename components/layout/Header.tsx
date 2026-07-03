@@ -23,8 +23,10 @@ import {
   Compass,
   PlusCircle,
   Eye,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import {
   Sheet,
   SheetContent,
@@ -138,6 +140,9 @@ export function Header() {
           <Link href="/advisors" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
             Find an Advisor
           </Link>
+          <Link href="/research" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            Research
+          </Link>
           <Link href="/blog" className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors">
             Blog
           </Link>
@@ -145,6 +150,7 @@ export function Header() {
 
         {/* Desktop Auth / Actions */}
         <div className="hidden lg:flex items-center gap-3">
+          <ThemeToggle className="text-primary-foreground/80 hover:text-primary-foreground" />
           {user ? (
             <>
               <Link href="/saved">
@@ -290,6 +296,7 @@ export function Header() {
 
         {/* Mobile actions: Messages icon + Hamburger */}
         <div className="flex items-center gap-1 lg:hidden">
+          <ThemeToggle className="text-primary-foreground/80 hover:text-primary-foreground" />
           {user && (
             <Link href="/inquiries" aria-label="Messages">
               <Button
@@ -414,6 +421,12 @@ export function Header() {
                   href={user ? "/my-listings/new" : "/list-your-business"}
                   icon={PlusCircle}
                   label={isBroker ? "List a Business" : "Sell Your Business"}
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  href="/research"
+                  icon={BarChart3}
+                  label="Research"
                   onClick={() => setMobileOpen(false)}
                 />
                 <MobileNavLink

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,13 +108,6 @@ export function ListingCard({
   const askingPrice = toNumber(listing.askingPrice);
   const annualRevenue = toNumber(listing.annualRevenue);
   const cashFlowSDE = toNumber(listing.cashFlowSDE);
-
-  // Days on market
-  const daysOnMarket = calculateDaysOnMarket(
-    typeof listing.createdAt === "string"
-      ? new Date(listing.createdAt)
-      : listing.createdAt
-  );
 
   // Save handler with optimistic UI
   const handleSave = useCallback(
@@ -367,20 +360,16 @@ export function ListingCard({
             </div>
           </div>
 
-          {/* Footer: Days on market + broker info */}
+          {/* Footer: saved-time (saved folder only) + broker info */}
           <div className="flex items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-              <span>
-                {savedAt
-                  ? `Saved ${timeAgoShort(savedAt)}`
-                  : daysOnMarket === 0
-                    ? "Listed today"
-                    : daysOnMarket === 1
-                      ? "1 day on market"
-                      : `${daysOnMarket} days on market`}
-              </span>
-            </div>
+            {savedAt ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <span>Saved {timeAgoShort(savedAt)}</span>
+              </div>
+            ) : (
+              <span />
+            )}
             <div
               className="flex items-center gap-1.5 max-w-[55%] min-w-0"
               title={`${listerName}${brokerageSuffix}`}

@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { BADGE_REFRESH_EVENT } from "@/lib/badge-events";
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
@@ -106,11 +107,16 @@ export function Header() {
     }
   }, [user]);
 
-  // Initial fetch + polling every 30s
+  // Initial fetch + polling every 30s, plus immediate refresh whenever
+  // something marks messages read (so the red badge clears right away).
   useEffect(() => {
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener(BADGE_REFRESH_EVENT, fetchUnread);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(BADGE_REFRESH_EVENT, fetchUnread);
+    };
   }, [fetchUnread]);
 
   return (

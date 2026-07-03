@@ -137,6 +137,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    /* Never let a stray wide child cause horizontal scroll / a white gap on
+       the right (mobile). `clip` (not `hidden`) preserves position: sticky. */
+    overflow-x: clip;
+    max-width: 100%;
+  }
   body {
     @apply bg-background text-foreground;
   }

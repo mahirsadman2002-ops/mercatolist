@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { BADGE_REFRESH_EVENT } from "@/lib/badge-events";
 
 const mainLinks = [
   { label: "My Listings", href: "/my-listings", icon: LayoutList },
@@ -68,7 +69,11 @@ export default function DashboardLayout({
     if (status !== "authenticated") return;
     fetchBadges();
     const interval = setInterval(fetchBadges, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener(BADGE_REFRESH_EVENT, fetchBadges);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(BADGE_REFRESH_EVENT, fetchBadges);
+    };
   }, [status, fetchBadges]);
 
   useEffect(() => {

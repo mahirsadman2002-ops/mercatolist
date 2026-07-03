@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { notifyBadgeRefresh } from "@/lib/badge-events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -408,6 +409,8 @@ function InquiriesPageContent() {
                 : i
             )
           );
+          // Clear the red badge in the header + bottom nav immediately.
+          notifyBadgeRefresh();
         } catch {
           // Silent
         }
@@ -485,12 +488,13 @@ function InquiriesPageContent() {
         ))}
       </div>
 
-      {/* Split Layout */}
-      <div className="flex h-[calc(100vh-220px)] min-h-[400px] overflow-hidden rounded-lg border bg-background">
+      {/* Split Layout — fixed-height side-by-side on desktop; on mobile it
+          flows to content (no giant empty box) and shows one pane at a time. */}
+      <div className="flex flex-col lg:flex-row rounded-lg border bg-background lg:h-[calc(100vh-220px)] lg:min-h-[400px] lg:overflow-hidden">
         {/* Left: Inquiry list */}
         <div
           className={cn(
-            "w-full lg:w-[380px] lg:border-r flex flex-col shrink-0",
+            "w-full lg:w-[380px] lg:border-r flex flex-col lg:shrink-0",
             selectedId ? "hidden lg:flex" : "flex"
           )}
         >
@@ -537,7 +541,9 @@ function InquiriesPageContent() {
         {/* Right: Conversation detail */}
         <div
           className={cn(
-            "flex-1 flex flex-col",
+            // On mobile the pane needs its own height (container is auto there)
+            // so the message thread can scroll; desktop fills the split.
+            "flex-1 flex flex-col min-h-[70vh] lg:min-h-0",
             !selectedId ? "hidden lg:flex" : "flex"
           )}
         >

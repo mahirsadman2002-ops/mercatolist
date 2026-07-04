@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
           bannedReason: true,
           isManaged: true,
           claimedAt: true,
+          brokerageName: true,
           createdAt: true,
           updatedAt: true,
           _count: {

@@ -346,15 +346,22 @@ function validateStep(
       if (!data.borough) errors.borough = "Borough is required";
       if (!isAdmin && !data.neighborhood)
         errors.neighborhood = "Neighborhood is required";
-      if (!isAdmin && !data.zipCode.trim()) {
-        errors.zipCode = "Zip code is required";
-      } else if (data.zipCode.trim()) {
-        // Whenever a ZIP is provided (admin or not), it must be a valid NYC ZIP.
-        if (!/^\d{5}(-\d{4})?$/.test(data.zipCode.trim()))
+
+      // ZIP handling. "00000" is the placeholder imported / admin-created
+      // listings get when the address is unknown — treat it as blank.
+      const zip = data.zipCode.trim();
+      const zipIsBlank = !zip || zip === "00000";
+      if (!isAdmin) {
+        // Regular sellers: ZIP required and must be a NYC ZIP.
+        if (zipIsBlank) errors.zipCode = "Zip code is required";
+        else if (!/^\d{5}(-\d{4})?$/.test(zip))
           errors.zipCode = "Enter a valid zip code";
-        else if (!isNycZip(data.zipCode.trim()))
+        else if (!isNycZip(zip))
           errors.zipCode =
             "MercatoList only lists businesses in the five NYC boroughs.";
+      } else if (!zipIsBlank && !/^\d{5}(-\d{4})?$/.test(zip)) {
+        // Admins: ZIP optional; only reject an outright malformed value.
+        errors.zipCode = "Enter a valid zip code";
       }
       break;
     }

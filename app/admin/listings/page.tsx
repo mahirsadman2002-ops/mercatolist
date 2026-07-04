@@ -47,7 +47,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Search, Star, StarOff, ExternalLink, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { MoreHorizontal, Search, Star, StarOff, ExternalLink, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 interface Listing {
@@ -213,11 +214,17 @@ export default function AdminListingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Manage Listings</h1>
           <p className="text-sm text-muted-foreground mt-1">{total} total listings</p>
         </div>
+        <Button asChild className="gap-1.5">
+          <Link href="/admin/listings/new">
+            <Plus className="h-4 w-4" />
+            Create listing
+          </Link>
+        </Button>
       </div>
 
       {/* Filters */}

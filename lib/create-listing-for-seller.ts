@@ -126,7 +126,9 @@ export async function createListingForSeller(
     hideAddress: !!listing.hideAddress,
     neighborhood: String(listing.neighborhood || "").trim(),
     borough: (String(listing.borough || "MANHATTAN") as Prisma.BusinessListingUncheckedCreateInput["borough"]),
-    zipCode: String(listing.zipCode || "").trim() || "00000",
+    // Empty string when unknown — never a fake "00000" (which the geo/ZIP
+    // checks would then reject on edit).
+    zipCode: String(listing.zipCode || "").trim(),
     latitude: num(listing.latitude) ?? 0,
     longitude: num(listing.longitude) ?? 0,
     profitMargin,

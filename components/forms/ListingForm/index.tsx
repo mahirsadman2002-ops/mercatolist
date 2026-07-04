@@ -278,7 +278,8 @@ function preparePayload(data: FormData) {
     licensesPermits: toStringOrNull(data.licensesPermits),
     trainingSupport: toStringOrNull(data.trainingSupport),
     address: data.address.trim(),
-    neighborhood: toStringOrNull(data.neighborhood),
+    // neighborhood is a non-nullable column — send "" (not null) when empty.
+    neighborhood: data.neighborhood.trim(),
     // borough is an enum on the server; empty string must become null for drafts
     borough: toStringOrNull(data.borough),
     category: toStringOrNull(data.category),

@@ -159,6 +159,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // already stripped every non-editable field.)
     const { photos: photoUpdates, ...rest } = parsed.data as any;
 
+    // Never overwrite a NON-nullable column with null — the draft schema marks
+    // these optional/nullable (for partial draft saves), but the DB rejects
+    // null, which surfaced as a generic "Failed to update listing". Drop any
+    // that came through null/undefined so the existing value is kept.
+    const NON_NULLABLE = [
+      "title", "description", "category", "askingPrice", "address",
+      "neighborhood", "borough", "city", "state", "zipCode",
+      "latitude", "longitude",
+    ];
+    for (const f of NON_NULLABLE) {
+      if (rest[f] === null || rest[f] === undefined) delete rest[f];
+    }
+
     const annualRevenue = rest.annualRevenue ?? listing.annualRevenue;
     const netIncome = rest.netIncome ?? listing.netIncome;
     const cashFlowSDE = rest.cashFlowSDE ?? listing.cashFlowSDE;

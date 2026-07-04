@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
           phone: true,
           isBanned: true,
           bannedReason: true,
+          isManaged: true,
+          claimedAt: true,
           createdAt: true,
           updatedAt: true,
           _count: {

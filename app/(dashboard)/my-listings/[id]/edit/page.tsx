@@ -97,7 +97,12 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
             : "Update your business listing details below."}
         </p>
       </div>
-      <ListingForm mode="edit" initialData={initialData} listingId={id} />
+      <ListingForm
+        mode="edit"
+        initialData={initialData}
+        listingId={id}
+        isAdmin={session?.user?.role === "ADMIN"}
+      />
     </div>
   );
 }

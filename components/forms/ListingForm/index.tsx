@@ -50,6 +50,8 @@ interface ListingFormProps {
   mode: "create" | "edit";
   initialData?: any;
   listingId?: string;
+  /** Admins can save listings without a full address (hidden/unknown). */
+  isAdmin?: boolean;
 }
 
 interface FormData {
@@ -300,7 +302,11 @@ function preparePayload(data: FormData) {
 
 type ValidationErrors = Record<string, string>;
 
-function validateStep(step: number, data: FormData): ValidationErrors {
+function validateStep(
+  step: number,
+  data: FormData,
+  isAdmin = false
+): ValidationErrors {
   const errors: ValidationErrors = {};
 
   switch (step) {
@@ -332,15 +338,24 @@ function validateStep(step: number, data: FormData): ValidationErrors {
       break;
     }
     case 3: {
-      if (!data.address.trim()) errors.address = "Address is required";
+      // Borough is always required (it's the NYC geo-anchor). For admins,
+      // address / neighborhood / ZIP are optional — admin-created/imported
+      // listings often have the address hidden or unknown. Regular sellers
+      // still fill them in.
+      if (!isAdmin && !data.address.trim()) errors.address = "Address is required";
       if (!data.borough) errors.borough = "Borough is required";
-      if (!data.neighborhood) errors.neighborhood = "Neighborhood is required";
-      if (!data.zipCode.trim()) errors.zipCode = "Zip code is required";
-      else if (!/^\d{5}(-\d{4})?$/.test(data.zipCode.trim()))
-        errors.zipCode = "Enter a valid zip code";
-      else if (!isNycZip(data.zipCode.trim()))
-        errors.zipCode =
-          "MercatoList only lists businesses in the five NYC boroughs.";
+      if (!isAdmin && !data.neighborhood)
+        errors.neighborhood = "Neighborhood is required";
+      if (!isAdmin && !data.zipCode.trim()) {
+        errors.zipCode = "Zip code is required";
+      } else if (data.zipCode.trim()) {
+        // Whenever a ZIP is provided (admin or not), it must be a valid NYC ZIP.
+        if (!/^\d{5}(-\d{4})?$/.test(data.zipCode.trim()))
+          errors.zipCode = "Enter a valid zip code";
+        else if (!isNycZip(data.zipCode.trim()))
+          errors.zipCode =
+            "MercatoList only lists businesses in the five NYC boroughs.";
+      }
       break;
     }
     // Steps 4 (Photos) and 5 (Review) have no required validation gates
@@ -1791,7 +1806,7 @@ function ReviewField({ label, value }: { label: string; value: string }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function ListingForm({ mode, initialData, listingId }: ListingFormProps) {
+export function ListingForm({ mode, initialData, listingId, isAdmin = false }: ListingFormProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(() =>
@@ -1907,7 +1922,7 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
       }
       // Validate all intermediate steps before jumping forward
       for (let i = currentStep; i < step; i++) {
-        const stepErrors = validateStep(i, formData);
+        const stepErrors = validateStep(i, formData, isAdmin);
         if (Object.keys(stepErrors).length > 0) {
           setErrors(stepErrors);
           setCurrentStep(i);
@@ -1917,11 +1932,11 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
       }
       setCurrentStep(step);
     },
-    [currentStep, formData]
+    [currentStep, formData, isAdmin]
   );
 
   const handleNext = useCallback(() => {
-    const stepErrors = validateStep(currentStep, formData);
+    const stepErrors = validateStep(currentStep, formData, isAdmin);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
       toast.error("Please fix the errors before proceeding.");
@@ -1949,7 +1964,7 @@ export function ListingForm({ mode, initialData, listingId }: ListingFormProps) 
   const handleSubmit = useCallback(async () => {
     // Re-validate all steps before submitting
     for (let i = 0; i < STEPS.length - 1; i++) {
-      const stepErrors = validateStep(i, formData);
+      const stepErrors = validateStep(i, formData, isAdmin);
       if (Object.keys(stepErrors).length > 0) {
         setErrors(stepErrors);
         setCurrentStep(i);

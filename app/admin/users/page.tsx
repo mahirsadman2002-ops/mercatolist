@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, Fragment } from "react";
+import { useEffect, useState, useCallback, useRef, Fragment } from "react";
+import {
+  prepareImageForUpload,
+  looksLikeImage,
+  ImagePrepError,
+} from "@/lib/image-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +53,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2, UserPlus } from "lucide-react";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2, UserPlus, ImagePlus } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -70,6 +75,8 @@ interface User {
   avatarUrl: string | null;
   isBanned: boolean;
   bannedReason: string | null;
+  isManaged: boolean;
+  claimedAt: string | null;
   createdAt: string;
   _count: { listings: number };
 }
@@ -94,6 +101,11 @@ export default function AdminUsersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [listingsByUser, setListingsByUser] = useState<Record<string, UserListing[]>>({});
   const [listingsLoading, setListingsLoading] = useState<string | null>(null);
+
+  // Profile-photo upload (admin sets an avatar on a user's behalf).
+  const [photoUser, setPhotoUser] = useState<User | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Create-user (managed account) dialog.
   const [createOpen, setCreateOpen] = useState(false);
@@ -218,6 +230,71 @@ export default function AdminUsersPage() {
         fetchUsers();
       }
     } catch { toast.error("Failed to delete user"); }
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!photoUser) return;
+    if (!looksLikeImage(file)) {
+      toast.error("Please choose an image");
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      // HEIC/large images are converted + compressed before upload.
+      const prepared = await prepareImageForUpload(file, 5 * 1024 * 1024);
+      // Mint a presigned S3 URL (avatars folder) and upload.
+      const presign = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileType: prepared.type, folder: "avatars", fileSize: prepared.size }),
+      });
+      const presignJson = await presign.json();
+      if (!presignJson.success) throw new Error(presignJson.error || "Upload not available");
+      const { url, key } = presignJson.data;
+      const put = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": prepared.type },
+        body: prepared,
+      });
+      if (!put.ok) throw new Error("Upload to storage failed");
+      const finalUrl = url.split("?")[0];
+
+      // Save it onto the target user.
+      const res = await fetch(`/api/admin/users/${photoUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: finalUrl }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Failed to save photo");
+      toast.success(`Photo set for ${photoUser.name}`);
+      setPhotoUser(null);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof ImagePrepError || err instanceof Error ? err.message : "Failed to upload photo");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async (user: User) => {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: null }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Photo removed");
+        setPhotoUser(null);
+        fetchUsers();
+      } else {
+        toast.error(json.error || "Failed to remove photo");
+      }
+    } catch {
+      toast.error("Failed to remove photo");
+    }
   };
 
   const handleCreateUser = async () => {
@@ -380,11 +457,25 @@ export default function AdminUsersPage() {
                       {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </TableCell>
                     <TableCell>
-                      {user.isBanned ? (
-                        <Badge variant="destructive">Banned</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-green-100 text-green-700">Active</Badge>
-                      )}
+                      <div className="flex flex-col items-start gap-1">
+                        {user.isBanned ? (
+                          <Badge variant="destructive">Banned</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-green-100 text-green-700">Active</Badge>
+                        )}
+                        {/* Claim status for accounts we created on their behalf. */}
+                        {user.isManaged && (
+                          user.claimedAt ? (
+                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700" title={`Password set ${new Date(user.claimedAt).toLocaleDateString()}`}>
+                              Password set
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                              Invite pending
+                            </Badge>
+                          )
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -401,6 +492,10 @@ export default function AdminUsersPage() {
                                 <ShieldCheck className="h-4 w-4 mr-2" /> Set {r}
                               </DropdownMenuItem>
                             ))}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setPhotoUser(user)}>
+                            <ImagePlus className="h-4 w-4 mr-2" /> Set profile photo
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {user.isBanned ? (
                             <DropdownMenuItem onClick={() => handleUnban(user.id)}>
@@ -552,6 +647,61 @@ export default function AdminUsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Set profile photo (admin uploads on the user's behalf) */}
+      <Dialog open={!!photoUser} onOpenChange={(open) => !open && setPhotoUser(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Profile photo</DialogTitle>
+            <DialogDescription>
+              Upload a profile photo for {photoUser?.name}. HEIC and large images
+              are converted and compressed automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <Avatar className="h-24 w-24">
+              <AvatarImage src={photoUser?.avatarUrl || undefined} />
+              <AvatarFallback className="text-2xl">
+                {photoUser?.name?.charAt(0)?.toUpperCase() || "?"}
+              </AvatarFallback>
+            </Avatar>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*,.heic,.heif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handlePhotoUpload(f);
+                if (photoInputRef.current) photoInputRef.current.value = "";
+              }}
+            />
+            <div className="flex w-full gap-2">
+              <Button
+                className="flex-1 gap-1.5"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+              >
+                {uploadingPhoto ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-4 w-4" />
+                )}
+                {photoUser?.avatarUrl ? "Replace photo" : "Upload photo"}
+              </Button>
+              {photoUser?.avatarUrl && (
+                <Button
+                  variant="outline"
+                  onClick={() => photoUser && handleRemovePhoto(photoUser)}
+                  disabled={uploadingPhoto}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create user (managed account) */}
       <Dialog open={createOpen} onOpenChange={(open) => !open && setCreateOpen(false)}>

@@ -72,6 +72,9 @@
     annualRevenue: money("Gross Revenue") || money("Revenue") || money("Sales"),
   };
   var imageUrls = collectImages();
+  // Snapshot the SOURCE page text now, before we inject our panel — otherwise
+  // the panel's own labels/options pollute category matching.
+  var sourceText = ((document.body.innerText || "") + " " + (guess.title || "") + " " + (guess.description || "")).toLowerCase();
 
   // ---- Panel UI ----
   var panel = document.createElement("div");
@@ -94,7 +97,8 @@
     field("Brokerage (if advisor)", "mlSBrokerage", cfg.sellerBrokerage) +
     '<div style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px;font-weight:700;color:#0d9488">Listing</div>' +
     field("Title", "mlTitle", guess.title) +
-    field("Category (must match your list)", "mlCategory", "") +
+    '<label style="display:block;margin:8px 0 2px;font-weight:600">Category</label>' +
+    '<select id="mlCategory" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px"><option value="">Loading categories…</option></select>' +
     field("Asking Price ($)", "mlPrice", guess.askingPrice) +
     field("Annual Revenue ($)", "mlRev", guess.annualRevenue) +
     field("Cash Flow / SDE ($)", "mlCf", guess.cashFlowSDE) +
@@ -107,6 +111,51 @@
     '<button id="mlGo" style="width:100%;padding:10px;background:#0d9488;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Create listing</button>';
   document.body.appendChild(panel);
   document.getElementById("mlClose").onclick = function () { panel.remove(); window.__mlImportOpen = false; };
+
+  // Populate the Category dropdown from MercatoList's canonical list so the
+  // import always lands in a real category. Falls back to a free-text input if
+  // the list can't be fetched (offline / CORS blocked by the source site).
+  (function loadCategories() {
+    var sel = document.getElementById("mlCategory");
+    if (!sel) return;
+    var pageText = sourceText;
+    fetch(cfg.base + "/api/categories", { mode: "cors" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var cats = (d && d.data) || [];
+        if (!cats.length) throw new Error("empty");
+        // Best-guess: score each category by how many of its distinctive words
+        // appear in the source page (handling simple singular/plural), and
+        // preselect the best match. The admin still reviews it.
+        var STOP = ["shop", "shops", "store", "stores", "service", "services", "and", "the", "for", "with"];
+        var guessCat = "", best = 0;
+        cats.forEach(function (c) {
+          if (c === "Other") return;
+          var words = c.toLowerCase().replace(/&/g, " ").split(/[^a-z0-9]+/).filter(function (w) {
+            return w.length >= 4 && STOP.indexOf(w) === -1;
+          });
+          var hits = 0;
+          words.forEach(function (w) {
+            var sing = w.replace(/ies$/, "y").replace(/s$/, "");
+            if (pageText.indexOf(w) !== -1 || (sing.length >= 4 && pageText.indexOf(sing) !== -1)) hits++;
+          });
+          if (hits > best) { best = hits; guessCat = c; }
+        });
+        sel.innerHTML = '<option value="">— Select category —</option>' +
+          cats.map(function (c) {
+            return '<option value="' + c.replace(/"/g, "&quot;") + '"' + (c === guessCat ? " selected" : "") + '>' + c + '</option>';
+          }).join("");
+      })
+      .catch(function () {
+        // Fallback: replace the select with a plain input (same id) so the
+        // admin can still type a category manually.
+        var inp = document.createElement("input");
+        inp.id = "mlCategory";
+        inp.placeholder = "Type a category (couldn't load list)";
+        inp.setAttribute("style", "width:100%;box-sizing:border-box;padding:6px;border:1px solid #ccc;border-radius:6px");
+        sel.parentNode.replaceChild(inp, sel);
+      });
+  })();
 
   // Try to read image bytes in-browser (works only for CORS-enabled images).
   function toDataUrls(urls, done) {

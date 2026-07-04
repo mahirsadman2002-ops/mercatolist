@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { Bug, Lightbulb, MessageSquarePlus, X } from "lucide-react";
+import { Bug, Lightbulb, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -66,11 +66,11 @@ export function FeedbackWidget() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Report a bug or share feedback"
-        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        aria-label="Give feedback or report a bug"
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-red-700 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
       >
-        <MessageSquarePlus className="h-4 w-4" />
-        <span className="hidden sm:inline">Feedback</span>
+        <Bug className="h-4 w-4" />
+        <span>Feedback / Report Bug</span>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

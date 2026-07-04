@@ -90,6 +90,7 @@ export async function PUT(
 
       // Geo-lock: only businesses in the five NYC boroughs can go live.
       const geo = validateNycLocation({
+        borough: listing.borough,
         zipCode: listing.zipCode,
         latitude: listing.latitude as unknown as number,
         longitude: listing.longitude as unknown as number,

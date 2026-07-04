@@ -64,7 +64,10 @@ export async function createListingForSeller(
   }
 
   // Geo-lock: imports create live listings, so they must be inside NYC too.
+  // Borough is the priority — a Brooklyn listing with the address hidden and no
+  // ZIP is still valid.
   const geo = validateNycLocation({
+    borough: listing.borough,
     zipCode: listing.zipCode,
     latitude: listing.latitude,
     longitude: listing.longitude,

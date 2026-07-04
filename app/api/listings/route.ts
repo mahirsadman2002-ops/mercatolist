@@ -275,6 +275,7 @@ export async function POST(request: NextRequest) {
     // may still be incomplete; they're re-checked at publish time.)
     if (!isDraft) {
       const geo = validateNycLocation({
+        borough: validated.borough,
         zipCode: validated.zipCode,
         latitude: validated.latitude,
         longitude: validated.longitude,

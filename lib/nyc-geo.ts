@@ -51,30 +51,63 @@ export function isWithinNycBounds(
   );
 }
 
+const NYC_BOROUGHS: Borough[] = [
+  "MANHATTAN",
+  "BROOKLYN",
+  "QUEENS",
+  "BRONX",
+  "STATEN_ISLAND",
+];
+
+export function isNycBorough(borough: string | null | undefined): boolean {
+  return NYC_BOROUGHS.includes(String(borough || "").toUpperCase() as Borough);
+}
+
 /**
  * Validate that a listing's location is inside NYC. Returns { ok } or
  * { ok: false, error } with a user-facing message. Call before publishing /
  * creating a live listing.
+ *
+ * BOROUGH is the primary signal: it's already constrained to the five boroughs,
+ * so a valid borough means the listing is in NYC — even when the seller hides
+ * the address and leaves the ZIP blank. The ZIP and coordinates are only used
+ * as consistency guards *when they're provided* (e.g. a Brooklyn borough paired
+ * with a Boston ZIP, or out-of-town coordinates, is rejected).
  */
 export function validateNycLocation(loc: {
+  borough?: string | null;
   zipCode?: string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
 }): { ok: true } | { ok: false; error: string } {
+  const hasBorough = isNycBorough(loc.borough);
   const zip = String(loc.zipCode || "").trim();
-  if (!isNycZip(zip)) {
+
+  // Need at least one positive signal that this is NYC.
+  if (!hasBorough && !isNycZip(zip)) {
     return {
       ok: false,
       error:
-        "MercatoList only lists businesses in the five NYC boroughs. This ZIP code isn't in New York City.",
+        "MercatoList only lists businesses in the five NYC boroughs. Select a borough (or enter a NYC ZIP code).",
     };
   }
 
-  // If coordinates are present, they must also be within NYC — guards against
-  // a spoofed ZIP paired with out-of-town coordinates.
-  const lat = loc.latitude == null || loc.latitude === "" ? null : Number(loc.latitude);
-  const lng = loc.longitude == null || loc.longitude === "" ? null : Number(loc.longitude);
-  if (lat != null && lng != null && !isWithinNycBounds(lat, lng)) {
+  // If a ZIP was provided, it must actually be a NYC ZIP — catches a NYC
+  // borough accidentally paired with an out-of-town ZIP.
+  if (zip && !isNycZip(zip)) {
+    return {
+      ok: false,
+      error: "That ZIP code isn't in New York City. Leave it blank or use a NYC ZIP.",
+    };
+  }
+
+  // If real coordinates are present (non-zero), they must be within NYC —
+  // guards against spoofed values. Zero/absent coordinates are treated as
+  // "not provided" (the seller hid the address).
+  const lat = Number(loc.latitude);
+  const lng = Number(loc.longitude);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
+  if (hasCoords && !isWithinNycBounds(lat, lng)) {
     return {
       ok: false,
       error:

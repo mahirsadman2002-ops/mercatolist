@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { Adapter, AdapterUser } from "next-auth/adapters";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -6,8 +7,44 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { rateLimitByKey } from "@/lib/ratelimit";
 
+// Our User model stores the profile photo as `avatarUrl`, but the standard
+// PrismaAdapter writes/reads NextAuth's `image` field. Without translating,
+// createUser("... image ...") throws "Unknown argument `image`" on the FIRST
+// OAuth sign-in of a new account (error=Configuration) — existing accounts are
+// unaffected because they link/read instead of create. Map both directions.
+function mercatoAdapter(): Adapter {
+  const base = PrismaAdapter(prisma);
+  const withImage = (u: any): AdapterUser =>
+    ({ ...u, image: u?.avatarUrl ?? null }) as AdapterUser;
+  return {
+    ...base,
+    createUser: async ({ id: _id, image, name, email, emailVerified }) => {
+      const user = await prisma.user.create({
+        data: {
+          name: name || email?.split("@")[0] || "New User",
+          email: email!,
+          emailVerified,
+          avatarUrl: image ?? null,
+        },
+      });
+      return withImage(user);
+    },
+    updateUser: async ({ id, image, name, ...data }) => {
+      const user = await prisma.user.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(name != null ? { name } : {}),
+          ...(image !== undefined ? { avatarUrl: image ?? null } : {}),
+        } as any,
+      });
+      return withImage(user);
+    },
+  };
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: mercatoAdapter(),
   session: { strategy: "jwt" },
   // Trust the X-Forwarded-Host header from Vercel / any proxy so cookies are
   // issued and validated against the actual production hostname. Without this,

@@ -89,6 +89,10 @@
     '<div style="display:flex;justify-content:space-between;align-items:center"><strong>Import to MercatoList</strong><button id="mlClose" style="border:none;background:none;font-size:18px;cursor:pointer">&times;</button></div>' +
     '<div style="font-size:11px;color:#666;margin:2px 0 6px">' + imageUrls.length + ' photo(s) detected. Review fields, then Create.</div>' +
     '<div style="border-top:1px solid #eee;margin:6px 0;padding-top:4px;font-weight:700;color:#0d9488">Seller / Advisor</div>' +
+    '<label style="display:block;margin:8px 0 2px;font-weight:600">Find existing (search name/email)</label>' +
+    '<input id="mlSSearch" placeholder="Start typing to reuse an account…" autocomplete="off" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ccc;border-radius:6px"/>' +
+    '<div id="mlSResults" style="position:relative"></div>' +
+    '<div style="font-size:11px;color:#666;margin:3px 0 0">Pick one to reuse their account, or just fill the fields below to create a new one.</div>' +
     field("Name", "mlSName", cfg.sellerName) +
     field("Email", "mlSEmail", cfg.sellerEmail) +
     field("Phone", "mlSPhone", cfg.sellerPhone) +
@@ -111,6 +115,50 @@
     '<button id="mlGo" style="width:100%;padding:10px;background:#0d9488;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Create listing</button>';
   document.body.appendChild(panel);
   document.getElementById("mlClose").onclick = function () { panel.remove(); window.__mlImportOpen = false; };
+
+  // ---- Seller search (reuse an existing account instead of re-typing) ----
+  (function sellerSearch() {
+    var input = document.getElementById("mlSSearch");
+    var box = document.getElementById("mlSResults");
+    if (!input || !box) return;
+    var timer = null;
+    function render(list) {
+      if (!list.length) { box.innerHTML = ""; return; }
+      box.innerHTML = '<div style="border:1px solid #ccc;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow:auto;background:#fff">' +
+        list.map(function (u, i) {
+          var tag = u.status === "unclaimed" ? ' · unclaimed' : (u.status === "active" ? ' · active' : '');
+          return '<div data-i="' + i + '" class="mlSOpt" style="padding:6px 8px;cursor:pointer;border-top:1px solid #f0f0f0">' +
+            '<div style="font-weight:600">' + (u.name || "").replace(/</g, "&lt;") + '<span style="font-weight:400;color:#888;font-size:11px"> · ' + (u.accountType === "ADVISOR" ? "Advisor" : "Seller") + tag + '</span></div>' +
+            '<div style="font-size:11px;color:#666">' + (u.email || "").replace(/</g, "&lt;") + ' · ' + u.listingCount + ' listing(s)</div></div>';
+        }).join("") + '</div>';
+      Array.prototype.forEach.call(box.querySelectorAll(".mlSOpt"), function (el) {
+        el.onmouseover = function () { el.style.background = "#f3f4f6"; };
+        el.onmouseout = function () { el.style.background = "#fff"; };
+        el.onclick = function () {
+          var u = list[+el.getAttribute("data-i")];
+          document.getElementById("mlSName").value = u.name || "";
+          document.getElementById("mlSEmail").value = u.email || "";
+          document.getElementById("mlSPhone").value = u.phone || "";
+          document.getElementById("mlSType").value = u.accountType || "SELLER";
+          document.getElementById("mlSBrokerage").value = u.brokerageName || "";
+          box.innerHTML = "";
+          input.value = "";
+        };
+      });
+    }
+    input.oninput = function () {
+      var q = input.value.trim();
+      clearTimeout(timer);
+      if (q.length < 2) { box.innerHTML = ""; return; }
+      timer = setTimeout(function () {
+        fetch(cfg.base + "/api/admin/import/sellers?q=" + encodeURIComponent(q), {
+          headers: { "Authorization": "Bearer " + cfg.token }, mode: "cors"
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          render((d && d.data) || []);
+        }).catch(function () { box.innerHTML = ""; });
+      }, 250);
+    };
+  })();
 
   // Populate the Category dropdown from MercatoList's canonical list so the
   // import always lands in a real category. Falls back to a free-text input if

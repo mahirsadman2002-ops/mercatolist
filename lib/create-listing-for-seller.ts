@@ -3,6 +3,7 @@ import { slugify } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { sendClaimEmail } from "@/lib/claim";
 import { findOrCreateManagedUser } from "@/lib/create-managed-user";
+import { validateNycLocation } from "@/lib/nyc-geo";
 
 export type SellerInput = {
   email?: string;
@@ -60,6 +61,16 @@ export async function createListingForSeller(
   }
   if (!listing.title || !listing.category || listing.askingPrice == null || listing.askingPrice === "") {
     return { ok: false, status: 400, error: "Listing needs at least a title, category, and asking price." };
+  }
+
+  // Geo-lock: imports create live listings, so they must be inside NYC too.
+  const geo = validateNycLocation({
+    zipCode: listing.zipCode,
+    latitude: listing.latitude,
+    longitude: listing.longitude,
+  });
+  if (!geo.ok) {
+    return { ok: false, status: 400, error: geo.error };
   }
 
   // Owner: find or create a managed (auto-verified, unclaimed) account —

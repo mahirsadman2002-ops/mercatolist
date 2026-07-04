@@ -40,6 +40,7 @@ import {
   looksLikeImage,
   ImagePrepError,
 } from "@/lib/image-client";
+import { boroughFromZip, isNycZip } from "@/lib/nyc-geo";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -337,6 +338,9 @@ function validateStep(step: number, data: FormData): ValidationErrors {
       if (!data.zipCode.trim()) errors.zipCode = "Zip code is required";
       else if (!/^\d{5}(-\d{4})?$/.test(data.zipCode.trim()))
         errors.zipCode = "Enter a valid zip code";
+      else if (!isNycZip(data.zipCode.trim()))
+        errors.zipCode =
+          "MercatoList only lists businesses in the five NYC boroughs.";
       break;
     }
     // Steps 4 (Photos) and 5 (Review) have no required validation gates
@@ -999,18 +1003,6 @@ function StepBusinessDetails({
   );
 }
 
-// NYC borough from a 5-digit ZIP. ZIP ranges are deterministic per borough,
-// unlike Mapbox's city field which returns "New York" for all of them.
-function boroughFromZip(zip: string): string {
-  const n = parseInt((zip || "").slice(0, 5), 10);
-  if (!n) return "";
-  if (n >= 10001 && n <= 10282) return "MANHATTAN";
-  if (n >= 10301 && n <= 10314) return "STATEN_ISLAND";
-  if (n >= 10451 && n <= 10475) return "BRONX";
-  if (n >= 11201 && n <= 11256) return "BROOKLYN";
-  if ((n >= 11001 && n <= 11109) || (n >= 11351 && n <= 11697)) return "QUEENS";
-  return "";
-}
 
 function StepLocation({
   data,
@@ -1045,7 +1037,7 @@ function StepLocation({
     // Borough: Mapbox reports every NYC borough's city as "New York", so its
     // city field can't distinguish them. ZIP code IS deterministic for NYC —
     // use it first, and only fall back to the city name if there's no ZIP.
-    let boroughVal = boroughFromZip(zip);
+    let boroughVal: string = boroughFromZip(zip);
     if (!boroughVal) {
       const city = (props.address_level2 || props.place || "").toUpperCase();
       boroughVal =

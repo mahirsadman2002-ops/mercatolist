@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { statusChangeSchema, getMissingListingFields } from "@/lib/validations";
 import { requireVerifiedEmail } from "@/lib/require-verified";
+import { validateNycLocation } from "@/lib/nyc-geo";
 
 export async function PUT(
   request: NextRequest,
@@ -83,6 +84,19 @@ export async function PUT(
             error: `Complete these before publishing: ${missing.join(", ")}.`,
             missingFields: missing,
           },
+          { status: 400 }
+        );
+      }
+
+      // Geo-lock: only businesses in the five NYC boroughs can go live.
+      const geo = validateNycLocation({
+        zipCode: listing.zipCode,
+        latitude: listing.latitude as unknown as number,
+        longitude: listing.longitude as unknown as number,
+      });
+      if (!geo.ok) {
+        return NextResponse.json(
+          { success: false, error: geo.error },
           { status: 400 }
         );
       }

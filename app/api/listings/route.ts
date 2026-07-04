@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 import { requireVerifiedEmail } from "@/lib/require-verified";
+import { validateNycLocation } from "@/lib/nyc-geo";
 
 export async function GET(request: NextRequest) {
   try {
@@ -269,6 +270,22 @@ export async function POST(request: NextRequest) {
     const validated = isDraft
       ? listingDraftSchema.parse(body)
       : listingCreateSchema.parse(body);
+
+    // Geo-lock: a live listing must be inside the five NYC boroughs. (Drafts
+    // may still be incomplete; they're re-checked at publish time.)
+    if (!isDraft) {
+      const geo = validateNycLocation({
+        zipCode: validated.zipCode,
+        latitude: validated.latitude,
+        longitude: validated.longitude,
+      });
+      if (!geo.ok) {
+        return NextResponse.json(
+          { success: false, error: geo.error },
+          { status: 400 }
+        );
+      }
+    }
 
     // Generate slug — use title if present, otherwise a placeholder for drafts.
     const baseTitle = validated.title?.trim() || "untitled-listing";

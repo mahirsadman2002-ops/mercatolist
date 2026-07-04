@@ -11,6 +11,8 @@ export type SellerInput = {
   phone?: string;
   accountType?: "SELLER" | "ADVISOR";
   brokerageName?: string;
+  /** Already-hosted avatar URL — set on the account if it has none. */
+  avatarUrl?: string;
 };
 
 export type ListingInput = {
@@ -84,6 +86,7 @@ export async function createListingForSeller(
     phone: seller.phone,
     accountType: seller.accountType,
     brokerageName: seller.brokerageName,
+    avatarUrl: seller.avatarUrl,
   });
   if (!ownerResult.ok) {
     return { ok: false, status: ownerResult.status, error: ownerResult.error };

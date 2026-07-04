@@ -7,6 +7,8 @@ export type ManagedUserInput = {
   phone?: string;
   accountType?: "SELLER" | "ADVISOR";
   brokerageName?: string;
+  /** Already-hosted (S3/CDN) avatar URL to set if the account has none yet. */
+  avatarUrl?: string;
 };
 
 export type FindOrCreateResult =
@@ -46,17 +48,30 @@ export async function findOrCreateManagedUser(
       ? String(input.brokerageName).trim()
       : null;
   const phone = input.phone ? String(input.phone).trim() : null;
+  const avatarUrl =
+    typeof input.avatarUrl === "string" && /^https:\/\//.test(input.avatarUrl)
+      ? input.avatarUrl
+      : undefined;
 
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (existing) {
-    // Upgrade an existing plain user to advisor if requested; never downgrade.
+    // Set the avatar only if they don't already have one (never clobber a
+    // photo they set themselves); upgrade a plain user to advisor if asked.
+    const data: {
+      role?: "BROKER";
+      brokerageName?: string | null;
+      avatarUrl?: string;
+    } = {};
     if (role === "BROKER" && existing.role === "USER") {
-      const upgraded = await prisma.user.update({
-        where: { id: existing.id },
-        data: { role: "BROKER", brokerageName: brokerageName ?? existing.brokerageName },
-      });
-      return { ok: true, user: upgraded, created: false };
+      data.role = "BROKER";
+      data.brokerageName = brokerageName ?? existing.brokerageName;
+    }
+    if (avatarUrl && !existing.avatarUrl) data.avatarUrl = avatarUrl;
+
+    if (Object.keys(data).length > 0) {
+      const updated = await prisma.user.update({ where: { id: existing.id }, data });
+      return { ok: true, user: updated, created: false };
     }
     return { ok: true, user: existing, created: false };
   }
@@ -68,6 +83,7 @@ export async function findOrCreateManagedUser(
       phone,
       role,
       brokerageName,
+      avatarUrl,
       // Auto-verified, no password → unclaimed until they set one.
       emailVerified: new Date(),
       isManaged: true,

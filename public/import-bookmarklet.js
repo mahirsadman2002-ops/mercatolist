@@ -111,10 +111,47 @@
     '<select id="mlBorough" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px">' + boroughs.map(function (b) { return '<option value="' + b + '">' + b + '</option>'; }).join("") + '</select>' +
     field("ZIP", "mlZip", "") +
     field("Description", "mlDesc", guess.description, true) +
+    '<div style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px;font-weight:700;color:#0d9488">Photos</div>' +
+    '<div style="font-size:11px;color:#666;margin-bottom:6px">Click a photo to cycle: <b style="color:#3b82f6">Listing</b> → <b style="color:#0d9488">Profile pic</b> → <b style="color:#999">Skip</b>. Profile pic is optional.</div>' +
+    '<div id="mlPhotoGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>' +
     '<div id="mlStatus" style="margin:10px 0;font-size:12px;color:#666"></div>' +
     '<button id="mlGo" style="width:100%;padding:10px;background:#0d9488;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Create listing</button>';
   document.body.appendChild(panel);
   document.getElementById("mlClose").onclick = function () { panel.remove(); window.__mlImportOpen = false; };
+
+  // ---- Photo picker: each detected image is a listing photo (default), the
+  //      one profile pic (optional, exclusive), or skipped. ----
+  var imgRoles = {};
+  imageUrls.forEach(function (u) { imgRoles[u] = "listing"; });
+  function renderPhotos() {
+    var grid = document.getElementById("mlPhotoGrid");
+    if (!grid) return;
+    if (!imageUrls.length) { grid.innerHTML = '<div style="font-size:11px;color:#888">No photos detected — you can add them later in Admin.</div>'; return; }
+    grid.innerHTML = imageUrls.map(function (u, i) {
+      var role = imgRoles[u];
+      var col = role === "profile" ? "#0d9488" : (role === "skip" ? "#bbb" : "#3b82f6");
+      var label = role === "profile" ? "PFP" : (role === "skip" ? "Skip" : "Listing");
+      var op = role === "skip" ? "0.45" : "1";
+      return '<div class="mlThumb" data-i="' + i + '" title="Click to change" style="position:relative;width:58px;height:58px;border-radius:6px;overflow:hidden;border:2px solid ' + col + ';cursor:pointer;opacity:' + op + '">' +
+        '<img src="' + u + '" style="width:100%;height:100%;object-fit:cover"/>' +
+        '<div style="position:absolute;left:0;right:0;bottom:0;background:' + col + ';color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:13px">' + label + '</div>' +
+        '</div>';
+    }).join("");
+    Array.prototype.forEach.call(grid.querySelectorAll(".mlThumb"), function (el) {
+      el.onclick = function () {
+        var u = imageUrls[+el.getAttribute("data-i")];
+        var cur = imgRoles[u];
+        var next = cur === "listing" ? "profile" : (cur === "profile" ? "skip" : "listing");
+        if (next === "profile") {
+          // Only one profile pic — demote any other back to a listing photo.
+          Object.keys(imgRoles).forEach(function (k) { if (imgRoles[k] === "profile") imgRoles[k] = "listing"; });
+        }
+        imgRoles[u] = next;
+        renderPhotos();
+      };
+    });
+  }
+  renderPhotos();
 
   // ---- Seller search (reuse an existing account instead of re-typing) ----
   (function sellerSearch() {
@@ -218,6 +255,15 @@
       }).catch(function () { failed.push(u); if (--pending === 0) done(out, failed); });
     });
   }
+  // Read a single image → data URL, or null if it can't be read (CORS).
+  function readOne(u, done) {
+    fetch(u, { mode: "cors" }).then(function (r) { return r.blob(); }).then(function (b) {
+      var fr = new FileReader();
+      fr.onload = function () { done(fr.result); };
+      fr.onerror = function () { done(null); };
+      fr.readAsDataURL(b);
+    }).catch(function () { done(null); });
+  }
 
   document.getElementById("mlGo").onclick = function () {
     var status = document.getElementById("mlStatus");
@@ -225,6 +271,10 @@
     // Remember seller defaults for the next listing.
     cfg.sellerName = v("mlSName"); cfg.sellerEmail = v("mlSEmail"); cfg.sellerPhone = v("mlSPhone");
     cfg.sellerType = v("mlSType"); cfg.sellerBrokerage = v("mlSBrokerage"); saveConfig(cfg);
+
+    // Split detected images by the role picked in the grid.
+    var listingUrls = imageUrls.filter(function (u) { return imgRoles[u] === "listing"; });
+    var profileUrl = imageUrls.filter(function (u) { return imgRoles[u] === "profile"; })[0] || null;
 
     var payloadBase = {
       seller: { name: v("mlSName"), email: v("mlSEmail"), phone: v("mlSPhone"), accountType: v("mlSType"), brokerageName: v("mlSBrokerage") },
@@ -234,12 +284,9 @@
         neighborhood: v("mlHood"), borough: v("mlBorough"), zipCode: v("mlZip"),
         description: v("mlDesc"),
       },
-      photoUrls: imageUrls,
     };
-    status.textContent = "Reading photos…";
-    toDataUrls(imageUrls, function (dataUrls, failed) {
-      payloadBase.photoData = dataUrls;               // images we could read in-browser
-      payloadBase.photoUrls = failed;                 // let the server best-effort the rest
+
+    function send() {
       status.textContent = "Creating listing…";
       fetch(cfg.base + "/api/admin/import", {
         method: "POST",
@@ -247,12 +294,27 @@
         body: JSON.stringify(payloadBase),
       }).then(function (r) { return r.json(); }).then(function (d) {
         if (d.success) {
-          status.innerHTML = '✅ Created! <a href="' + cfg.base + '/listings/' + d.data.listing.slug + '" target="_blank">View</a> — photos: ' + d.data.photosAttached + '/' + d.data.photosRequested + (d.data.photosAttached < d.data.photosRequested ? ' (add the rest in admin)' : '');
+          var pfp = payloadBase.avatarData || payloadBase.avatarUrl ? ' · profile photo set' : '';
+          status.innerHTML = '✅ Created! <a href="' + cfg.base + '/listings/' + d.data.listing.slug + '" target="_blank">View</a> — photos: ' + d.data.photosAttached + '/' + d.data.photosRequested + pfp + (d.data.photosAttached < d.data.photosRequested ? ' (add the rest in admin)' : '');
           document.getElementById("mlGo").textContent = "Create another";
         } else {
           status.textContent = "❌ " + (d.error || "Failed");
         }
       }).catch(function (e) { status.textContent = "❌ " + e.message; });
+    }
+
+    status.textContent = "Reading photos…";
+    toDataUrls(listingUrls, function (dataUrls, failed) {
+      payloadBase.photoData = dataUrls;   // listing images read in-browser
+      payloadBase.photoUrls = failed;     // server best-efforts the rest
+      if (profileUrl) {
+        readOne(profileUrl, function (dataUrl) {
+          if (dataUrl) payloadBase.avatarData = dataUrl; else payloadBase.avatarUrl = profileUrl;
+          send();
+        });
+      } else {
+        send();  // profile pic is optional
+      }
     });
   };
 })();

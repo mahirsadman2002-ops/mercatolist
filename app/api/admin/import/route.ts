@@ -62,7 +62,27 @@ export async function POST(request: NextRequest) {
       if (url) hosted.push({ url, order: order++ });
     }
 
-    const result = await createListingForSeller(seller, { ...listing, photos: hosted });
+    // --- Resolve the seller's profile photo (broker headshot), if picked ---
+    // Goes to the avatars folder and onto the account — NOT the listing.
+    let avatarUrl: string | undefined;
+    try {
+      const m =
+        typeof body.avatarData === "string"
+          ? /^data:(image\/[a-zA-Z+]+);base64,(.+)$/.exec(body.avatarData)
+          : null;
+      if (m) {
+        avatarUrl = await uploadBufferToS3(Buffer.from(m[2], "base64"), m[1], "avatars");
+      } else if (typeof body.avatarUrl === "string" && body.avatarUrl) {
+        avatarUrl = (await rehostImageFromUrl(body.avatarUrl, "avatars")) || undefined;
+      }
+    } catch {
+      // A failed avatar never blocks the import.
+    }
+
+    const result = await createListingForSeller(
+      { ...seller, avatarUrl },
+      { ...listing, photos: hosted }
+    );
     if (!result.ok) {
       return json({ success: false, error: result.error }, result.status);
     }

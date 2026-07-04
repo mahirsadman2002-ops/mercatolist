@@ -207,10 +207,6 @@ export default function CompleteProfilePage() {
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Complete Setup
           </Button>
-
-          <p className="text-center text-sm text-muted-foreground">
-            <Link href="/" className="hover:underline">Skip for now</Link>
-          </p>
         </CardContent>
       </Card>
     </div>

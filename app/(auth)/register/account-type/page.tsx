@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Building2, BadgeCheck, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -135,10 +134,6 @@ export default function AccountTypePage() {
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Continue
           </Button>
-
-          <p className="text-center text-sm text-muted-foreground">
-            <Link href="/" className="hover:underline">Skip for now</Link>
-          </p>
         </CardContent>
       </Card>
     </div>

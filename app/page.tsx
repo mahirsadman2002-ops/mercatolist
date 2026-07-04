@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  TrendingUp,
   Utensils,
   Wine,
   Coffee,
@@ -16,6 +15,7 @@ import {
   Scissors,
   Sparkles,
   Hand,
+  Search,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,6 +112,18 @@ const BOROUGH_DATA = [
 // ---------------------------------------------------------------------------
 
 async function getHomePageData() {
+  // Categories that currently have MORE THAN ONE active listing — only these
+  // are shown in "Browse by Category" so the homepage never links to a
+  // near-empty category page.
+  const categoryGroups = await prisma.businessListing.groupBy({
+    by: ["category"],
+    where: { status: "ACTIVE" },
+    _count: { id: true },
+    having: { id: { _count: { gte: 2 } } },
+    orderBy: { _count: { id: "desc" } },
+  });
+  const popularCategories = categoryGroups.map((g) => g.category);
+
   const featuredListings = await prisma.businessListing.findMany({
     where: { status: "ACTIVE" },
     orderBy: { viewCount: "desc" },
@@ -154,6 +166,7 @@ async function getHomePageData() {
 
   return {
     featuredListings: serializedListings,
+    popularCategories,
   };
 }
 
@@ -162,25 +175,7 @@ async function getHomePageData() {
 // ---------------------------------------------------------------------------
 
 export default async function HomePage() {
-  const { featuredListings } = await getHomePageData();
-
-  const top15Categories = [
-    "Restaurants",
-    "Bars & Nightclubs",
-    "Cafes & Coffee Shops",
-    "Bakeries",
-    "Delis & Bodegas",
-    "Food Trucks & Carts",
-    "Retail Stores",
-    "Clothing & Fashion",
-    "Electronics",
-    "Convenience Stores",
-    "Pharmacies",
-    "Laundromats & Dry Cleaners",
-    "Salons & Barbershops",
-    "Spas & Wellness",
-    "Nail Salons",
-  ];
+  const { featuredListings, popularCategories } = await getHomePageData();
 
   return (
     <div className="flex flex-col">
@@ -270,79 +265,100 @@ export default async function HomePage() {
       {/* ================================================================= */}
       <section className="border-t bg-muted/30">
         <div className="container mx-auto px-4 py-16 md:py-20">
-          <ScrollReveal>
-            <div className="mb-10 text-center">
-              <h2 className="font-heading text-3xl font-bold md:text-4xl">
-                Browse by Category
-              </h2>
-              <p className="mt-3 text-lg text-muted-foreground">
-                Find the right type of business for you
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal stagger>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {top15Categories.map((category) => (
-                <Link
-                  key={category}
-                  href={`/categories/${slugify(category)}`}
-                  className="group"
-                >
-                  <Card
-                    className={`border border-border/60 border-l-4 ${CATEGORY_COLORS[category] ?? "border-l-accent"} transition-all duration-200 group-hover:shadow-md group-hover:-translate-y-0.5`}
-                  >
-                    <CardContent className="flex items-center gap-4 p-5">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-accent/10 group-hover:text-accent transition-colors">
-                        {CATEGORY_ICONS[category] ?? <Store className="h-5 w-5" />}
-                      </div>
-                      <span className="flex-1 text-[15px] font-semibold text-foreground/90 group-hover:text-foreground transition-colors">
-                        {category}
-                      </span>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-all duration-200 group-hover:translate-x-0.5" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </ScrollReveal>
-
-          <div className="mt-8 text-center">
-            <Link href="/listings">
-              <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
-                View all categories
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-
-          {/* Seller CTA — encourage owners to list */}
-          <ScrollReveal>
-            <div className="mt-12 overflow-hidden rounded-2xl bg-primary text-primary-foreground">
-              <div className="flex flex-col items-center gap-6 p-8 text-center md:flex-row md:justify-between md:p-10 md:text-left">
-                <div className="max-w-xl">
-                  <h3 className="font-heading text-2xl font-bold md:text-3xl">
-                    Selling your business?
-                  </h3>
-                  <p className="mt-2 text-primary-foreground/80">
-                    List it free on NYC&apos;s dedicated business marketplace and get
-                    it in front of serious, local buyers across all five boroughs.
+          {popularCategories.length > 0 && (
+            <>
+              <ScrollReveal>
+                <div className="mb-10 text-center">
+                  <h2 className="font-heading text-3xl font-bold md:text-4xl">
+                    Browse by Category
+                  </h2>
+                  <p className="mt-3 text-lg text-muted-foreground">
+                    Find the right type of business for you
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
-                  <Link href="/my-listings/new">
-                    <Button size="lg" className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto">
+              </ScrollReveal>
+
+              <ScrollReveal stagger>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {popularCategories.map((category) => (
+                    <Link
+                      key={category}
+                      href={`/categories/${slugify(category)}`}
+                      className="group"
+                    >
+                      <Card
+                        className={`border border-border/60 border-l-4 ${CATEGORY_COLORS[category] ?? "border-l-accent"} transition-all duration-200 group-hover:shadow-md group-hover:-translate-y-0.5`}
+                      >
+                        <CardContent className="flex items-center gap-4 p-5">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-accent/10 group-hover:text-accent transition-colors">
+                            {CATEGORY_ICONS[category] ?? <Store className="h-5 w-5" />}
+                          </div>
+                          <span className="flex-1 text-[15px] font-semibold text-foreground/90 group-hover:text-foreground transition-colors">
+                            {category}
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-all duration-200 group-hover:translate-x-0.5" />
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </ScrollReveal>
+
+              <div className="mt-8 text-center">
+                <Link href="/listings">
+                  <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
+                    View all categories
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
+
+          {/* Two square CTAs: list a business, or start browsing */}
+          <ScrollReveal>
+            <div className={`mx-auto grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 ${popularCategories.length > 0 ? "mt-12" : ""}`}>
+              {/* Sell / list */}
+              <Link href="/list-your-business" className="group">
+                <Card className="h-full overflow-hidden border-0 bg-primary text-primary-foreground transition-all duration-200 group-hover:shadow-xl group-hover:-translate-y-0.5">
+                  <CardContent className="flex aspect-square flex-col items-center justify-center gap-3 p-8 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-foreground/10">
+                      <Store className="h-6 w-6" />
+                    </div>
+                    <h3 className="font-heading text-xl font-bold sm:text-2xl">
+                      Sell your business
+                    </h3>
+                    <p className="text-sm text-primary-foreground/75">
+                      List it free and reach serious NYC buyers.
+                    </p>
+                    <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground">
                       List Your Business
                       <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/list-your-business">
-                    <Button size="lg" variant="outline" className="w-full border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:w-auto">
-                      How it works
-                    </Button>
-                  </Link>
-                </div>
-              </div>
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Browse */}
+              <Link href="/listings" className="group">
+                <Card className="h-full overflow-hidden border border-border/60 bg-card transition-all duration-200 group-hover:shadow-xl group-hover:-translate-y-0.5">
+                  <CardContent className="flex aspect-square flex-col items-center justify-center gap-3 p-8 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                      <Search className="h-6 w-6" />
+                    </div>
+                    <h3 className="font-heading text-xl font-bold sm:text-2xl">
+                      Browse businesses
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Explore businesses for sale across all five boroughs.
+                    </p>
+                    <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold">
+                      Browse Listings
+                      <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
           </ScrollReveal>
         </div>
@@ -382,39 +398,6 @@ export default async function HomePage() {
             ))}
           </div>
         </ScrollReveal>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 5. CTA Section                                                    */}
-      {/* ================================================================= */}
-      <section className="border-t bg-muted">
-        <div className="container mx-auto px-4 py-16 md:py-20">
-          <ScrollReveal>
-            <div className="mx-auto max-w-2xl text-center">
-              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
-                <TrendingUp className="h-7 w-7 text-accent" />
-              </div>
-              <h2 className="font-heading text-3xl font-bold md:text-4xl">
-                List Your Business for Free
-              </h2>
-              <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Reach thousands of qualified buyers across New York City. Create
-                your listing in minutes and connect with serious prospects ready
-                to invest.
-              </p>
-              <div className="mt-8">
-                <Link href="/my-listings/new">
-                  <Button
-                    size="lg"
-                    className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold px-8"
-                  >
-                    Get Started &mdash; It&apos;s Free
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </ScrollReveal>
-        </div>
       </section>
     </div>
   );

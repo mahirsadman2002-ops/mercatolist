@@ -112,52 +112,36 @@ const BOROUGH_DATA = [
 // ---------------------------------------------------------------------------
 
 async function getHomePageData() {
-  const [
-    featuredListings,
-    boroughCounts,
-  ] = await Promise.all([
-    prisma.businessListing.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { viewCount: "desc" },
-      take: 12,
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        category: true,
-        status: true,
-        askingPrice: true,
-        annualRevenue: true,
-        cashFlowSDE: true,
-        neighborhood: true,
-        borough: true,
-        createdAt: true,
-        viewCount: true,
-        saveCount: true,
-        isGhostListing: true,
-        photos: { select: { url: true, order: true }, orderBy: { order: "asc" } },
-        listedBy: {
-          select: {
-            name: true,
-            displayName: true,
-            role: true,
-            brokerageName: true,
-          },
+  const featuredListings = await prisma.businessListing.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { viewCount: "desc" },
+    take: 12,
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      category: true,
+      status: true,
+      askingPrice: true,
+      annualRevenue: true,
+      cashFlowSDE: true,
+      neighborhood: true,
+      borough: true,
+      createdAt: true,
+      viewCount: true,
+      saveCount: true,
+      isGhostListing: true,
+      photos: { select: { url: true, order: true }, orderBy: { order: "asc" } },
+      listedBy: {
+        select: {
+          name: true,
+          displayName: true,
+          role: true,
+          brokerageName: true,
         },
       },
-    }),
-    prisma.businessListing.groupBy({
-      by: ["borough"],
-      where: { status: "ACTIVE" },
-      _count: { id: true },
-    }),
-  ]);
-
-  // Build borough count lookup
-  const boroughCountMap: Record<string, number> = {};
-  for (const b of boroughCounts) {
-    boroughCountMap[b.borough] = b._count.id;
-  }
+    },
+  });
 
   // Serialize Decimal fields to numbers
   const serializedListings = featuredListings.map((l) => ({
@@ -170,7 +154,6 @@ async function getHomePageData() {
 
   return {
     featuredListings: serializedListings,
-    boroughCountMap,
   };
 }
 
@@ -179,10 +162,7 @@ async function getHomePageData() {
 // ---------------------------------------------------------------------------
 
 export default async function HomePage() {
-  const {
-    featuredListings,
-    boroughCountMap,
-  } = await getHomePageData();
+  const { featuredListings } = await getHomePageData();
 
   const top15Categories = [
     "Restaurants",
@@ -335,6 +315,36 @@ export default async function HomePage() {
               </Button>
             </Link>
           </div>
+
+          {/* Seller CTA — encourage owners to list */}
+          <ScrollReveal>
+            <div className="mt-12 overflow-hidden rounded-2xl bg-primary text-primary-foreground">
+              <div className="flex flex-col items-center gap-6 p-8 text-center md:flex-row md:justify-between md:p-10 md:text-left">
+                <div className="max-w-xl">
+                  <h3 className="font-heading text-2xl font-bold md:text-3xl">
+                    Selling your business?
+                  </h3>
+                  <p className="mt-2 text-primary-foreground/80">
+                    List it free on NYC&apos;s dedicated business marketplace and get
+                    it in front of serious, local buyers across all five boroughs.
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
+                  <Link href="/my-listings/new">
+                    <Button size="lg" className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto">
+                      List Your Business
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/list-your-business">
+                    <Button size="lg" variant="outline" className="w-full border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:w-auto">
+                      How it works
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -355,27 +365,21 @@ export default async function HomePage() {
 
         <ScrollReveal stagger>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {BOROUGH_DATA.map((borough) => {
-              const count = boroughCountMap[borough.value] ?? 0;
-              return (
-                <Link
-                  key={borough.slug}
-                  href={`/boroughs/${borough.slug}`}
-                  className="group"
-                >
-                  <Card className="overflow-hidden border border-border/60 transition-all duration-200 group-hover:shadow-lg group-hover:scale-[1.02]">
-                    <CardContent className={`relative flex flex-col items-center justify-center p-6 sm:p-8 bg-gradient-to-br ${borough.gradient}`}>
-                      <h3 className={`font-heading text-lg font-bold sm:text-xl transition-colors ${borough.accent}`}>
-                        {borough.name}
-                      </h3>
-                      <p className="mt-1.5 text-sm text-muted-foreground text-center">
-                        {count} {count === 1 ? "listing" : "listings"}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
+            {BOROUGH_DATA.map((borough) => (
+              <Link
+                key={borough.slug}
+                href={`/boroughs/${borough.slug}`}
+                className="group"
+              >
+                <Card className="overflow-hidden border border-border/60 transition-all duration-200 group-hover:shadow-lg group-hover:scale-[1.02]">
+                  <CardContent className={`relative flex flex-col items-center justify-center p-8 sm:p-10 bg-gradient-to-br ${borough.gradient}`}>
+                    <h3 className={`font-heading text-lg font-bold sm:text-xl transition-colors ${borough.accent}`}>
+                      {borough.name}
+                    </h3>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
         </ScrollReveal>
       </section>

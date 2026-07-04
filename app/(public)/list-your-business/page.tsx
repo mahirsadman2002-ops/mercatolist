@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "List Your NYC Business for Sale — Free | MercatoList",
@@ -36,12 +35,6 @@ export default async function ListYourBusinessPage() {
   if (session?.user?.id) {
     redirect("/my-listings/new");
   }
-
-  // A few light stats so the page doesn't feel empty for the very first visitors.
-  const [activeListings, totalBrokers] = await Promise.all([
-    prisma.businessListing.count({ where: { status: "ACTIVE" } }),
-    prisma.user.count({ where: { role: "BROKER" } }),
-  ]);
 
   const registerHref = `/register?callbackUrl=${encodeURIComponent("/my-listings/new")}`;
 
@@ -96,20 +89,6 @@ export default async function ListYourBusinessPage() {
                 </Button>
               </Link>
             </div>
-            {(activeListings > 0 || totalBrokers > 0) && (
-              <p className="mt-8 text-sm text-primary-foreground/60">
-                Join {activeListings} active{" "}
-                {activeListings === 1 ? "listing" : "listings"}
-                {totalBrokers > 0 && (
-                  <>
-                    {" "}
-                    and {totalBrokers} advisor
-                    {totalBrokers !== 1 ? "s" : ""} on MercatoList
-                  </>
-                )}
-                .
-              </p>
-            )}
           </div>
         </div>
       </section>

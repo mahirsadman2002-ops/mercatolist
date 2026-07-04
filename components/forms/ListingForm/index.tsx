@@ -40,7 +40,7 @@ import {
   looksLikeImage,
   ImagePrepError,
 } from "@/lib/image-client";
-import { boroughFromZip, isNycZip } from "@/lib/nyc-geo";
+import { boroughFromZip, isNycZip, boroughCenter } from "@/lib/nyc-geo";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -286,8 +286,11 @@ function preparePayload(data: FormData) {
     state: data.state.trim(),
     zipCode: data.zipCode.trim(),
     hideAddress: data.hideAddress,
-    latitude: toNumber(data.latitude),
-    longitude: toNumber(data.longitude),
+    // latitude/longitude are non-nullable columns. When the exact address is
+    // unknown/hidden (e.g. an imported listing with no geocoded point), fall
+    // back to the borough's center instead of null (which Prisma rejects).
+    latitude: toNumber(data.latitude) ?? boroughCenter(data.borough).lat,
+    longitude: toNumber(data.longitude) ?? boroughCenter(data.borough).lng,
     photos: data.photos.map((p, i) => ({
       url: p.url,
       key: p.key,

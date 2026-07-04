@@ -63,6 +63,26 @@ export function isNycBorough(borough: string | null | undefined): boolean {
   return NYC_BOROUGHS.includes(String(borough || "").toUpperCase() as Borough);
 }
 
+// Approximate geographic center of each borough. Used as the map location when
+// a listing's exact address is hidden or unknown (better than 0,0 / null,
+// which the DB rejects and which would drop the pin off the map).
+const BOROUGH_CENTERS: Record<Borough, { lat: number; lng: number }> = {
+  MANHATTAN: { lat: 40.7831, lng: -73.9712 },
+  BROOKLYN: { lat: 40.6782, lng: -73.9442 },
+  QUEENS: { lat: 40.7282, lng: -73.7949 },
+  BRONX: { lat: 40.8448, lng: -73.8648 },
+  STATEN_ISLAND: { lat: 40.5795, lng: -74.1502 },
+};
+
+// Fallback coordinates for a borough (defaults to the NYC centroid).
+export function boroughCenter(borough: string | null | undefined): {
+  lat: number;
+  lng: number;
+} {
+  const b = String(borough || "").toUpperCase() as Borough;
+  return BOROUGH_CENTERS[b] || { lat: 40.7128, lng: -74.006 };
+}
+
 /**
  * Validate that a listing's location is inside NYC. Returns { ok } or
  * { ok: false, error } with a user-facing message. Call before publishing /

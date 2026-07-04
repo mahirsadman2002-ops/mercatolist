@@ -3,7 +3,7 @@ import { slugify } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { sendClaimEmail } from "@/lib/claim";
 import { findOrCreateManagedUser } from "@/lib/create-managed-user";
-import { validateNycLocation } from "@/lib/nyc-geo";
+import { validateNycLocation, boroughCenter } from "@/lib/nyc-geo";
 
 export type SellerInput = {
   email?: string;
@@ -132,8 +132,10 @@ export async function createListingForSeller(
     // Empty string when unknown — never a fake "00000" (which the geo/ZIP
     // checks would then reject on edit).
     zipCode: String(listing.zipCode || "").trim(),
-    latitude: num(listing.latitude) ?? 0,
-    longitude: num(listing.longitude) ?? 0,
+    // Fall back to the borough center when the address wasn't geocoded, so the
+    // map shows the right area (and never stores null/0,0).
+    latitude: num(listing.latitude) ?? boroughCenter(listing.borough).lat,
+    longitude: num(listing.longitude) ?? boroughCenter(listing.borough).lng,
     profitMargin,
     askingMultiple,
     listedById: owner.id,

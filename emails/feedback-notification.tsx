@@ -14,6 +14,7 @@ interface FeedbackNotificationProps {
   type: string;
   message: string;
   email: string;
+  phone?: string;
   pageUrl: string;
   submittedBy: string;
 }
@@ -22,6 +23,7 @@ export default function FeedbackNotification({
   type = "BUG",
   message = "Something looks off on the listing page.",
   email = "anonymous",
+  phone = "",
   pageUrl = "https://mercatolist.com/listings",
   submittedBy = "Anonymous visitor",
 }: FeedbackNotificationProps) {
@@ -52,6 +54,11 @@ export default function FeedbackNotification({
             <Text style={metaRow}>
               <strong>Reply-to:</strong> {email}
             </Text>
+            {phone ? (
+              <Text style={metaRow}>
+                <strong>Phone:</strong> {phone}
+              </Text>
+            ) : null}
             <Text style={metaRow}>
               <strong>Page:</strong> {pageUrl}
             </Text>

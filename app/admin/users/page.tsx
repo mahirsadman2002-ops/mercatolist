@@ -53,7 +53,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2, UserPlus, ImagePlus } from "lucide-react";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Ban, ShieldCheck, ChevronDown, ChevronUp, Pencil, ExternalLink, Building2, Loader2, UserPlus, ImagePlus, Mail } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -77,6 +77,7 @@ interface User {
   bannedReason: string | null;
   isManaged: boolean;
   claimedAt: string | null;
+  emailVerified: string | null;
   createdAt: string;
   _count: { listings: number };
 }
@@ -297,6 +298,24 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleResendInvite = async (user: User) => {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/resend-invite`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(
+          json.data?.kind === "claim"
+            ? `Claim invite re-sent to ${user.email}`
+            : `Verification email re-sent to ${user.email}`,
+        );
+      } else {
+        toast.error(json.error || "Couldn't resend");
+      }
+    } catch {
+      toast.error("Couldn't resend");
+    }
+  };
+
   const handleCreateUser = async () => {
     if (!newUser.name.trim() || !newUser.email.trim()) {
       toast.error("Name and email are required");
@@ -493,6 +512,12 @@ export default function AdminUsersPage() {
                               </DropdownMenuItem>
                             ))}
                           <DropdownMenuSeparator />
+                          {((user.isManaged && !user.claimedAt) || !user.emailVerified) && (
+                            <DropdownMenuItem onClick={() => handleResendInvite(user)}>
+                              <Mail className="h-4 w-4 mr-2" />
+                              {user.isManaged && !user.claimedAt ? "Resend claim invite" : "Resend verification"}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => setPhotoUser(user)}>
                             <ImagePlus className="h-4 w-4 mr-2" /> Set profile photo
                           </DropdownMenuItem>

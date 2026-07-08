@@ -43,6 +43,7 @@ interface Feedback {
   type: string;
   message: string;
   email: string | null;
+  phone?: string | null;
   pageUrl: string | null;
   userAgent: string | null;
   userId: string | null;
@@ -265,7 +266,8 @@ export default function AdminFeedbackPage() {
           <div className="space-y-4">
             <div className="rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-wrap">{detail?.message}</div>
             <div className="grid grid-cols-1 gap-1 text-sm text-muted-foreground">
-              <p><strong>From:</strong> {detail?.email || "Anonymous"}</p>
+              <p><strong>Email:</strong> {detail?.email || "Anonymous"}</p>
+              {detail?.phone && <p><strong>Phone:</strong> {detail.phone}</p>}
               {detail?.pageUrl && <p className="truncate"><strong>Page:</strong> {detail.pageUrl}</p>}
               {detail?.userAgent && <p className="truncate text-xs"><strong>Device:</strong> {detail.userAgent}</p>}
             </div>

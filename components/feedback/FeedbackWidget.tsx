@@ -24,11 +24,21 @@ export function FeedbackWidget() {
   const [type, setType] = useState<FeedbackType>("BUG");
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (message.trim().length < 5) {
       toast.error("Please add a little more detail.");
+      return;
+    }
+    const effectiveEmail = email.trim() || session?.user?.email || "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(effectiveEmail)) {
+      toast.error("Please enter your email so we can follow up.");
+      return;
+    }
+    if (phone.trim().length < 7) {
+      toast.error("Please enter your phone number so we can follow up.");
       return;
     }
     setSubmitting(true);
@@ -39,7 +49,8 @@ export function FeedbackWidget() {
         body: JSON.stringify({
           type,
           message,
-          email: email || session?.user?.email || "",
+          email: effectiveEmail,
+          phone: phone.trim(),
           pageUrl: typeof window !== "undefined" ? window.location.href : "",
         }),
       });
@@ -48,6 +59,7 @@ export function FeedbackWidget() {
         toast.success("Thank you! Your feedback helps us improve MercatoList.");
         setMessage("");
         setEmail("");
+        setPhone("");
         setType("BUG");
         setOpen(false);
       } else {
@@ -132,18 +144,35 @@ export function FeedbackWidget() {
             />
           </div>
 
-          {!session?.user?.email && (
-            <div className="space-y-2">
-              <Label htmlFor="feedback-email">Email (optional)</Label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {!session?.user?.email && (
+              <div className="space-y-2">
+                <Label htmlFor="feedback-email">Email <span className="text-red-600">*</span></Label>
+                <Input
+                  id="feedback-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                />
+              </div>
+            )}
+            <div className={`space-y-2 ${session?.user?.email ? "sm:col-span-2" : ""}`}>
+              <Label htmlFor="feedback-phone">Phone <span className="text-red-600">*</span></Label>
               <Input
-                id="feedback-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="So we can follow up if needed"
+                id="feedback-phone"
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="(212) 555-0100"
               />
             </div>
-          )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Email and phone are required so we can follow up on your report.
+          </p>
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>

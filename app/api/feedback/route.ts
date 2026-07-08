@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { type, message, email, pageUrl } = validated.data;
+    const { type, message, email, phone, pageUrl } = validated.data;
 
     // Attach the user if they happen to be signed in (optional).
     const session = await auth();
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         type,
         message,
         email: submitterEmail || null,
+        phone: phone || null,
         pageUrl: pageUrl || null,
         userAgent,
         userId,
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
           type,
           message,
           email: submitterEmail || "anonymous",
+          phone: phone || "",
           pageUrl: pageUrl || "—",
           submittedBy: session?.user?.name || "Anonymous visitor",
         }),

@@ -380,12 +380,13 @@ export const feedbackSchema = z.object({
     .trim()
     .min(5, "Please add a little more detail (at least 5 characters).")
     .max(2000, "Please keep it under 2000 characters."),
-  email: z
+  // Email + phone are required so we can follow up on the report.
+  email: z.string().trim().email("Please enter a valid email."),
+  phone: z
     .string()
     .trim()
-    .email("Please enter a valid email.")
-    .optional()
-    .or(z.literal("")),
+    .min(7, "Please enter a valid phone number.")
+    .max(30, "Please enter a valid phone number."),
   pageUrl: z.string().trim().max(500).optional().or(z.literal("")),
 });
 

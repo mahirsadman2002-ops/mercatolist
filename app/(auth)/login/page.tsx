@@ -151,7 +151,7 @@ function LoginPageContent() {
           {/* Email/Password form */}
           <form onSubmit={handleCredentialsLogin} className="space-y-4">
             {formError && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 {formError}
               </div>
             )}
@@ -172,7 +172,7 @@ function LoginPageContent() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Forgot password?
                 </Link>
               </div>

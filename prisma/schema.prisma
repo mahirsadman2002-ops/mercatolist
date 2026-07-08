@@ -762,6 +762,7 @@ model Feedback {
   type       FeedbackType   @default(BUG)
   message    String         @db.Text
   email      String?
+  phone      String?
   pageUrl    String?
   userAgent  String?        @db.Text
   userId     String?

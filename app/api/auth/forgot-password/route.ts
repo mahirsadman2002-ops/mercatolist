@@ -24,23 +24,38 @@ export async function POST(request: NextRequest) {
       select: { id: true, name: true, email: true, hashedPassword: true },
     });
 
-    // Only send when the account actually has a password to reset. (OAuth-only
-    // accounts have none — they sign in with Google.) Response is identical
-    // either way so existence isn't leaked.
-    if (user?.hashedPassword) {
+    const base = (
+      process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.com"
+    ).replace(/\/$/, "");
+
+    if (user) {
       try {
-        const { exp, sig } = makeResetToken(user.id, user.hashedPassword);
         const { sendEmail } = await import("@/lib/email");
-        const ResetPasswordEmail = (await import("@/emails/reset-password")).default;
-        await sendEmail({
-          to: user.email,
-          subject: "Reset your MercatoList password",
-          react: ResetPasswordEmail({ name: user.name, resetUrl: resetUrl(user.id, exp, sig) }),
-        });
+        if (user.hashedPassword) {
+          // Has a password → send the reset link.
+          const { exp, sig } = makeResetToken(user.id, user.hashedPassword);
+          const ResetPasswordEmail = (await import("@/emails/reset-password")).default;
+          await sendEmail({
+            to: user.email,
+            subject: "Reset your MercatoList password",
+            react: ResetPasswordEmail({ name: user.name, resetUrl: resetUrl(user.id, exp, sig) }),
+          });
+        } else {
+          // OAuth-only (Google) account → no password to reset. Send a helpful
+          // "just use Continue with Google" email instead of leaving them
+          // waiting for a reset link that will never come.
+          const GoogleSigninReminder = (await import("@/emails/google-signin-reminder")).default;
+          await sendEmail({
+            to: user.email,
+            subject: "Use Google to sign in to MercatoList",
+            react: GoogleSigninReminder({ name: user.name, loginUrl: `${base}/login` }),
+          });
+        }
       } catch (e) {
         console.error("[forgot-password] send failed:", e);
       }
     }
+    // Response is identical whether or not the account exists (no enumeration).
 
     return NextResponse.json({ success: true });
   } catch (error) {

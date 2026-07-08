@@ -39,25 +39,30 @@ export function VerifyEmailBanner() {
   };
 
   return (
-    <div className="w-full border-b border-amber-300/60 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-200">
-      <div className="container mx-auto flex flex-col items-center justify-center gap-2 px-4 py-2 text-sm sm:flex-row sm:gap-3">
-        <div className="flex items-center gap-2 text-center sm:text-left">
-          <MailWarning className="size-4 shrink-0" />
-          <span>
-            Please verify your email to post listings and contact sellers. We sent a link to{" "}
-            <span className="font-medium">{session.user?.email}</span>.
+    <div className="w-full border-b border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/40 dark:text-amber-100">
+      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-4 py-2.5 text-sm sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-200/70 dark:bg-amber-800/50">
+            <MailWarning className="size-3.5" />
+          </span>
+          <span className="min-w-0">
+            <span className="font-semibold">Verify your email</span>
+            <span className="hidden text-amber-800/90 dark:text-amber-200/80 sm:inline">
+              {" "}to post listings and contact sellers — we sent a link to{" "}
+              <span className="font-medium">{session.user?.email}</span>.
+            </span>
           </span>
         </div>
         {sent ? (
-          <span className="inline-flex items-center gap-1 font-medium">
-            <Check className="size-4" /> Sent
+          <span className="inline-flex shrink-0 items-center gap-1.5 font-medium">
+            <Check className="size-4" /> Sent — check your inbox
           </span>
         ) : (
           <button
             type="button"
             onClick={resend}
             disabled={sending}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-400/70 bg-amber-100/60 px-2.5 py-1 font-medium transition-colors hover:bg-amber-100 disabled:opacity-60 dark:bg-amber-900/40 dark:hover:bg-amber-900/70"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-900 px-3.5 py-1.5 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-800 disabled:opacity-60 dark:bg-amber-100 dark:text-amber-950 dark:hover:bg-white"
           >
             {sending && <Loader2 className="size-3.5 animate-spin" />}
             Resend email

@@ -214,6 +214,10 @@ model User {
   claimedAt           DateTime?
   lastClaimReminderAt DateTime?
 
+  // Nudges self-signups who never verified their email (capped, not spammy).
+  verificationRemindersSent  Int       @default(0)
+  lastVerificationReminderAt DateTime?
+
   @@index([role])
   @@index([email])
 }

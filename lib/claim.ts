@@ -9,21 +9,32 @@ function appUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://mercatolist.com").replace(/\/$/, "");
 }
 
-/** Stable HMAC over the user id — acts as the claim secret in the link. */
-export function claimToken(userId: string) {
+// Claim links expire after 7 days. Since the daily claim-reminders cron always
+// sends a fresh link, an unclaimed user is never locked out — only stale/leaked
+// links die.
+const CLAIM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** HMAC over the user id + expiry — the claim secret in the link. */
+function signClaim(userId: string, exp: number): string {
   const secret = process.env.NEXTAUTH_SECRET;
   // Fail closed: an empty key would make every claim token forgeable, which is
   // account takeover of managed/unclaimed accounts. Never sign with "".
   if (!secret) {
     throw new Error("NEXTAUTH_SECRET is not set — cannot sign claim tokens");
   }
-  return crypto.createHmac("sha256", secret).update(`claim:${userId}`).digest("hex");
+  return crypto.createHmac("sha256", secret).update(`claim:${userId}:${exp}`).digest("hex");
 }
 
-export function verifyClaimToken(userId: string, token: string) {
+export function makeClaimToken(userId: string): { exp: number; sig: string } {
+  const exp = Date.now() + CLAIM_TTL_MS;
+  return { exp, sig: signClaim(userId, exp) };
+}
+
+export function verifyClaimToken(userId: string, exp: number, token: string) {
+  if (!Number.isFinite(exp) || exp < Date.now()) return false; // expired/invalid
   let expected: string;
   try {
-    expected = claimToken(userId);
+    expected = signClaim(userId, exp);
   } catch {
     return false; // No secret → reject, never accept.
   }
@@ -34,7 +45,8 @@ export function verifyClaimToken(userId: string, token: string) {
 }
 
 export function claimUrl(userId: string) {
-  return `${appUrl()}/claim?uid=${userId}&token=${claimToken(userId)}`;
+  const { exp, sig } = makeClaimToken(userId);
+  return `${appUrl()}/claim?uid=${userId}&exp=${exp}&token=${sig}`;
 }
 
 /**

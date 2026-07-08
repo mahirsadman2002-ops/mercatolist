@@ -15,6 +15,7 @@ function ClaimContent() {
   const router = useRouter();
   const params = useSearchParams();
   const uid = params.get("uid") || "";
+  const exp = params.get("exp") || "";
   const token = params.get("token") || "";
 
   const [password, setPassword] = useState("");
@@ -24,7 +25,7 @@ function ClaimContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const badLink = !uid || !token;
+  const badLink = !uid || !exp || !token;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +43,7 @@ function ClaimContent() {
       const res = await fetch("/api/auth/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid, token, password }),
+        body: JSON.stringify({ uid, exp, token, password }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {

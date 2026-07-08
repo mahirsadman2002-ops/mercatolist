@@ -10,9 +10,9 @@ export async function POST(request: NextRequest) {
   if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
   try {
-    const { uid, token, password } = await request.json();
+    const { uid, exp, token, password } = await request.json();
 
-    if (!uid || !token || !verifyClaimToken(String(uid), String(token))) {
+    if (!uid || !exp || !token || !verifyClaimToken(String(uid), Number(exp), String(token))) {
       return NextResponse.json(
         { success: false, error: "This claim link is invalid or has expired." },
         { status: 400 }

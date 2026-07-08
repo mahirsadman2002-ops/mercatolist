@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 
 // POST: Add a listing to a collection via CollectionListing
 export async function POST(
@@ -57,9 +58,17 @@ export async function POST(
       );
     }
 
-    // Verify the listing exists
-    const listing = await prisma.businessListing.findUnique({
-      where: { id: listingId },
+    // Only a publicly-viewable listing (or one you own) can be added — never a
+    // guessed DRAFT/OFF_MARKET/ghost UUID. Prevents using "add to collection"
+    // as a read primitive for private listing data.
+    const listing = await prisma.businessListing.findFirst({
+      where: {
+        id: listingId,
+        OR: [
+          { isGhostListing: false, status: { in: ["ACTIVE", "UNDER_CONTRACT", "SOLD"] } },
+          { listedById: session.user.id },
+        ],
+      },
     });
 
     if (!listing) {
@@ -104,6 +113,12 @@ export async function POST(
       },
     });
 
+    // Redact address/coords + internal fields unless the caller owns it.
+    const owns = collectionListing.listing.listedById === session.user.id;
+    const safeListing = owns
+      ? collectionListing.listing
+      : applyAddressPrivacy(collectionListing.listing as any);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -112,7 +127,7 @@ export async function POST(
         personalRating: collectionListing.personalRating,
         clientInterested: collectionListing.clientInterested,
         addedAt: collectionListing.addedAt,
-        listing: collectionListing.listing,
+        listing: safeListing,
       },
     });
   } catch (error) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugify } from "@/lib/utils";
+import { slugify, generateShareToken } from "@/lib/utils";
 
 export async function POST(
   request: NextRequest,
@@ -74,6 +74,10 @@ export async function POST(
         ...listingData,
         slug,
         status: "DRAFT",
+        // A ghost listing must keep a real share token — otherwise the copy has
+        // shareToken=null and the public GET's `token !== shareToken` guard
+        // passes for a tokenless visitor, exposing an "unlisted" listing.
+        shareToken: listing.isGhostListing ? generateShareToken() : null,
         title: `${listing.title} (Copy)`,
         photos: {
           create: listing.photos.map((photo) => ({

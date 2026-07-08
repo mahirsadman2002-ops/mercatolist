@@ -16,7 +16,7 @@ import {
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { applyAddressPrivacy } from "@/lib/address-privacy";
+import { applyAddressPrivacy, stripInternalListingFields } from "@/lib/address-privacy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -122,9 +122,11 @@ async function getListingBySlug(
     return null;
   }
 
-  // Ghost listing access check
-  if (listing.isGhostListing && listing.shareToken) {
-    if (token !== listing.shareToken && !isPrivileged) {
+  // Ghost listing access check. A ghost with a missing/blank shareToken must
+  // NOT be publicly viewable — only owner/admin can see it.
+  if (listing.isGhostListing && !isPrivileged) {
+    const validToken = !!listing.shareToken && token === listing.shareToken;
+    if (!validToken) {
       return null;
     }
   }
@@ -163,7 +165,7 @@ async function getListingBySlug(
 
   const scrubbed: any = listing.hideAddress
     ? applyAddressPrivacy(serialized)
-    : serialized;
+    : stripInternalListingFields(serialized as Record<string, unknown>);
 
   if (scrubbed.listedBy) {
     scrubbed.listedBy = {

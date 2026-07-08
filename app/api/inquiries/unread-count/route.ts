@@ -9,11 +9,15 @@ export async function GET() {
       return NextResponse.json({ success: true, data: { count: 0 } });
     }
 
-    // Count unread inquiries where the user is the receiver
+    // Count unread NON-thread inquiries (anonymous forms) where the user is the
+    // receiver. Message threads are counted via unreadMessages below — counting
+    // them here too would double-count (a thread's inquiry row is also flagged
+    // isRead:false on each new message).
     const unreadInquiries = await prisma.inquiry.count({
       where: {
         receiverId: session.user.id,
         isRead: false,
+        type: { not: "MESSAGE_THREAD" },
       },
     });
 

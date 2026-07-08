@@ -21,6 +21,26 @@ function seededRandom(seed: string): number {
  * - Offsets lat/lng by ~0.005 degrees (~0.5 miles) in a consistent direction
  * - Only keeps neighborhood and borough for location text
  */
+// Admin/ops-only columns that must never appear in a PUBLIC listing payload.
+const INTERNAL_LISTING_FIELDS = [
+  "adminNotes",
+  "lastStatusConfirmation",
+  "statusConfirmationDue",
+  "confirmationRemindersSent",
+] as const;
+
+/**
+ * Remove internal/admin-only fields from a listing before it's returned to a
+ * public (non-admin) caller. Safe to call on any listing-shaped object.
+ */
+export function stripInternalListingFields<T extends Record<string, unknown>>(
+  listing: T
+): T {
+  const clean = { ...listing } as Record<string, unknown>;
+  for (const f of INTERNAL_LISTING_FIELDS) delete clean[f];
+  return clean as T;
+}
+
 export function applyAddressPrivacy<T extends {
   id: string;
   hideAddress: boolean;
@@ -28,7 +48,13 @@ export function applyAddressPrivacy<T extends {
   latitude?: number | null;
   longitude?: number | null;
 }>(listing: T): T {
-  if (!listing.hideAddress) return listing;
+  // Always drop admin-only fields (adminNotes etc.) from public output —
+  // regardless of hideAddress.
+  const listingClean = stripInternalListingFields(
+    listing as unknown as Record<string, unknown>
+  ) as unknown as T;
+  if (!listingClean.hideAddress) return listingClean;
+  listing = listingClean;
 
   const rand1 = seededRandom(listing.id + "lat");
   const rand2 = seededRandom(listing.id + "lng");

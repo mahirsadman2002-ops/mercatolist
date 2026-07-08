@@ -60,7 +60,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
+      // NOTE: allowDangerousEmailAccountLinking is intentionally OFF. With it
+      // on, an attacker could pre-register victim@gmail with their own password;
+      // when the victim later signed in with Google it would silently link to
+      // that row, leaving the attacker's password valid = account takeover.
+      // Off, Google only ever creates a NEW account or signs into one already
+      // linked to that Google identity. (Managed/import accounts set a password
+      // via their claim link instead of Google.)
     }),
     Credentials({
       name: "credentials",
@@ -71,11 +77,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const email = credentials.email as string;
+        // Normalize so login resolves to the same row registration stored
+        // (emails are stored lowercased).
+        const email = (credentials.email as string).trim().toLowerCase();
         const password = credentials.password as string;
 
         // Throttle brute-force / credential-stuffing per target account.
-        const rl = await rateLimitByKey("login", `login:${email.toLowerCase()}`);
+        const rl = await rateLimitByKey("login", `login:${email}`);
         if (!rl.success) {
           throw new Error("Too many sign-in attempts. Please try again later.");
         }
@@ -119,11 +127,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const existingUser = await prisma.user.findUnique({
                 where: { email: user.email },
               });
-              if (existingUser && !existingUser.emailVerified) {
-                await prisma.user.update({
-                  where: { email: user.email },
-                  data: { emailVerified: new Date() },
-                });
+              if (existingUser) {
+                const data: { emailVerified?: Date; claimedAt?: Date; isManaged?: boolean } = {};
+                if (!existingUser.emailVerified) data.emailVerified = new Date();
+                // A managed (imported) owner who signs in with Google has
+                // effectively claimed their account — stop the recurring
+                // "claim your account" emails.
+                if (existingUser.isManaged && !existingUser.claimedAt) {
+                  data.claimedAt = new Date();
+                  data.isManaged = false;
+                }
+                if (Object.keys(data).length > 0) {
+                  await prisma.user.update({ where: { email: user.email }, data });
+                }
               }
             }
           } catch (innerError) {

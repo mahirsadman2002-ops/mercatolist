@@ -97,7 +97,11 @@ export async function GET(
             borough: cl.listing.borough,
             address: cl.listing.hideAddress ? null : cl.listing.address,
             photos: cl.listing.photos,
-            listedBy: cl.listing.listedBy,
+            // Honor the lister's phone-privacy opt-out on this public view.
+            listedBy: {
+              ...cl.listing.listedBy,
+              phone: cl.listing.showPhoneNumber ? cl.listing.listedBy.phone : null,
+            },
             yearEstablished: cl.listing.yearEstablished,
             numberOfEmployees: cl.listing.numberOfEmployees,
             squareFootage: cl.listing.squareFootage,

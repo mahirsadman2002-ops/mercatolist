@@ -15,17 +15,16 @@ export function getMissingListingFields(listing: Record<string, any>): string[] 
   const str = (v: any) => (typeof v === "string" ? v.trim() : "");
   const num = (v: any) => (v == null ? NaN : Number(v));
 
+  // Minimum to be a valid public NYC listing. Deliberately aligned with what
+  // imports/admin-creates require (title, description, category, price,
+  // borough) so an imported listing can always be re-activated — address /
+  // neighborhood / ZIP are optional (sellers may hide the address), and map
+  // coordinates always fall back to the borough center.
   if (str(listing.title).length < 5) missing.push("Title (at least 5 characters)");
-  if (str(listing.description).length < 50)
-    missing.push("Description (at least 50 characters)");
+  if (!str(listing.description)) missing.push("Description");
   if (!str(listing.category)) missing.push("Category");
   if (!(num(listing.askingPrice) > 0)) missing.push("Asking price");
-  if (str(listing.address).length < 5) missing.push("Address");
-  if (!str(listing.neighborhood)) missing.push("Neighborhood");
   if (!str(listing.borough)) missing.push("Borough");
-  if (!/^\d{5}$/.test(str(listing.zipCode))) missing.push("ZIP code");
-  if (!Number.isFinite(num(listing.latitude)) || !Number.isFinite(num(listing.longitude)))
-    missing.push("Map location");
 
   return missing;
 }
@@ -168,7 +167,7 @@ export const listingDraftSchema = z.object({
 
 export const userRegistrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
-  email: z.string().email("Invalid email address"),
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -271,7 +270,7 @@ export const savedSearchCreateSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
 

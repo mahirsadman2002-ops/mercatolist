@@ -1989,27 +1989,43 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false }: L
     setIsSubmitting(true);
 
     try {
-      // Publishing always sends status=ACTIVE. If a draft has already been
-      // created (autosave or manual), update that row instead of inserting
-      // a new one — that avoids accidentally leaving a DRAFT and an ACTIVE
-      // copy of the same listing.
       const targetId = serverDraftId;
       const payload = { ...preparePayload(formData), status: "ACTIVE" };
-      const url = targetId
-        ? `/api/listings/${targetId}`
-        : "/api/listings";
-      const method = targetId ? "PUT" : "POST";
+      let slug: string | undefined;
 
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      if (targetId) {
+        // A draft row already exists (autosave or edit). Save the fields via
+        // PUT, then flip it live through the dedicated status route — the PUT
+        // route intentionally ignores `status` (mass-assignment guard), so
+        // publishing MUST go through /status, which also runs the verified-
+        // email + completeness + NYC geo gates.
+        const saveRes = await fetch(`/api/listings/${targetId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const saveJson = await saveRes.json();
+        if (!saveRes.ok) throw new Error(saveJson.error || "Couldn't save the listing");
+        slug = saveJson.data?.slug;
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Something went wrong");
+        const pubRes = await fetch(`/api/listings/${targetId}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ACTIVE" }),
+        });
+        const pubJson = await pubRes.json();
+        if (!pubRes.ok) throw new Error(pubJson.error || "Couldn't publish the listing");
+      } else {
+        // No draft yet — POST creates it as ACTIVE directly (that route honors
+        // status and runs the same publish gates).
+        const res = await fetch("/api/listings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Something went wrong");
+        slug = json.data?.slug;
       }
 
       toast.success(
@@ -2018,12 +2034,7 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false }: L
           : "Listing published!"
       );
 
-      // Redirect to the listing or listings page
-      if (result.data?.slug) {
-        router.push(`/listings/${result.data.slug}`);
-      } else {
-        router.push("/my-listings");
-      }
+      router.push(slug ? `/listings/${slug}` : "/my-listings");
       router.refresh();
     } catch (error) {
       const message =

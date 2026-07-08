@@ -54,10 +54,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Ghost listings require share token
+    // Ghost listings require a share token. A missing/blank shareToken must
+    // NEVER be matchable by a tokenless request (null !== null would pass).
     if (listing.isGhostListing) {
       const token = new URL(request.url).searchParams.get("token");
-      if (token !== listing.shareToken) {
+      if (!listing.shareToken || token !== listing.shareToken) {
         return NextResponse.json(
           { success: false, error: "Listing not found" },
           { status: 404 }

@@ -76,6 +76,18 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // STOPGAP (image-optimization overage): serve images straight from S3 with
+    // ZERO Vercel transformations. Our photo URLs are already stable public S3
+    // URLs, so the overage wasn't from unstable/presigned URLs — it was
+    // next/image transforming each S3 image across the full default width
+    // matrix (8 deviceSizes + 8 imageSizes, ×DPR) with no long source
+    // Cache-Control, churning the optimizer cache. Phase 2 replaces this with
+    // resize-at-upload variants so we stay off the optimizer for good.
+    unoptimized: true,
+    // Minimal width sets for if/when optimization is ever re-enabled.
+    deviceSizes: [640, 828, 1200, 1920],
+    imageSizes: [200, 400],
+    minimumCacheTTL: 31536000,
     remotePatterns: [
       {
         protocol: "https",

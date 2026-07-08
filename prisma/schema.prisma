@@ -208,11 +208,13 @@ model User {
   bannedReason String?
 
   // Managed accounts: created by an admin on a seller's behalf. "Unclaimed"
-  // until the person sets a password via the claim link. Reminders run until
-  // claimedAt is set; lastClaimReminderAt throttles them to once/day.
+  // until the person sets a password via the claim link. Reminders are capped
+  // (claimRemindersSent) and spaced ≥2 days apart (lastClaimReminderAt); admin
+  // can always resend manually past the cap.
   isManaged           Boolean   @default(false)
   claimedAt           DateTime?
   lastClaimReminderAt DateTime?
+  claimRemindersSent  Int       @default(0)
 
   // Nudges self-signups who never verified their email (capped, not spammy).
   verificationRemindersSent  Int       @default(0)

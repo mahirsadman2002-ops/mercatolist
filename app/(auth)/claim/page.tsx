@@ -81,7 +81,12 @@ function ClaimContent() {
         <CardContent>
           {badLink ? (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>This claim link is missing information or has expired.</p>
+              <p>This claim link is missing information or has expired. Claim links are valid for 7 days.</p>
+              <p>
+                To get a fresh link, enter your email on the{" "}
+                <Link href="/register" className="font-medium text-foreground hover:underline">sign-up page</Link>
+                {" "}— we&apos;ll email you a new one right away.
+              </p>
               <p>
                 If you already set a password,{" "}
                 <Link href="/login" className="font-medium text-foreground hover:underline">sign in</Link>.

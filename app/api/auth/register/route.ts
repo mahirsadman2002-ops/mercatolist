@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { userRegistrationSchema } from "@/lib/validations";
 import { attachPendingInvites } from "@/lib/attach-pending-invites";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import { sendClaimEmail } from "@/lib/claim";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,29 @@ export async function POST(request: NextRequest) {
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
+      // Managed account an admin set up for this person, never claimed. Don't
+      // dead-end them with a bare "already exists" — send a fresh claim link so
+      // they can set a password and get into the account that's already theirs.
+      if (existingUser.isManaged && !existingUser.claimedAt) {
+        await sendClaimEmail(
+          {
+            id: existingUser.id,
+            email: existingUser.email,
+            name: existingUser.name,
+            isManaged: existingUser.isManaged,
+            claimedAt: existingUser.claimedAt,
+          },
+          "reminder"
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "This email already has a MercatoList account set up for you. We just emailed you a link to claim it and choose a password.",
+          },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: "An account with this email already exists" },
         { status: 409 }

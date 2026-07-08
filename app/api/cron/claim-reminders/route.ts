@@ -3,21 +3,25 @@ import { requireCron } from "@/lib/cron-auth";
 import { prisma } from "@/lib/prisma";
 import { sendClaimEmail } from "@/lib/claim";
 
-// Daily reminder to managed accounts that still haven't been claimed.
-// Secured with CRON_SECRET. Sends at most once/day per user (lastClaimReminderAt).
+// Reminder to managed accounts that still haven't been claimed.
+// Secured with CRON_SECRET. Capped at MAX_REMINDERS total per user, spaced
+// ≥2 days apart. After the cap, admin can still resend manually (resend-invite).
+const MAX_REMINDERS = 3;
+
 export async function POST(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
   try {
     const now = new Date();
-    const aDayAgo = new Date(now.getTime() - 23 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
     const users = await prisma.user.findMany({
       where: {
         isManaged: true,
         claimedAt: null,
-        OR: [{ lastClaimReminderAt: null }, { lastClaimReminderAt: { lt: aDayAgo } }],
+        claimRemindersSent: { lt: MAX_REMINDERS },
+        OR: [{ lastClaimReminderAt: null }, { lastClaimReminderAt: { lt: twoDaysAgo } }],
       },
       select: { id: true, email: true, name: true, isManaged: true, claimedAt: true },
       take: 200,
@@ -29,7 +33,10 @@ export async function POST(request: Request) {
       if (ok) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { lastClaimReminderAt: now },
+          data: {
+            lastClaimReminderAt: now,
+            claimRemindersSent: { increment: 1 },
+          },
         });
         sent++;
       }

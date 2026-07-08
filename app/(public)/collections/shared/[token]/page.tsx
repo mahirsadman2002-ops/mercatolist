@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatCurrency } from "@/lib/utils";
+import { pickPhotoUrl } from "@/lib/listing-image";
 import { SharedListingInterest } from "@/components/collections/SharedListingInterest";
 
 // ---------------------------------------------------------------------------
@@ -23,6 +24,9 @@ import { SharedListingInterest } from "@/components/collections/SharedListingInt
 
 interface ListingPhoto {
   url: string;
+  thumbUrl?: string | null;
+  cardUrl?: string | null;
+  fullUrl?: string | null;
   order: number;
 }
 
@@ -255,7 +259,7 @@ export default async function SharedCollectionPage({
               const sortedPhotos = [...listing.photos].sort(
                 (a, b) => a.order - b.order
               );
-              const primaryPhoto = sortedPhotos[0]?.url ?? null;
+              const primaryPhoto = sortedPhotos[0] ? pickPhotoUrl(sortedPhotos[0], "card") : null;
               const askingPrice = toNumber(listing.askingPrice);
               const annualRevenue = toNumber(listing.annualRevenue);
               const cashFlowSDE = toNumber(listing.cashFlowSDE);

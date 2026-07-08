@@ -103,6 +103,9 @@ export const listingCreateSchema = z.object({
       z.object({
         url: z.string().url(),
         key: z.string().optional(),
+        thumbUrl: z.string().url().optional().nullable(),
+        cardUrl: z.string().url().optional().nullable(),
+        fullUrl: z.string().url().optional().nullable(),
         order: z.number().int().min(0),
       }),
     )
@@ -158,6 +161,9 @@ export const listingDraftSchema = z.object({
       z.object({
         url: z.string().url(),
         key: z.string().optional(),
+        thumbUrl: z.string().url().optional().nullable(),
+        cardUrl: z.string().url().optional().nullable(),
+        fullUrl: z.string().url().optional().nullable(),
         order: z.number().int().min(0),
       }),
     )

@@ -337,7 +337,12 @@ model BusinessListing {
 
 model Photo {
   id        String @id @default(uuid())
-  url       String
+  url       String // original upload (fallback + lightbox source of truth)
+  // Pre-resized WebP variants served straight from S3 (no Vercel optimizer).
+  // Null during rollout / for external or un-backfilled photos → render url.
+  thumbUrl  String? // ~400px — thumbnails, gallery filmstrip
+  cardUrl   String? // ~800px — browse-grid cards
+  fullUrl   String? // ~1600px — detail hero + lightbox
   order     Int
   listingId String
 

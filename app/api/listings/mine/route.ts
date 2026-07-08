@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { pickPhotoUrl } from "@/lib/listing-image";
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       createdAt: listing.createdAt,
       soldPrice: listing.soldPrice,
       soldDate: listing.soldDate,
-      photo: listing.photos[0]?.url || null,
+      photo: listing.photos[0] ? pickPhotoUrl(listing.photos[0], "thumb") : null,
       inquiryCount: listing.inquiries.length,
       unreadInquiries: listing.inquiries.filter((i) => !i.isRead).length,
       savedCount: listing.savedByUsers.length,

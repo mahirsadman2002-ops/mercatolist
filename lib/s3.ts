@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 
@@ -54,6 +54,54 @@ export async function generatePresignedUploadUrl(
 
 export function getCdnUrl(key: string): string {
   return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+}
+
+/**
+ * Recover the S3 object key from a stored public URL (originals are saved as
+ * getCdnUrl(key)). Returns null if it's not one of our own bucket URLs, so the
+ * variant pipeline safely skips externally-hosted photos (e.g. Unsplash seeds).
+ */
+export function keyFromCdnUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const ownHost = `${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+    // Also accept the path-style host in case a URL was ever stored that way.
+    const isOurs =
+      u.hostname === ownHost ||
+      u.hostname === `s3.${process.env.AWS_REGION}.amazonaws.com`;
+    if (!isOurs) return null;
+    const key = decodeURIComponent(u.pathname.replace(/^\/+/, ""));
+    return key || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Download an object's bytes from S3 (server-side, used to build variants). */
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const res = await s3Client.send(
+    new GetObjectCommand({ Bucket: process.env.AWS_S3_BUCKET!, Key: key })
+  );
+  const bytes = await res.Body!.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
+/**
+ * Upload a pre-resized WebP variant at an explicit key with a 1-year immutable
+ * cache header. Variants are content-addressed (their key never changes for a
+ * given original), so `immutable` is safe and keeps them out of any optimizer.
+ */
+export async function uploadWebpVariant(key: string, buffer: Buffer): Promise<string> {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET!,
+      Key: key,
+      Body: buffer,
+      ContentType: "image/webp",
+      CacheControl: "public, max-age=31536000, immutable",
+    })
+  );
+  return getCdnUrl(key);
 }
 
 /**

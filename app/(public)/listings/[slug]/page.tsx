@@ -150,7 +150,14 @@ async function getListingBySlug(
     longitude: listing.longitude ? Number(listing.longitude) : -74.006,
     createdAt: listing.createdAt.toISOString(),
     updatedAt: listing.updatedAt.toISOString(),
-    photos: listing.photos.map((p) => ({ id: p.id, url: p.url, order: p.order })),
+    photos: listing.photos.map((p) => ({
+      id: p.id,
+      url: p.url,
+      thumbUrl: p.thumbUrl,
+      cardUrl: p.cardUrl,
+      fullUrl: p.fullUrl,
+      order: p.order,
+    })),
   };
 
   // Owners / admins see everything unredacted (so they can preview drafts and

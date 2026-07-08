@@ -401,9 +401,26 @@ export default function SettingsPage() {
       });
 
       const bucketUrl = url.split("?")[0];
-      const finalUrl = bucketUrl.includes(key)
+      const originalUrl = bucketUrl.includes(key)
         ? bucketUrl
         : `${new URL(url).origin}/${key}`;
+
+      // Best-effort: swap in a small 200px WebP variant (avatars only ever
+      // render small). Falls back to the original if resizing fails.
+      let finalUrl = originalUrl;
+      try {
+        const vRes = await fetch("/api/upload/variants", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, kind: "avatar" }),
+        });
+        const vJson = await vRes.json().catch(() => null);
+        if (vRes.ok && vJson?.success && vJson.data?.avatarUrl) {
+          finalUrl = vJson.data.avatarUrl;
+        }
+      } catch {
+        // keep originalUrl
+      }
 
       setAvatarUrl(finalUrl);
       setAvatarPreview(finalUrl);

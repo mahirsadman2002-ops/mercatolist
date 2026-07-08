@@ -82,6 +82,9 @@ export async function POST(
         photos: {
           create: listing.photos.map((photo) => ({
             url: photo.url,
+            thumbUrl: photo.thumbUrl,
+            cardUrl: photo.cardUrl,
+            fullUrl: photo.fullUrl,
             order: photo.order,
           })),
         },

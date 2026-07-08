@@ -76,6 +76,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { pickPhotoUrl } from "@/lib/listing-image";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,6 +84,9 @@ import { formatCurrency } from "@/lib/utils";
 
 interface ListingPhoto {
   url: string;
+  thumbUrl?: string | null;
+  cardUrl?: string | null;
+  fullUrl?: string | null;
   order: number;
 }
 
@@ -1909,7 +1913,7 @@ function CollectionListingCard({
 }) {
   const { listing, personalRating, clientInterested } = collectionListing;
   const sortedPhotos = [...listing.photos].sort((a, b) => a.order - b.order);
-  const primaryPhoto = sortedPhotos[0]?.url ?? null;
+  const primaryPhoto = sortedPhotos[0] ? pickPhotoUrl(sortedPhotos[0], "thumb") : null;
   const askingPrice = toNumber(listing.askingPrice);
   const statusInfo = STATUS_BADGE_MAP[listing.status];
 
@@ -2112,9 +2116,10 @@ function CompareTable({ data }: { data: CompareListingData[] }) {
     {
       label: "Photo",
       values: data.map((d) => {
-        const photo = [...d.listing.photos].sort(
+        const topPhoto = [...d.listing.photos].sort(
           (a, b) => a.order - b.order
-        )[0]?.url;
+        )[0];
+        const photo = topPhoto ? pickPhotoUrl(topPhoto, "thumb") : undefined;
         return photo ? (
           <div
             key={d.collectionListingId}

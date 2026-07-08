@@ -78,7 +78,13 @@ interface ListingData {
   hideAddress?: boolean;
   latitude?: number | null;
   longitude?: number | null;
-  photos: { url: string; order: number }[];
+  photos: {
+    url: string;
+    thumbUrl?: string | null;
+    cardUrl?: string | null;
+    fullUrl?: string | null;
+    order: number;
+  }[];
   listedBy: {
     name: string;
     displayName?: string | null;

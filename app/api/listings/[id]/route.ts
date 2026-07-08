@@ -206,9 +206,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       if (photoUpdates.length > 0) {
         await prisma.photo.createMany({
           data: photoUpdates.map(
-            (p: { url: string; order?: number }, idx: number) => ({
+            (
+              p: {
+                url: string;
+                order?: number;
+                thumbUrl?: string | null;
+                cardUrl?: string | null;
+                fullUrl?: string | null;
+              },
+              idx: number,
+            ) => ({
               listingId: id,
               url: p.url,
+              thumbUrl: p.thumbUrl ?? null,
+              cardUrl: p.cardUrl ?? null,
+              fullUrl: p.fullUrl ?? null,
               order: typeof p.order === "number" ? p.order : idx,
             }),
           ),

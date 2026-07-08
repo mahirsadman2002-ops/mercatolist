@@ -102,7 +102,14 @@ interface FormData {
   longitude: string;
 
   // Step 5 — Photos
-  photos: { url: string; key?: string; order: number }[];
+  photos: {
+    url: string;
+    key?: string;
+    thumbUrl?: string | null;
+    cardUrl?: string | null;
+    fullUrl?: string | null;
+    order: number;
+  }[];
 
   // Internal: lets the publish button render the right label in edit mode.
   // Not part of the API payload — preparePayload strips it.
@@ -218,11 +225,21 @@ function mergeInitialData(initial: any): FormData {
     photos: Array.isArray(initial.photos)
       ? initial.photos.map(
           (
-            p: { url: string; order?: number; key?: string | null },
+            p: {
+              url: string;
+              order?: number;
+              key?: string | null;
+              thumbUrl?: string | null;
+              cardUrl?: string | null;
+              fullUrl?: string | null;
+            },
             i: number,
           ) => ({
             url: p.url,
             key: p.key ?? undefined,
+            thumbUrl: p.thumbUrl ?? null,
+            cardUrl: p.cardUrl ?? null,
+            fullUrl: p.fullUrl ?? null,
             order: typeof p.order === "number" ? p.order : i,
           }),
         )
@@ -295,6 +312,9 @@ function preparePayload(data: FormData) {
     photos: data.photos.map((p, i) => ({
       url: p.url,
       key: p.key,
+      thumbUrl: p.thumbUrl ?? null,
+      cardUrl: p.cardUrl ?? null,
+      fullUrl: p.fullUrl ?? null,
       order: typeof p.order === "number" ? p.order : i,
     })),
   };
@@ -1326,7 +1346,15 @@ function StepPhotos({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function uploadFile(file: File): Promise<{ url: string; key: string } | null> {
+  async function uploadFile(
+    file: File,
+  ): Promise<{
+    url: string;
+    key: string;
+    thumbUrl?: string | null;
+    cardUrl?: string | null;
+    fullUrl?: string | null;
+  } | null> {
     // Two-step upload: (1) presign through our API (same-origin), then
     // (2) PUT directly to S3 (cross-origin — needs CORS on the bucket).
     let presignJson: { success: boolean; data?: { url: string; key: string }; error?: string };
@@ -1364,7 +1392,27 @@ function StepPhotos({
         throw new Error(`S3 returned ${putRes.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
       }
       const viewUrl = url.split("?")[0];
-      return { url: viewUrl, key };
+      // Best-effort: build resized WebP variants server-side. Never let a
+      // variant failure fail the upload — we always keep the original.
+      let variants: { thumbUrl?: string; cardUrl?: string; fullUrl?: string } = {};
+      try {
+        const vRes = await fetch("/api/upload/variants", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key }),
+        });
+        const vJson = await vRes.json().catch(() => null);
+        if (vRes.ok && vJson?.success && vJson.data) variants = vJson.data;
+      } catch (err) {
+        console.error("[photo] variant generation failed (using original):", err);
+      }
+      return {
+        url: viewUrl,
+        key,
+        thumbUrl: variants.thumbUrl ?? null,
+        cardUrl: variants.cardUrl ?? null,
+        fullUrl: variants.fullUrl ?? null,
+      };
     } catch (err) {
       console.error("[photo] S3 PUT failed:", err);
       // "Failed to fetch" / TypeError almost always means CORS rejected the
@@ -1419,7 +1467,15 @@ function StepPhotos({
       }),
     );
     const successful = results.filter(
-      (r): r is { url: string; key: string } => r !== null,
+      (
+        r,
+      ): r is {
+        url: string;
+        key: string;
+        thumbUrl?: string | null;
+        cardUrl?: string | null;
+        fullUrl?: string | null;
+      } => r !== null,
     );
     if (successful.length > 0) {
       const startOrder = photos.length;
@@ -1428,6 +1484,9 @@ function StepPhotos({
         ...successful.map((s, i) => ({
           url: s.url,
           key: s.key,
+          thumbUrl: s.thumbUrl ?? null,
+          cardUrl: s.cardUrl ?? null,
+          fullUrl: s.fullUrl ?? null,
           order: startOrder + i,
         })),
       ]);

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatCurrency } from "@/lib/utils";
+import { pickPhotoUrl } from "@/lib/listing-image";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,7 +31,13 @@ interface ListingCardProps {
     viewCount: number;
     saveCount: number;
     isGhostListing: boolean;
-    photos: { url: string; order: number }[];
+    photos: {
+      url: string;
+      thumbUrl?: string | null;
+      cardUrl?: string | null;
+      fullUrl?: string | null;
+      order: number;
+    }[];
     listedBy: {
       name: string;
       displayName?: string | null;
@@ -102,7 +109,7 @@ export function ListingCard({
 
   // Resolve primary photo (lowest order number, fallback to first, then placeholder)
   const sortedPhotos = [...listing.photos].sort((a, b) => a.order - b.order);
-  const primaryPhoto = sortedPhotos[0]?.url ?? null;
+  const primaryPhoto = sortedPhotos[0] ? pickPhotoUrl(sortedPhotos[0], "card") : null;
 
   // Numeric conversions
   const askingPrice = toNumber(listing.askingPrice);

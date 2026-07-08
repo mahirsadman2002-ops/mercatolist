@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { pickPhotoUrl } from "@/lib/listing-image";
 import {
   Inbox,
   Send,
@@ -34,7 +35,12 @@ interface InquiryListing {
   id: string;
   title: string;
   slug: string;
-  photos: { url: string }[];
+  photos: {
+    url: string;
+    thumbUrl?: string | null;
+    cardUrl?: string | null;
+    fullUrl?: string | null;
+  }[];
 }
 
 interface InquiryUser {
@@ -125,7 +131,8 @@ function InquiryRow({
         inquiry.sender?.name ||
         inquiry.senderName ||
         "Anonymous";
-  const photoUrl = inquiry.listing.photos[0]?.url;
+  const firstPhoto = inquiry.listing.photos[0];
+  const photoUrl = firstPhoto ? pickPhotoUrl(firstPhoto, "thumb") : undefined;
   const lastMessage =
     inquiry.messages[0]?.content || inquiry.message;
   const preview =

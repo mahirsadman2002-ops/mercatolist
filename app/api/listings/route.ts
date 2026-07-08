@@ -344,6 +344,9 @@ export async function POST(request: NextRequest) {
             ? {
                 create: photos.map((p, idx) => ({
                   url: p.url,
+                  thumbUrl: p.thumbUrl ?? null,
+                  cardUrl: p.cardUrl ?? null,
+                  fullUrl: p.fullUrl ?? null,
                   order: typeof p.order === "number" ? p.order : idx,
                 })),
               }

@@ -12,13 +12,21 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ListingMap } from "./ListingMap";
+import { pickPhotoUrl } from "@/lib/listing-image";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface PhotoGalleryProps {
-  photos: { id: string; url: string; order: number }[];
+  photos: {
+    id: string;
+    url: string;
+    thumbUrl?: string | null;
+    cardUrl?: string | null;
+    fullUrl?: string | null;
+    order: number;
+  }[];
   title: string;
   latitude?: number;
   longitude?: number;
@@ -258,7 +266,7 @@ export function PhotoGallery({
             )
           ) : (
             <Image
-              src={sortedPhotos[activeIndex].url}
+              src={pickPhotoUrl(sortedPhotos[activeIndex], "full")}
               alt={`${title} — photo ${activeIndex + 1}`}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1280px) 66vw, 50vw"
@@ -341,7 +349,7 @@ export function PhotoGallery({
                 )}
               >
                 <Image
-                  src={photo.url}
+                  src={pickPhotoUrl(photo, "thumb")}
                   alt={`${title} — thumbnail ${index + 1}`}
                   fill
                   sizes="96px"
@@ -454,7 +462,7 @@ export function PhotoGallery({
             ) : (
               <div className="relative h-full w-full max-h-[80vh] max-w-5xl">
                 <Image
-                  src={sortedPhotos[activeIndex].url}
+                  src={pickPhotoUrl(sortedPhotos[activeIndex], "full")}
                   alt={`${title} — photo ${activeIndex + 1}`}
                   fill
                   sizes="100vw"
@@ -515,7 +523,7 @@ export function PhotoGallery({
                   )}
                 >
                   <Image
-                    src={photo.url}
+                    src={pickPhotoUrl(photo, "thumb")}
                     alt={`${title} — thumbnail ${index + 1}`}
                     fill
                     sizes="72px"

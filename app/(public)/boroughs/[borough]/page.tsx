@@ -94,7 +94,7 @@ export async function generateMetadata({
     where: { borough: boroughValue as never, status: "ACTIVE" },
   });
 
-  const title = `Businesses for Sale in ${label} | MercatoList`;
+  const title = `Businesses for Sale in ${label}`;
   const description = `Browse ${count} businesses for sale in ${label}, New York City. Find restaurants, retail stores, service businesses and more on MercatoList.`;
 
   return {

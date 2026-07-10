@@ -225,13 +225,13 @@ export async function generateMetadata({
 
   if (!listing) {
     return {
-      title: "Listing Not Found | MercatoList",
+      title: "Listing Not Found",
       description: "This listing could not be found or is no longer available.",
     };
   }
 
   const borough = formatBoroughDisplay(listing.borough);
-  const title = `${listing.title} | ${listing.neighborhood}, ${borough} | MercatoList`;
+  const title = `${listing.title} | ${listing.neighborhood}, ${borough}`;
   const description =
     listing.description.length > 160
       ? listing.description.slice(0, 157) + "..."

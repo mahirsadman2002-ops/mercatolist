@@ -18,7 +18,7 @@ interface GhostListingPageProps {
 }
 
 export const metadata: Metadata = {
-  title: "Private Listing | MercatoList",
+  title: "Private Listing",
   description: "View a private business listing shared with you.",
   robots: { index: false, follow: false },
 };

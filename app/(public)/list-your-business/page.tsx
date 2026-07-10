@@ -18,11 +18,11 @@ import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "List Your NYC Business for Sale — Free | MercatoList",
+  title: "List Your NYC Business for Sale — Free",
   description:
     "List your business for sale on NYC's premier marketplace. Free listings, qualified buyers across all five boroughs, no commission, no fees.",
   openGraph: {
-    title: "List Your NYC Business for Sale — Free | MercatoList",
+    title: "List Your NYC Business for Sale — Free",
     description:
       "List your business for sale on NYC's premier marketplace. Free listings, qualified buyers across all five boroughs.",
   },

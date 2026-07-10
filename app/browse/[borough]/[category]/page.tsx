@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: BoroughCategoryPageProps): Pr
   const boroughName = decodeURIComponent(borough).replace(/-/g, " ");
   const categoryName = decodeURIComponent(category).replace(/-/g, " ");
   return {
-    title: `${categoryName} for Sale in ${boroughName}, NYC | MercatoList`,
+    title: `${categoryName} for Sale in ${boroughName}, NYC`,
     description: `Browse ${categoryName.toLowerCase()} businesses for sale in ${boroughName}, New York City.`,
   };
 }

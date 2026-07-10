@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ListingForm } from "@/components/forms/ListingForm";
 
 export const metadata: Metadata = {
-  title: "Create New Listing | MercatoList",
+  title: "Create New Listing",
   description: "List your NYC business for sale on MercatoList.",
 };
 

@@ -32,10 +32,10 @@ export async function generateMetadata({
   const decoded = decodeURIComponent(companyName);
 
   return {
-    title: `${decoded} — Business Advisors | MercatoList`,
+    title: `${decoded} — Business Advisors`,
     description: `View business advisors from ${decoded} on MercatoList. Find experienced NYC business advisors to help you buy or sell a business.`,
     openGraph: {
-      title: `${decoded} — Business Advisors | MercatoList`,
+      title: `${decoded} — Business Advisors`,
       description: `View business advisors from ${decoded} on MercatoList.`,
     },
   };

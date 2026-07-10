@@ -9,7 +9,7 @@ interface EditListingPageProps {
 }
 
 export const metadata: Metadata = {
-  title: "Edit Listing | MercatoList",
+  title: "Edit Listing",
   description: "Edit your business listing on MercatoList.",
 };
 

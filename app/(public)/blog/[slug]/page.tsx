@@ -27,7 +27,7 @@ export async function generateMetadata({
   });
 
   if (!post) {
-    return { title: "Post Not Found | MercatoList Blog" };
+    return { title: "Post Not Found — Blog" };
   }
 
   const description =
@@ -36,7 +36,7 @@ export async function generateMetadata({
     post.content.slice(0, 160).trimEnd() + "...";
 
   return {
-    title: `${post.metaTitle || post.title} | MercatoList Blog`,
+    title: `${post.metaTitle || post.title} — Blog`,
     description,
     openGraph: {
       title: post.metaTitle || post.title,

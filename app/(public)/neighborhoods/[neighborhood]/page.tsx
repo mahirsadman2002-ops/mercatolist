@@ -83,7 +83,7 @@ export async function generateMetadata({
     },
   });
 
-  const title = `Businesses for Sale in ${neighborhoodName}, ${boroughLabel} | MercatoList`;
+  const title = `Businesses for Sale in ${neighborhoodName}, ${boroughLabel}`;
   const description = `Find ${count} businesses for sale in ${neighborhoodName}, ${boroughLabel}. Browse listings on MercatoList — NYC's marketplace for buying and selling businesses.`;
 
   return {

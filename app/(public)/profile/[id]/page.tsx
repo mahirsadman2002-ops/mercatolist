@@ -19,16 +19,16 @@ export async function generateMetadata({
   });
 
   if (!user) {
-    return { title: "User Not Found | MercatoList" };
+    return { title: "User Not Found" };
   }
 
   const name = user.displayName || user.name;
   return {
-    title: `${name} | MercatoList`,
+    title: `${name}`,
     description:
       user.bio || `View ${name}'s profile and business listings on MercatoList.`,
     openGraph: {
-      title: `${name} | MercatoList`,
+      title: `${name}`,
       description:
         user.bio ||
         `View ${name}'s profile and business listings on MercatoList.`,

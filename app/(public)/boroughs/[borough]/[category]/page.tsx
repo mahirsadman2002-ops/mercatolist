@@ -114,7 +114,7 @@ export async function generateMetadata({
   const categoryName = getCategoryFromSlug(categorySlug);
 
   if (!borough || !categoryName) {
-    return { title: "Not Found | MercatoList" };
+    return { title: "Not Found" };
   }
 
   const count = await prisma.businessListing.count({
@@ -126,7 +126,7 @@ export async function generateMetadata({
   });
 
   return {
-    title: `${categoryName} for Sale in ${borough.label} | MercatoList`,
+    title: `${categoryName} for Sale in ${borough.label}`,
     description: `Browse ${count} ${categoryName.toLowerCase()} businesses for sale in ${borough.label}, NYC. Find listings with pricing, financials, and advisor details on MercatoList.`,
     alternates: {
       canonical: `/boroughs/${boroughSlug}/${categorySlug}`,

@@ -87,7 +87,7 @@ export function Footer() {
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="inline-block">
               <h3 className="font-heading text-2xl font-bold tracking-tight">
-                MercatoList
+                Mercato<span className="text-accent">List</span>
               </h3>
             </Link>
             <p className="text-sm text-primary-foreground/70 leading-relaxed max-w-xs">

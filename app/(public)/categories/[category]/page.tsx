@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { InternalLinks } from "@/components/seo/InternalLinks";
+import { FaqSection, type FaqItem } from "@/components/seo/FaqSection";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -249,6 +250,42 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   // Serialize listings for ListingCard
   const serializedListings = listings.map(serializeListing);
+
+  // Data-driven FAQ — unique per category, reflects live marketplace data.
+  const lowerName = categoryName.toLowerCase();
+  const topBoroughs = [...boroughCounts]
+    .sort((a, b) => b._count.id - a._count.id)
+    .slice(0, 3)
+    .map((b) => BOROUGHS.find((x) => x.value === b.borough)?.label ?? b.borough);
+  const faqItems: FaqItem[] = [
+    ...(totalCount > 0
+      ? [
+          {
+            question: `How many ${lowerName} businesses are for sale in NYC?`,
+            answer: `There ${totalCount === 1 ? "is currently 1" : `are currently ${totalCount}`} ${lowerName} ${totalCount === 1 ? "business" : "businesses"} for sale in New York City on MercatoList${
+              topBoroughs.length > 0 ? `, with the most in ${topBoroughs.join(", ")}` : ""
+            }. New listings are added regularly.`,
+          },
+        ]
+      : []),
+    ...(statsAgg?._min.askingPrice && statsAgg?._max.askingPrice
+      ? [
+          {
+            question: `How much does a ${lowerName} business cost in NYC?`,
+            answer: `Asking prices for ${lowerName} businesses currently listed in NYC range from ${formatCurrency(Number(statsAgg._min.askingPrice))} to ${formatCurrency(Number(statsAgg._max.askingPrice))}${
+              statsAgg._avg.askingPrice
+                ? `, with an average around ${formatCurrency(Number(statsAgg._avg.askingPrice))}`
+                : ""
+            }. The price depends on revenue, cash flow, lease terms, and location.`,
+          },
+        ]
+      : []),
+    {
+      question: `How do I buy a ${lowerName} business on MercatoList?`,
+      answer:
+        "Browse the listings on this page, open any that fit your budget, and send the seller or their advisor a free inquiry directly from the listing page. You can browse and inquire without creating an account.",
+    },
+  ];
 
   // JSON-LD structured data
   const jsonLd = {
@@ -504,6 +541,12 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           </div>
         </section>
       )}
+
+      {/* FAQ — visible + FAQPage JSON-LD */}
+      <FaqSection
+        title={`Buying a ${lowerName} business in NYC — FAQ`}
+        items={faqItems}
+      />
 
       {/* Internal Links */}
       <InternalLinks currentCategory={categorySlug} />

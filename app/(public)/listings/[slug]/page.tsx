@@ -13,7 +13,8 @@ import {
   FolderOpen,
 } from "lucide-react";
 
-import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
+import { formatCurrency, calculateDaysOnMarket, slugify } from "@/lib/utils";
+import { NEIGHBORHOODS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { applyAddressPrivacy, stripInternalListingFields } from "@/lib/address-privacy";
@@ -486,6 +487,46 @@ export default async function ListingDetailPage({
   const jsonLd = generateJsonLd(listing);
   const breadcrumbJsonLd = generateBreadcrumbJsonLd(listing);
 
+  // Internal links to the SEO landing pages this listing belongs to.
+  // Neighborhood links only when the value is in the canonical list —
+  // free-text neighborhoods ("Downtown", "") would 404.
+  const boroughSlug = listing.borough.toLowerCase().replace(/_/g, "-");
+  const categorySlug = slugify(listing.category);
+  const knownNeighborhood = Object.values(NEIGHBORHOODS)
+    .flat()
+    .find((n) => n.toLowerCase() === (listing.neighborhood || "").toLowerCase());
+  const neighborhoodSlug = knownNeighborhood ? slugify(knownNeighborhood) : null;
+  const exploreLinks = [
+    ...(neighborhoodSlug
+      ? [
+          {
+            href: `/neighborhoods/${neighborhoodSlug}/${categorySlug}`,
+            label: `${listing.category} in ${knownNeighborhood}`,
+          },
+        ]
+      : []),
+    {
+      href: `/boroughs/${boroughSlug}/${categorySlug}`,
+      label: `${listing.category} in ${borough}`,
+    },
+    ...(neighborhoodSlug
+      ? [
+          {
+            href: `/neighborhoods/${neighborhoodSlug}`,
+            label: `Businesses in ${knownNeighborhood}`,
+          },
+        ]
+      : []),
+    {
+      href: `/boroughs/${boroughSlug}`,
+      label: `Businesses in ${borough}`,
+    },
+    {
+      href: `/categories/${categorySlug}`,
+      label: `${listing.category} in NYC`,
+    },
+  ];
+
   return (
     <>
       {/* JSON-LD Structured Data */}
@@ -630,9 +671,46 @@ export default async function ListingDetailPage({
         )}
 
         {/* ================================================================
+            Breadcrumbs — visible counterpart of the BreadcrumbList JSON-LD.
+            These links pass internal link equity to the borough / category
+            landing pages from every listing.
+        ================================================================ */}
+        <nav aria-label="Breadcrumb" className="container mx-auto px-4 pt-4">
+          <ol className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+            <li>
+              <Link href="/listings" className="hover:text-foreground hover:underline">
+                NYC
+              </Link>
+            </li>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <li>
+              <Link
+                href={`/boroughs/${listing.borough.toLowerCase().replace(/_/g, "-")}`}
+                className="hover:text-foreground hover:underline"
+              >
+                {borough}
+              </Link>
+            </li>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <li>
+              <Link
+                href={`/boroughs/${listing.borough.toLowerCase().replace(/_/g, "-")}/${slugify(listing.category)}`}
+                className="hover:text-foreground hover:underline"
+              >
+                {listing.category}
+              </Link>
+            </li>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <li className="truncate max-w-[50vw] text-foreground" aria-current="page">
+              {listing.title}
+            </li>
+          </ol>
+        </nav>
+
+        {/* ================================================================
             Photo Gallery / Map Hero (full width, above fold)
         ================================================================ */}
-        <div className="container mx-auto px-4 pt-6">
+        <div className="container mx-auto px-4 pt-4">
           {listing.photos && listing.photos.length > 0 ? (
             <PhotoGallery
               photos={listing.photos}
@@ -874,6 +952,28 @@ export default async function ListingDetailPage({
           </section>
         </div>
       </div>
+
+      {/* Explore-more internal links — routes equity to the SEO landing pages.
+          Only link targets that actually resolve: free-text neighborhoods and
+          imported categories outside the canonical lists would 404. */}
+      {exploreLinks.length > 0 && (
+        <div className="container mx-auto px-4 pb-2 pt-8">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Explore similar businesses
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {exploreLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-full border bg-background px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Suggested listings — bottom of every detail page */}
       <SuggestedListings

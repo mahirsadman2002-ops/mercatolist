@@ -29,7 +29,9 @@ const plusJakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "MercatoList — NYC Business Marketplace",
+    // Keyword-first: nobody searches the brand yet — lead with what buyers
+    // actually type. Applies to the homepage (children use the template).
+    default: "Businesses for Sale in NYC | MercatoList",
     template: "%s | MercatoList",
   },
   description:
@@ -46,14 +48,14 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://mercatolist.com",
     siteName: "MercatoList",
-    title: "MercatoList — NYC Business Marketplace",
+    title: "Businesses for Sale in NYC | MercatoList",
     description:
       "New York City's premier marketplace for buying and selling businesses.",
     images: [{ url: "/og-default.jpg", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MercatoList — NYC Business Marketplace",
+    title: "Businesses for Sale in NYC | MercatoList",
     description:
       "New York City's premier marketplace for buying and selling businesses.",
   },

@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { InternalLinks } from "@/components/seo/InternalLinks";
+import { FaqSection, type FaqItem } from "@/components/seo/FaqSection";
+import { formatCurrency } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Helpers: slug <-> DB value mapping
@@ -241,6 +243,48 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
     slug: slugify(c.category),
     count: c._count.id,
   }));
+
+  // Asking-price range for the FAQ (ignore zero/placeholder prices)
+  const priceAgg = await prisma.businessListing.aggregate({
+    where: {
+      borough: boroughValue as never,
+      status: "ACTIVE",
+      askingPrice: { gt: 0 },
+    },
+    _min: { askingPrice: true },
+    _max: { askingPrice: true },
+  });
+
+  // Data-driven FAQ — every answer reflects live marketplace data, so these
+  // pages carry unique content instead of a bare listing grid.
+  const topCategories = categoryCounts.slice(0, 4);
+  const faqItems: FaqItem[] = [
+    ...(activeCount > 0
+      ? [
+          {
+            question: `How many businesses are for sale in ${label}?`,
+            answer: `There ${activeCount === 1 ? "is currently 1 business" : `are currently ${activeCount} businesses`} for sale in ${label} on MercatoList${
+              topCategories.length > 0
+                ? `, including ${topCategories.map((c) => c.category.toLowerCase()).join(", ")}`
+                : ""
+            }. New listings are added regularly.`,
+          },
+        ]
+      : []),
+    ...(priceAgg._min.askingPrice && priceAgg._max.askingPrice
+      ? [
+          {
+            question: `How much does it cost to buy a business in ${label}?`,
+            answer: `Asking prices for businesses currently listed in ${label} range from ${formatCurrency(Number(priceAgg._min.askingPrice))} to ${formatCurrency(Number(priceAgg._max.askingPrice))}. The price depends on the category, revenue, cash flow, lease terms, and location.`,
+          },
+        ]
+      : []),
+    {
+      question: `How do I contact a seller about a business in ${label}?`,
+      answer:
+        "Every MercatoList listing has a free inquiry form — send the seller or their advisor a message directly from the listing page. You can browse and inquire without creating an account.",
+    },
+  ];
 
   // Top 5 listings for JSON-LD
   const top5 = featuredListings.slice(0, 5);
@@ -519,6 +563,12 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
         </section>
 
         {/* ----------------------------------------------------------------- */}
+        {/* FAQ — visible + FAQPage JSON-LD                                   */}
+        <FaqSection
+          title={`Buying a business in ${label} — FAQ`}
+          items={faqItems}
+        />
+
         {/* Internal Links                                                    */}
         {/* ----------------------------------------------------------------- */}
         <InternalLinks currentBorough={borough} />

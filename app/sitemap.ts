@@ -60,14 +60,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: { status: "PUBLISHED" },
       select: { slug: true, updatedAt: true },
     }),
+    // Only users with a real public presence: brokers (advisor pages) and
+    // sellers with at least one active listing. Bare signup profiles are thin
+    // near-empty pages that dilute crawl quality — keep them out.
     prisma.user.findMany({
-      where: { role: { not: "ADMIN" } },
+      where: {
+        role: { not: "ADMIN" },
+        OR: [
+          { role: "BROKER" },
+          { listings: { some: { status: "ACTIVE" } } },
+        ],
+      },
       select: { id: true, role: true, updatedAt: true },
     }),
   ]);
 
   const brokers = allUsers.filter((u) => u.role === "BROKER");
-  const users = allUsers;
+  // Brokers already get /advisors/[id]; don't also list their /profile/[id]
+  // (near-duplicate content at two URLs).
+  const users = allUsers.filter((u) => u.role !== "BROKER");
 
   // Listing pages
   const listingPages: MetadataRoute.Sitemap = listings.map((l) => ({

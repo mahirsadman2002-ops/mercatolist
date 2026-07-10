@@ -104,7 +104,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ success: true, data: sanitizedListing });
+    // Whether the signed-in viewer saved this listing, so clients (web + app)
+    // can render the save state without a second request.
+    let isSaved = false;
+    if (session?.user?.id) {
+      isSaved = !!(await prisma.savedListing.findUnique({
+        where: {
+          userId_listingId: { userId: session.user.id, listingId: listing.id },
+        },
+        select: { id: true },
+      }));
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: { ...sanitizedListing, isSaved },
+    });
   } catch (error) {
     console.error("Error fetching listing:", error);
     return NextResponse.json(

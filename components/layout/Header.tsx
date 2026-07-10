@@ -125,7 +125,7 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="font-heading text-xl font-bold tracking-tight">
-            Mercato<span className="text-accent">List</span>
+            MercatoList
           </span>
           <span className="rounded-full border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-accent">
             Beta
@@ -338,7 +338,7 @@ export function Header() {
                 onClick={() => setMobileOpen(false)}
                 className="font-heading text-xl font-bold tracking-tight"
               >
-                Mercato<span className="text-accent">List</span>
+                MercatoList
               </Link>
               <p className="text-xs text-muted-foreground mt-1">
                 NYC&apos;s business marketplace

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,12 @@ interface ListingCarouselProps {
 
 export function ListingCarousel({ listings }: ListingCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
 
+  // Desktop arrow buttons only. Touch/trackpad scrolling is handled entirely by
+  // the browser's native horizontal scroll + CSS scroll-snap below — we do NOT
+  // intercept touch events. (The old onTouchStart/End handlers fired their own
+  // scrollBy on top of the native scroll, so one swipe moved twice and landed
+  // at random offsets. Let the platform do what it's good at.)
   const scroll = useCallback((direction: "left" | "right") => {
     const track = trackRef.current;
     if (!track) return;
@@ -47,23 +51,7 @@ export function ListingCarousel({ listings }: ListingCarouselProps) {
     });
   }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
-    const diff = touchStart - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      scroll(diff > 0 ? "right" : "left");
-    }
-    setTouchStart(null);
-  };
-
   if (listings.length === 0) return null;
-
-  // Duplicate for seamless infinite loop (CSS animation approach)
-  const duplicated = [...listings, ...listings];
 
   return (
     <div className="relative group">
@@ -87,19 +75,18 @@ export function ListingCarousel({ listings }: ListingCarouselProps) {
         <ChevronRight className="h-4 w-4" />
       </Button>
 
-      {/* Scrollable track */}
+      {/* Scrollable track — native horizontal scroll + one-card snap. */}
       <div
         ref={trackRef}
-        className="flex gap-6 overflow-x-auto scroll-smooth pb-4 scrollbar-hide"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        className="flex gap-6 overflow-x-auto scroll-smooth pb-4 scrollbar-hide snap-x snap-mandatory overscroll-x-contain"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
-        {duplicated.map((listing, i) => (
-          <div
-            key={`${listing.id}-${i}`}
-            className="w-[320px] shrink-0"
-          >
+        {listings.map((listing) => (
+          <div key={listing.id} className="w-[320px] shrink-0 snap-start">
             <ListingCard listing={listing} />
           </div>
         ))}

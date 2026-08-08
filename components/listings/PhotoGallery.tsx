@@ -39,6 +39,7 @@ interface PhotoGalleryProps {
   address?: string;
   neighborhood?: string;
   borough?: string;
+  locationPrecision?: "EXACT" | "NEIGHBORHOOD" | "BOROUGH";
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,7 @@ export function PhotoGallery({
   address,
   neighborhood,
   borough,
+  locationPrecision = "EXACT",
 }: PhotoGalleryProps) {
   const sortedPhotos = [...photos].sort((a, b) => a.order - b.order);
   const hasCoords =
@@ -80,7 +82,13 @@ export function PhotoGallery({
       ? (() => {
           const lng = longitude!.toFixed(5);
           const lat = latitude!.toFixed(5);
-          const zoom = hideAddress ? 13 : 15;
+          const zoom = !hideAddress
+            ? 15
+            : locationPrecision === "BOROUGH"
+              ? 9
+              : locationPrecision === "NEIGHBORHOOD"
+                ? 11.5
+                : 13;
           const marker = hideAddress ? "" : `pin-s+0d9488(${lng},${lat})/`;
           return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${marker}${lng},${lat},${zoom},0/192x128@2x?access_token=${mapboxToken}`;
         })()
@@ -258,6 +266,7 @@ export function PhotoGallery({
                   address={address}
                   neighborhood={neighborhood!}
                   borough={borough!}
+                  locationPrecision={locationPrecision}
                   embedded
                 />
               </div>
@@ -453,6 +462,7 @@ export function PhotoGallery({
                     address={address}
                     neighborhood={neighborhood!}
                     borough={borough!}
+                    locationPrecision={locationPrecision}
                     embedded
                   />
                 </div>

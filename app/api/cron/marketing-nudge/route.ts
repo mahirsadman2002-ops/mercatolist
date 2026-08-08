@@ -11,7 +11,9 @@ async function handler(request: Request) {
   if (denied) return denied;
 
   try {
-    // Find users who have active saved listings
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Find users who have active saved listings and haven't been nudged in 30 days
     const usersWithSaves = await prisma.user.findMany({
       where: {
         savedListings: {
@@ -21,6 +23,10 @@ async function handler(request: Request) {
             },
           },
         },
+        OR: [
+          { lastMarketingNudgeAt: null },
+          { lastMarketingNudgeAt: { lt: thirtyDaysAgo } },
+        ],
       },
       select: {
         id: true,
@@ -95,6 +101,10 @@ async function handler(request: Request) {
             })),
             dashboardUrl: "https://mercatolist.com/saved",
           }),
+        });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastMarketingNudgeAt: now },
         });
         emailsSent++;
       } catch (err) {

@@ -721,6 +721,7 @@ export default async function ListingDetailPage({
               address={listing.hideAddress ? undefined : listing.address}
               neighborhood={listing.neighborhood}
               borough={listing.borough}
+              locationPrecision={listing.locationPrecision}
             />
           ) : (
             <div className="h-[400px] w-full overflow-hidden rounded-xl">
@@ -731,6 +732,7 @@ export default async function ListingDetailPage({
                 address={listing.hideAddress ? undefined : listing.address}
                 neighborhood={listing.neighborhood}
                 borough={listing.borough}
+                locationPrecision={listing.locationPrecision}
               />
             </div>
           )}
@@ -911,6 +913,7 @@ export default async function ListingDetailPage({
                   address={listing.hideAddress ? undefined : listing.address}
                   neighborhood={listing.neighborhood}
                   borough={listing.borough}
+                  locationPrecision={listing.locationPrecision}
                 />
               </section>
             </div>
@@ -948,6 +951,7 @@ export default async function ListingDetailPage({
               address={listing.hideAddress ? undefined : listing.address}
               neighborhood={listing.neighborhood}
               borough={listing.borough}
+              locationPrecision={listing.locationPrecision}
             />
           </section>
         </div>

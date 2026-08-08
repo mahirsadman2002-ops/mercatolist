@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Shield, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { boroughRadiusKm } from "@/lib/nyc-geo";
+
+type LocationPrecision = "EXACT" | "NEIGHBORHOOD" | "BOROUGH";
 
 interface ListingMapProps {
   latitude: number;
@@ -11,6 +14,12 @@ interface ListingMapProps {
   address?: string;
   neighborhood: string;
   borough: string;
+  /**
+   * How precisely the location is known. Sizes the privacy circle: EXACT
+   * (hidden address) = 500m, NEIGHBORHOOD = ~1.2km, BOROUGH = the whole
+   * borough. Defaults to EXACT for callers that predate the field.
+   */
+  locationPrecision?: LocationPrecision;
   /**
    * When true, drop the rounded card chrome and fill the parent container's
    * height instead of using the default 400px. Used when the map is rendered
@@ -66,6 +75,7 @@ export function ListingMap({
   address,
   neighborhood,
   borough,
+  locationPrecision = "EXACT",
   embedded = false,
 }: ListingMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -73,6 +83,18 @@ export function ListingMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const token = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim() || null;
   const displayBorough = formatBorough(borough);
+
+  // Circle size tracks how much we actually know about the location.
+  const circleRadiusKm =
+    locationPrecision === "BOROUGH"
+      ? boroughRadiusKm(borough)
+      : locationPrecision === "NEIGHBORHOOD"
+        ? 1.2
+        : 0.5;
+  const privacyCaption =
+    locationPrecision === "BOROUGH"
+      ? `Somewhere in ${displayBorough} — inquire for the exact address`
+      : "Approximate location — inquire for the exact address";
 
   useEffect(() => {
     if (!token || !mapContainer.current) return;
@@ -95,7 +117,14 @@ export function ListingMap({
         container: mapContainer.current!,
         style: "mapbox://styles/mapbox/light-v11",
         center: [longitude, latitude],
-        zoom: hideAddress ? 14 : 16,
+        // Zoom out enough that the whole privacy circle is visible.
+        zoom: !hideAddress
+          ? 16
+          : locationPrecision === "BOROUGH"
+            ? 10
+            : locationPrecision === "NEIGHBORHOOD"
+              ? 12.5
+              : 14,
         interactive: true,
       });
 
@@ -108,7 +137,7 @@ export function ListingMap({
         map.on("load", () => {
           const circleData = createCircleGeoJSON(
             [longitude, latitude],
-            0.5 // 500m radius
+            circleRadiusKm
           );
 
           map.addSource("privacy-circle", {
@@ -157,7 +186,7 @@ export function ListingMap({
         mapRef.current = null;
       }
     };
-  }, [latitude, longitude, hideAddress, token]);
+  }, [latitude, longitude, hideAddress, token, locationPrecision, circleRadiusKm]);
 
   // Fallback when no token is configured
   if (!token) {
@@ -180,7 +209,7 @@ export function ListingMap({
           </div>
           <div className="flex flex-col gap-1">
             <h3 className="text-lg font-semibold text-foreground">
-              {neighborhood}
+              {neighborhood || displayBorough}
             </h3>
             <p className="text-sm font-medium text-muted-foreground">
               {displayBorough}, New York
@@ -192,7 +221,7 @@ export function ListingMap({
           {hideAddress && (
             <div className="flex items-center gap-2 rounded-lg bg-muted-foreground/5 px-4 py-2.5 text-sm text-muted-foreground">
               <Shield className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span>Approximate location — inquire for the exact address</span>
+              <span>{privacyCaption}</span>
             </div>
           )}
           <a
@@ -231,7 +260,7 @@ export function ListingMap({
         {hideAddress && mapLoaded && (
           <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg bg-white/90 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
             <Shield className="h-3.5 w-3.5 text-teal" strokeWidth={2} />
-            Approximate location — inquire for the exact address
+            {privacyCaption}
           </div>
         )}
         {!hideAddress && address && mapLoaded && (

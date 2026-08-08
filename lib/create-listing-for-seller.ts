@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { sendInstantSearchAlerts } from "@/lib/instant-search-alerts";
 import { Prisma } from "@prisma/client";
 import { sendClaimEmail } from "@/lib/claim";
 import { findOrCreateManagedUser } from "@/lib/create-managed-user";
@@ -145,14 +147,23 @@ export async function createListingForSeller(
   // the general area, so force hideAddress: the listing page then renders the
   // privacy circle around the area instead of a pin at a made-up spot.
   const address = String(listing.address || "").trim();
+  let neighborhood = String(listing.neighborhood || "").trim();
+  const boroughLabel = String(listing.borough || "")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  // A "neighborhood" that just repeats the borough name (common on source
+  // sites, e.g. "Brooklyn") is borough-level knowledge, not a neighborhood.
+  if (neighborhood.toLowerCase() === boroughLabel.toLowerCase()) neighborhood = "";
   let latitude = num(listing.latitude);
   let longitude = num(listing.longitude);
-  if (address && latitude == null && longitude == null) {
+  let hasExactLocation = latitude != null && longitude != null;
+  // Neighborhood-level coords: geocoded from the neighborhood name alone, so
+  // the privacy circle sits over the right neighborhood — but never treated as
+  // an exact location.
+  let hasNeighborhoodLocation = false;
+  if (!hasExactLocation && address) {
     try {
-      const boroughLabel = String(listing.borough || "")
-        .replace(/_/g, " ")
-        .toLowerCase()
-        .replace(/\b[a-z]/g, (c) => c.toUpperCase());
       const zip = String(listing.zipCode || "").trim();
       const geo = await geocodeAddress(
         [address, boroughLabel, `NY ${zip}`.trim()].filter(Boolean).join(", ")
@@ -160,13 +171,32 @@ export async function createListingForSeller(
       if (geo) {
         latitude = geo.latitude;
         longitude = geo.longitude;
+        hasExactLocation = true;
       }
     } catch {
       // Geocoding is best-effort — fall through to the general-area circle.
     }
   }
-  const hasExactLocation = latitude != null && longitude != null;
+  if (!hasExactLocation && neighborhood) {
+    // No street address, but the neighborhood is known: center the circle on
+    // the neighborhood instead of the borough centroid.
+    try {
+      const geo = await geocodeAddress(`${neighborhood}, ${boroughLabel}, NY`);
+      if (geo) {
+        latitude = geo.latitude;
+        longitude = geo.longitude;
+        hasNeighborhoodLocation = true;
+      }
+    } catch {
+      // Fall through to the borough-wide circle.
+    }
+  }
   const hideAddress = !!listing.hideAddress || !address || !hasExactLocation;
+  const locationPrecision = hasExactLocation
+    ? ("EXACT" as const)
+    : hasNeighborhoodLocation
+      ? ("NEIGHBORHOOD" as const)
+      : ("BOROUGH" as const);
 
   const profitMargin =
     annualRevenue && netIncome ? Number(((netIncome / annualRevenue) * 100).toFixed(2)) : null;
@@ -212,7 +242,8 @@ export async function createListingForSeller(
     trainingSupport: optStr(listing.trainingSupport),
     address,
     hideAddress,
-    neighborhood: String(listing.neighborhood || "").trim(),
+    neighborhood,
+    locationPrecision,
     borough: (String(listing.borough || "MANHATTAN") as Prisma.BusinessListingUncheckedCreateInput["borough"]),
     // Empty string when unknown — never a fake "00000" (which the geo/ZIP
     // checks would then reject on edit).
@@ -238,6 +269,9 @@ export async function createListingForSeller(
   // Nudge the owner to claim their account (best-effort — never blocks creation).
   // New account → "created"; existing unclaimed managed account → "listing".
   await sendClaimEmail(owner, ownerCreated ? "created" : "listing", { listingTitle: created.title });
+
+  // Instant alerts for matching saved searches — after the response is sent.
+  after(() => sendInstantSearchAlerts(created.id));
 
   return {
     ok: true,

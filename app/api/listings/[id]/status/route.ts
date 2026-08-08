@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { statusChangeSchema, getMissingListingFields } from "@/lib/validations";
 import { requireVerifiedEmail } from "@/lib/require-verified";
 import { validateNycLocation } from "@/lib/nyc-geo";
+import { sendInstantSearchAlerts } from "@/lib/instant-search-alerts";
 
 export async function PUT(
   request: NextRequest,
@@ -129,6 +130,12 @@ export async function PUT(
         confirmedStatus: validated.status,
       },
     });
+
+    // First publish (draft → live): fire instant saved-search alerts after the
+    // response. Re-activations (e.g. OFF_MARKET → ACTIVE) don't re-alert.
+    if (listing.status === "DRAFT" && validated.status === "ACTIVE") {
+      after(() => sendInstantSearchAlerts(id));
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

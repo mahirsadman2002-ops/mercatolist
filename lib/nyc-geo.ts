@@ -83,6 +83,22 @@ export function boroughCenter(borough: string | null | undefined): {
   return BOROUGH_CENTERS[b] || { lat: 40.7128, lng: -74.006 };
 }
 
+// Radius (km) of a circle that roughly covers each borough, for rendering
+// borough-precision listings: the privacy circle should say "somewhere in
+// Brooklyn", not imply a 500m area around the centroid.
+const BOROUGH_RADII_KM: Record<Borough, number> = {
+  MANHATTAN: 6.5, // long and narrow — favors covering its length
+  BROOKLYN: 8.5,
+  QUEENS: 10.5,
+  BRONX: 7,
+  STATEN_ISLAND: 9.5,
+};
+
+export function boroughRadiusKm(borough: string | null | undefined): number {
+  const b = String(borough || "").toUpperCase() as Borough;
+  return BOROUGH_RADII_KM[b] || 10;
+}
+
 /**
  * Validate that a listing's location is inside NYC. Returns { ok } or
  * { ok: false, error } with a user-facing message. Call before publishing /

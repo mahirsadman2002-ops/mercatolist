@@ -81,6 +81,7 @@ export default async function GhostListingPage({ params }: GhostListingPageProps
             address={listing.address}
             neighborhood={listing.neighborhood}
             borough={listing.borough}
+            locationPrecision={listing.locationPrecision}
           />
         </div>
       )}
@@ -152,6 +153,7 @@ export default async function GhostListingPage({ params }: GhostListingPageProps
               address={listing.address}
               neighborhood={listing.neighborhood}
               borough={listing.borough}
+              locationPrecision={listing.locationPrecision}
             />
           </div>
           {listing.hideAddress && (

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendInstantSearchAlerts } from "@/lib/instant-search-alerts";
 import { auth } from "@/lib/auth";
 import { listingCreateSchema, listingDraftSchema } from "@/lib/validations";
 import { slugify, generateShareToken } from "@/lib/utils";
@@ -354,6 +355,11 @@ export async function POST(request: NextRequest) {
       },
       include: { photos: true },
     });
+
+    // Instant alerts for matching saved searches — runs after the response.
+    if (!isDraft) {
+      after(() => sendInstantSearchAlerts(listing.id));
+    }
 
     return NextResponse.json(
       { success: true, data: listing },

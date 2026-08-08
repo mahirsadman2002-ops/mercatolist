@@ -220,8 +220,21 @@ model User {
   verificationRemindersSent  Int       @default(0)
   lastVerificationReminderAt DateTime?
 
+  // Marketing nudge throttle: at most one "still interested?" email per 30 days.
+  lastMarketingNudgeAt DateTime?
+
   @@index([role])
   @@index([email])
+}
+
+// How precisely we know a listing's location. EXACT = geocoded street address;
+// NEIGHBORHOOD = neighborhood known but no exact address; BOROUGH = only the
+// borough is known (e.g. bookmarklet imports from sites that don't publish
+// addresses). Drives the size of the privacy circle on maps.
+enum LocationPrecision {
+  EXACT
+  NEIGHBORHOOD
+  BOROUGH
 }
 
 model BusinessListing {
@@ -288,6 +301,9 @@ model BusinessListing {
   zipCode      String
   latitude     Decimal @db.Decimal(10, 7)
   longitude    Decimal @db.Decimal(10, 7)
+  // See enum docs. Defaults to EXACT so the normal seller-form flow (which
+  // requires a geocoded address to publish) needs no changes.
+  locationPrecision LocationPrecision @default(EXACT)
 
   // Privacy & Display
   showPhoneNumber Boolean @default(true)

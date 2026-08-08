@@ -137,7 +137,9 @@
     field("Cash Flow / SDE ($)", "mlCf", guess.cashFlowSDE) +
     field("Description", "mlDesc", guess.description, true) +
     '<div style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px;font-weight:700;color:#0d9488">Location</div>' +
-    field("Full address (optional)", "mlAddress", "") +
+    '<label style="display:block;margin:8px 0 2px;font-weight:600">Full address (optional)</label>' +
+    '<input id="mlAddress" placeholder="Start typing an address…" autocomplete="off" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ccc;border-radius:6px"/>' +
+    '<div id="mlAddrResults" style="position:relative"></div>' +
     '<div style="font-size:11px;color:#666;margin:2px 0 0">Leave blank if the source doesn\'t show it — the public page then shows a circle around the general area instead of an exact pin.</div>' +
     check("Hide address from the public site", "mlHideAddr") +
     field("Neighborhood", "mlHood", "") +
@@ -258,6 +260,53 @@
     };
   })();
 
+  // ---- Address autocomplete (same UX as the listing form's Mapbox autofill,
+  //      proxied through the server so the Mapbox token stays private).
+  //      Picking a suggestion also fills neighborhood/borough/ZIP and pins the
+  //      exact coordinates so the server doesn't have to re-geocode. ----
+  var mlGeo = { lat: null, lng: null };
+  (function addressAutocomplete() {
+    var input = document.getElementById("mlAddress");
+    var box = document.getElementById("mlAddrResults");
+    if (!input || !box) return;
+    var timer = null;
+    function render(list) {
+      if (!list.length) { box.innerHTML = ""; return; }
+      box.innerHTML = '<div style="border:1px solid #ccc;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow:auto;background:#fff">' +
+        list.map(function (s, i) {
+          return '<div data-i="' + i + '" class="mlAOpt" style="padding:6px 8px;cursor:pointer;border-top:1px solid #f0f0f0;font-size:12px">' + (s.label || "").replace(/</g, "&lt;") + '</div>';
+        }).join("") + '</div>';
+      Array.prototype.forEach.call(box.querySelectorAll(".mlAOpt"), function (el) {
+        el.onmouseover = function () { el.style.background = "#f3f4f6"; };
+        el.onmouseout = function () { el.style.background = "#fff"; };
+        el.onclick = function () {
+          var s = list[+el.getAttribute("data-i")];
+          input.value = s.address || s.label || "";
+          if (s.zipCode) document.getElementById("mlZip").value = s.zipCode;
+          if (s.neighborhood) document.getElementById("mlHood").value = s.neighborhood;
+          if (s.borough) document.getElementById("mlBorough").value = s.borough;
+          mlGeo.lat = s.latitude; mlGeo.lng = s.longitude;
+          box.innerHTML = "";
+        };
+      });
+    }
+    input.oninput = function () {
+      // Typing again invalidates a previously picked point — the server will
+      // geocode whatever free text is submitted instead.
+      mlGeo.lat = null; mlGeo.lng = null;
+      var q = input.value.trim();
+      clearTimeout(timer);
+      if (q.length < 3) { box.innerHTML = ""; return; }
+      timer = setTimeout(function () {
+        fetch(cfg.base + "/api/admin/import/geocode?q=" + encodeURIComponent(q), {
+          headers: { "Authorization": "Bearer " + cfg.token }, mode: "cors"
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          render((d && d.data) || []);
+        }).catch(function () { box.innerHTML = ""; });
+      }, 300);
+    };
+  })();
+
   // Populate the Category dropdown from MercatoList's canonical list so the
   // import always lands in a real category. Falls back to a free-text input if
   // the list can't be fetched (offline / CORS blocked by the source site).
@@ -350,6 +399,9 @@
         // hideAddress so the public map shows a general-area circle, no pin.
         address: v("mlAddress"), hideAddress: cb("mlHideAddr"),
         neighborhood: v("mlHood"), borough: v("mlBorough"), zipCode: v("mlZip"),
+        // Exact point from the autocomplete pick (null when typed free-form —
+        // the server geocodes the address text in that case).
+        latitude: mlGeo.lat, longitude: mlGeo.lng,
         // More financials
         netIncome: v("mlNet"), monthlyRent: v("mlRent"), rentEscalation: v("mlRentEsc"),
         annualPayroll: v("mlPayroll"), totalExpenses: v("mlExpenses"),

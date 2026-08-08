@@ -192,7 +192,7 @@ export function ListingMap({
           {hideAddress && (
             <div className="flex items-center gap-2 rounded-lg bg-muted-foreground/5 px-4 py-2.5 text-sm text-muted-foreground">
               <Shield className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span>Approximate location shown for privacy</span>
+              <span>Approximate location — inquire for the exact address</span>
             </div>
           )}
           <a
@@ -231,7 +231,7 @@ export function ListingMap({
         {hideAddress && mapLoaded && (
           <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg bg-white/90 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
             <Shield className="h-3.5 w-3.5 text-teal" strokeWidth={2} />
-            Approximate location — exact address hidden
+            Approximate location — inquire for the exact address
           </div>
         )}
         {!hideAddress && address && mapLoaded && (

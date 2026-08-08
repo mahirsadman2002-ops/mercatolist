@@ -102,6 +102,7 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
         initialData={initialData}
         listingId={id}
         isAdmin={session?.user?.role === "ADMIN"}
+        isOwner={listing.listedById === session.user.id}
       />
     </div>
   );

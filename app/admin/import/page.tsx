@@ -60,6 +60,11 @@ export default function AdminImportPage() {
             <li>The listing publishes live immediately under that seller&apos;s account.</li>
           </ol>
           <div className="mt-3 rounded-md border bg-muted/30 p-3 text-muted-foreground">
+            <strong>Address:</strong> optional. If you enter one it&apos;s geocoded to an exact map pin (with a
+            &quot;hide address&quot; checkbox to keep it private); if you leave it blank, the public listing shows a
+            circle around the general area instead of a pin.
+          </div>
+          <div className="mt-3 rounded-md border bg-muted/30 p-3 text-muted-foreground">
             <strong>Photos:</strong> open sites (like East Coast) import automatically. <strong>BizBuySell</strong> blocks
             photo grabbing, so for those you&apos;ll add photos by hand afterward (edit the listing in Admin → Listings).
             All the text fields still auto-fill.

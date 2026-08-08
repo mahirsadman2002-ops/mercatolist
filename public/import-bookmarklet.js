@@ -63,6 +63,12 @@
     return Object.keys(urls).slice(0, 15);
   }
 
+  // Non-money page-text matches (year established, employee count, sqft, …).
+  function rawMatch(re) {
+    var m = re.exec(document.body.innerText || "");
+    return m ? m[1].replace(/,/g, "") : "";
+  }
+
   var ld = jsonLd();
   var guess = {
     title: ld.name || meta("og:title") || document.title || "",
@@ -70,6 +76,14 @@
     askingPrice: ld.price || money("Asking Price") || money("Price"),
     cashFlowSDE: money("Cash Flow") || money("SDE"),
     annualRevenue: money("Gross Revenue") || money("Revenue") || money("Sales"),
+    netIncome: money("Net Income") || money("EBITDA"),
+    monthlyRent: money("Monthly Rent") || money("Rent"),
+    annualPayroll: money("Payroll"),
+    inventoryValue: money("Inventory"),
+    ffeValue: money("FF&E") || money("FFE"),
+    yearEstablished: rawMatch(/(?:established|est\.?)[^0-9]{0,20}((?:19|20)\d{2})/i),
+    numberOfEmployees: rawMatch(/employees?[^0-9]{0,15}(\d{1,3})\b/i),
+    squareFootage: rawMatch(/([\d,]{3,7})\s*(?:sq\.?\s*ft|square\s*f[e]*t)/i),
   };
   var imageUrls = collectImages();
   // Snapshot the SOURCE page text now, before we inject our panel — otherwise
@@ -83,6 +97,21 @@
     return '<label style="display:block;margin:8px 0 2px;font-weight:600">' + label + '</label>' +
       (ta ? '<textarea id="' + id + '" rows="4" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ccc;border-radius:6px">' + (val || "").replace(/</g, "&lt;") + '</textarea>'
           : '<input id="' + id + '" value="' + String(val || "").replace(/"/g, "&quot;") + '" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ccc;border-radius:6px"/>');
+  }
+  // Checkbox row (defaults to unchecked → false).
+  function check(label, id) {
+    return '<label style="display:flex;align-items:center;gap:6px;margin:8px 0 2px;font-weight:600;cursor:pointer"><input type="checkbox" id="' + id + '" style="margin:0"/>' + label + '</label>';
+  }
+  // Tri-state Yes/No/blank select — blank means "unknown", stored as null.
+  function triSelect(label, id) {
+    return '<label style="display:block;margin:8px 0 2px;font-weight:600">' + label + '</label>' +
+      '<select id="' + id + '" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>';
+  }
+  // Collapsible group of optional fields, styled like the section headers.
+  function section(title, inner) {
+    return '<details style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px">' +
+      '<summary style="font-weight:700;color:#0d9488;cursor:pointer">' + title + ' <span style="font-weight:400;color:#999;font-size:11px">(optional)</span></summary>' +
+      inner + '</details>';
   }
   var boroughs = ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN_ISLAND"];
   panel.innerHTML =
@@ -106,11 +135,43 @@
     field("Asking Price ($)", "mlPrice", guess.askingPrice) +
     field("Annual Revenue ($)", "mlRev", guess.annualRevenue) +
     field("Cash Flow / SDE ($)", "mlCf", guess.cashFlowSDE) +
+    field("Description", "mlDesc", guess.description, true) +
+    '<div style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px;font-weight:700;color:#0d9488">Location</div>' +
+    field("Full address (optional)", "mlAddress", "") +
+    '<div style="font-size:11px;color:#666;margin:2px 0 0">Leave blank if the source doesn\'t show it — the public page then shows a circle around the general area instead of an exact pin.</div>' +
+    check("Hide address from the public site", "mlHideAddr") +
     field("Neighborhood", "mlHood", "") +
     '<label style="display:block;margin:8px 0 2px;font-weight:600">Borough</label>' +
     '<select id="mlBorough" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px">' + boroughs.map(function (b) { return '<option value="' + b + '">' + b + '</option>'; }).join("") + '</select>' +
     field("ZIP", "mlZip", "") +
-    field("Description", "mlDesc", guess.description, true) +
+    section("More financials",
+      field("Net Income ($)", "mlNet", guess.netIncome) +
+      field("Monthly Rent ($)", "mlRent", guess.monthlyRent) +
+      field("Rent Escalation", "mlRentEsc", "") +
+      field("Annual Payroll ($)", "mlPayroll", guess.annualPayroll) +
+      field("Total Expenses ($)", "mlExpenses", "") +
+      field("Inventory Value ($)", "mlInv", guess.inventoryValue) +
+      triSelect("Inventory included in price?", "mlInvInc") +
+      field("FF&amp;E Value ($)", "mlFfe", guess.ffeValue) +
+      triSelect("FF&amp;E included in price?", "mlFfeInc") +
+      check("Seller financing available", "mlSellerFin") +
+      check("SBA financing available", "mlSba") +
+      check("Asset sale", "mlAsset")
+    ) +
+    section("Business details",
+      field("Year Established", "mlYear", guess.yearEstablished) +
+      field("Number of Employees", "mlEmp", guess.numberOfEmployees) +
+      triSelect("Employees willing to stay?", "mlEmpStay") +
+      '<label style="display:block;margin:8px 0 2px;font-weight:600">Owner Involvement</label>' +
+      '<select id="mlOwnerInv" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px"><option value="">—</option><option value="OWNER_OPERATED">Owner-operated</option><option value="ABSENTEE">Absentee</option></select>' +
+      field("Owner Hours / Week", "mlOwnerHrs", "") +
+      field("Square Footage", "mlSqft", guess.squareFootage) +
+      field("Lease Terms", "mlLease", "") +
+      triSelect("Lease renewal option?", "mlLeaseRenew") +
+      field("Reason for Selling", "mlReason", "", true) +
+      field("Licenses &amp; Permits", "mlLicenses", "", true) +
+      field("Training &amp; Support", "mlTraining", "", true)
+    ) +
     '<div style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px;font-weight:700;color:#0d9488">Photos</div>' +
     '<div style="font-size:11px;color:#666;margin-bottom:6px">Click a photo to cycle: <b style="color:#3b82f6">Listing</b> → <b style="color:#0d9488">Profile pic</b> → <b style="color:#999">Skip</b>. Profile pic is optional.</div>' +
     '<div id="mlPhotoGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>' +
@@ -268,6 +329,9 @@
   document.getElementById("mlGo").onclick = function () {
     var status = document.getElementById("mlStatus");
     var v = function (id) { var e = document.getElementById(id); return e ? e.value.trim() : ""; };
+    var cb = function (id) { var e = document.getElementById(id); return e ? !!e.checked : false; };
+    // Tri-state select → true/false/null (null = unknown, left blank).
+    var tri = function (id) { var s = v(id); return s === "yes" ? true : (s === "no" ? false : null); };
     // Remember seller defaults for the next listing.
     cfg.sellerName = v("mlSName"); cfg.sellerEmail = v("mlSEmail"); cfg.sellerPhone = v("mlSPhone");
     cfg.sellerType = v("mlSType"); cfg.sellerBrokerage = v("mlSBrokerage"); saveConfig(cfg);
@@ -281,8 +345,22 @@
       listing: {
         title: v("mlTitle"), category: v("mlCategory"), askingPrice: v("mlPrice"),
         annualRevenue: v("mlRev"), cashFlowSDE: v("mlCf"),
-        neighborhood: v("mlHood"), borough: v("mlBorough"), zipCode: v("mlZip"),
         description: v("mlDesc"),
+        // Location — address is optional; without one the server forces
+        // hideAddress so the public map shows a general-area circle, no pin.
+        address: v("mlAddress"), hideAddress: cb("mlHideAddr"),
+        neighborhood: v("mlHood"), borough: v("mlBorough"), zipCode: v("mlZip"),
+        // More financials
+        netIncome: v("mlNet"), monthlyRent: v("mlRent"), rentEscalation: v("mlRentEsc"),
+        annualPayroll: v("mlPayroll"), totalExpenses: v("mlExpenses"),
+        inventoryValue: v("mlInv"), inventoryIncluded: tri("mlInvInc"),
+        ffeValue: v("mlFfe"), ffeIncluded: tri("mlFfeInc"),
+        sellerFinancing: cb("mlSellerFin"), sbaFinancingAvailable: cb("mlSba"), assetSale: cb("mlAsset"),
+        // Business details
+        yearEstablished: v("mlYear"), numberOfEmployees: v("mlEmp"), employeesWillingToStay: tri("mlEmpStay"),
+        ownerInvolvement: v("mlOwnerInv") || null, ownerHoursPerWeek: v("mlOwnerHrs"),
+        squareFootage: v("mlSqft"), leaseTerms: v("mlLease"), leaseRenewalOption: tri("mlLeaseRenew"),
+        reasonForSelling: v("mlReason"), licensesPermits: v("mlLicenses"), trainingSupport: v("mlTraining"),
       },
     };
 

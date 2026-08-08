@@ -52,6 +52,10 @@ interface ListingFormProps {
   listingId?: string;
   /** Admins can save listings without a full address (hidden/unknown). */
   isAdmin?: boolean;
+  /** False when an admin is editing someone else's listing — changes the save
+   *  button copy and returns them to the admin listings table instead of
+   *  their own /my-listings. */
+  isOwner?: boolean;
 }
 
 interface FormData {
@@ -1876,8 +1880,13 @@ function ReviewField({ label, value }: { label: string; value: string }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function ListingForm({ mode, initialData, listingId, isAdmin = false }: ListingFormProps) {
+export function ListingForm({ mode, initialData, listingId, isAdmin = false, isOwner = true }: ListingFormProps) {
   const router = useRouter();
+  // A published (non-draft) listing is being edited — "Save Draft" would be
+  // misleading since saving never unpublishes it.
+  const isDraft = mode === "create" || (initialData?.status ?? "DRAFT") === "DRAFT";
+  // Where the explicit save button should land the editor afterwards.
+  const afterSavePath = isAdmin && !isOwner ? "/admin/listings" : "/my-listings";
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(() =>
     mergeInitialData(initialData),
@@ -2021,15 +2030,17 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false }: L
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   }, []);
 
-  // Explicit "Save Draft" button — saves and redirects to /my-listings.
+  // Explicit save button — saves and returns the editor to their listings
+  // table (/my-listings, or /admin/listings for an admin editing someone
+  // else's listing).
   const handleSaveDraft = useCallback(async () => {
     const saved = await saveDraftToServer({ silent: false });
     if (saved) {
-      toast.success("Saved to drafts");
-      router.push("/my-listings");
+      toast.success(isDraft ? "Saved to drafts" : "Changes saved");
+      router.push(afterSavePath);
       router.refresh();
     }
-  }, [saveDraftToServer, router]);
+  }, [saveDraftToServer, router, isDraft, afterSavePath]);
 
   const handleSubmit = useCallback(async () => {
     // Re-validate all steps before submitting
@@ -2090,7 +2101,9 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false }: L
       toast.success(
         mode === "create" && !targetId
           ? "Listing created successfully!"
-          : "Listing published!"
+          : isDraft
+            ? "Listing published!"
+            : "Changes saved!"
       );
 
       router.push(slug ? `/listings/${slug}` : "/my-listings");
@@ -2102,7 +2115,7 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false }: L
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, mode, serverDraftId, router]);
+  }, [formData, mode, serverDraftId, router, isDraft, isAdmin]);
 
   // Render the autosave pill — small status line that lives next to the Save Draft button.
   function renderAutosavePill() {
@@ -2152,7 +2165,7 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false }: L
           ) : (
             <Upload className="size-3.5" />
           )}
-          Save Draft
+          {isDraft ? "Save Draft" : "Save Changes"}
         </Button>
       </div>
 

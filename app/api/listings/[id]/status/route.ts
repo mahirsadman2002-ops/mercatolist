@@ -46,7 +46,10 @@ export async function PUT(
       );
     }
 
-    if (listing.listedById !== session.user.id) {
+    // Owner or admin — must match the main PUT route, which already lets
+    // admins edit any listing; otherwise an admin edit saves the fields but
+    // errors here on the status flip.
+    if (listing.listedById !== session.user.id && session.user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "Not authorized to modify this listing" },
         { status: 403 }

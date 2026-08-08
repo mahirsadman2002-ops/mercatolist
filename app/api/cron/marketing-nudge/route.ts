@@ -6,7 +6,7 @@ import MarketingNudge from "@/emails/marketing-nudge";
 
 // POST: Weekly marketing nudge emails for users with saved listings
 // Sends a "still interested?" email with stats about their saved listings.
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
@@ -118,3 +118,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Vercel Cron invokes with GET; POST kept for manual triggering
+export { handler as GET, handler as POST };

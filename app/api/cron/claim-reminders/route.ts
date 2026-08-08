@@ -8,7 +8,7 @@ import { sendClaimEmail } from "@/lib/claim";
 // ≥2 days apart. After the cap, admin can still resend manually (resend-invite).
 const MAX_REMINDERS = 3;
 
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
@@ -48,3 +48,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
+
+// Vercel Cron invokes with GET; POST kept for manual triggering
+export { handler as GET, handler as POST };

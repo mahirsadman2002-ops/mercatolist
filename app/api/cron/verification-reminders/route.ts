@@ -9,7 +9,7 @@ import { requireCron } from "@/lib/cron-auth";
 // the claim-reminders cron and are excluded here.
 const MAX_REMINDERS = 2;
 
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
@@ -84,3 +84,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Vercel Cron invokes with GET; POST kept for manual triggering
+export { handler as GET, handler as POST };

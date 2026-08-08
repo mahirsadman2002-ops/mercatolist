@@ -8,7 +8,7 @@ import {
 
 // POST: 30-day listing status confirmation emails (one per listing)
 // Secured with CRON_SECRET header
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
@@ -69,3 +69,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Vercel Cron invokes with GET; POST kept for manual triggering
+export { handler as GET, handler as POST };

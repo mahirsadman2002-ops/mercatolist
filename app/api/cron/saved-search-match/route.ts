@@ -17,7 +17,7 @@ interface SearchCriteria {
 
 // POST: Check for new listings matching saved searches
 // Runs on the configured frequency (daily/weekly) and emails users about new matches.
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
@@ -181,3 +181,6 @@ function buildSearchName(criteria: SearchCriteria): string {
   if (criteria.neighborhood) parts.push(criteria.neighborhood);
   return parts.length > 0 ? parts.join(", ") : "All listings";
 }
+
+// Vercel Cron invokes with GET; POST kept for manual triggering
+export { handler as GET, handler as POST };

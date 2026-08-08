@@ -7,7 +7,7 @@ import ListingStatusChange from "@/emails/listing-status-change";
 // POST: 24hr saved listing status change checks
 // Checks all listings that were updated in the last 24 hours and notifies
 // users who have saved those listings about status changes.
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const denied = requireCron(request);
   if (denied) return denied;
 
@@ -110,3 +110,6 @@ function formatStatusLabel(status: string): string {
     default: return status;
   }
 }
+
+// Vercel Cron invokes with GET; POST kept for manual triggering
+export { handler as GET, handler as POST };

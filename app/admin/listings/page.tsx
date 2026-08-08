@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Search, Star, StarOff, ExternalLink, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
+import { MoreHorizontal, Search, Star, StarOff, ExternalLink, ChevronLeft, ChevronRight, Pencil, Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -63,7 +63,16 @@ interface Listing {
   isFeatured: boolean;
   adminNotes: string | null;
   createdAt: string;
-  listedBy: { id: string; name: string; email: string };
+  deletedAt: string | null;
+  listedBy: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+    brokerageName?: string | null;
+    brokeragePhone?: string | null;
+    role?: string | null;
+  };
   photos: { url: string }[];
   _count: { inquiries: number };
 }
@@ -212,6 +221,21 @@ export default function AdminListingsPage() {
     } catch { toast.error("Failed to delete listing"); }
   };
 
+  const handleRestore = async (listing: Listing) => {
+    try {
+      const res = await fetch(`/api/admin/listings/${listing.id}/restore`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Listing restored");
+        fetchListings();
+      } else {
+        toast.error(data.error || "Failed to restore listing");
+      }
+    } catch { toast.error("Failed to restore listing"); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -248,6 +272,7 @@ export default function AdminListingsPage() {
                 <SelectItem value="UNDER_CONTRACT">Under Contract</SelectItem>
                 <SelectItem value="SOLD">Sold</SelectItem>
                 <SelectItem value="OFF_MARKET">Off Market</SelectItem>
+                <SelectItem value="DELETED">Deleted</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={setSortBy}>
@@ -321,14 +346,31 @@ export default function AdminListingsPage() {
                     <TableCell className="text-sm text-muted-foreground">{listing.category}</TableCell>
                     <TableCell className="text-sm">{listing.borough.replace("_", " ")}</TableCell>
                     <TableCell>
-                      <Badge className={STATUS_COLORS[listing.status] || ""}>
-                        {listing.status.replace("_", " ")}
-                      </Badge>
+                      {listing.deletedAt ? (
+                        <Badge className="bg-red-100 text-red-700">Deleted</Badge>
+                      ) : (
+                        <Badge className={STATUS_COLORS[listing.status] || ""}>
+                          {listing.status.replace("_", " ")}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       ${Number(listing.askingPrice).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{listing.listedBy.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div>{listing.listedBy.name}</div>
+                      {(listing.listedBy.brokeragePhone || listing.listedBy.phone) && (
+                        <a
+                          href={`tel:${listing.listedBy.brokeragePhone || listing.listedBy.phone}`}
+                          className="text-xs text-foreground hover:underline"
+                        >
+                          {listing.listedBy.brokeragePhone || listing.listedBy.phone}
+                        </a>
+                      )}
+                      {listing.listedBy.brokerageName && (
+                        <div className="text-xs text-muted-foreground/80">{listing.listedBy.brokerageName}</div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{listing.viewCount}</TableCell>
                     <TableCell className="text-right">{listing._count.inquiries}</TableCell>
                     <TableCell>
@@ -378,9 +420,15 @@ export default function AdminListingsPage() {
                             Admin Notes
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDialog(listing)}>
-                            Delete
-                          </DropdownMenuItem>
+                          {listing.deletedAt ? (
+                            <DropdownMenuItem onClick={() => handleRestore(listing)}>
+                              <RotateCcw className="h-4 w-4 mr-2" /> Restore
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDialog(listing)}>
+                              Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

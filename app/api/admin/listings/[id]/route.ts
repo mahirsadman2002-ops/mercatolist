@@ -93,8 +93,11 @@ export async function DELETE(
       );
     }
 
-    await prisma.businessListing.delete({
+    // Soft delete — preserve the row (and the seller/broker contact) so it can
+    // be reviewed or restored later. See lib/prisma.ts.
+    await prisma.businessListing.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return NextResponse.json({

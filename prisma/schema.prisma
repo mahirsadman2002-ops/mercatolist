@@ -233,6 +233,12 @@ model BusinessListing {
   isGhostListing Boolean       @default(false)
   shareToken     String?       @unique
 
+  // Soft delete: "deleting" a listing sets this timestamp instead of removing
+  // the row. A global Prisma extension (lib/prisma.ts) hides deletedAt != null
+  // from every normal query; admins can still see/restore them. Nothing — and
+  // no seller/broker contact info — is ever truly lost on a delete.
+  deletedAt DateTime?
+
   // Basic Info
   title       String
   description String @db.Text
@@ -333,6 +339,7 @@ model BusinessListing {
   @@index([listedById])
   @@index([slug])
   @@index([status, category, borough])
+  @@index([deletedAt])
 }
 
 model Photo {

@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
       where.listedById = userId;
     }
 
-    if (status) {
+    if (status === "DELETED") {
+      // Soft-deleted listings. The global filter injects deletedAt: null only
+      // when it's unset, so specifying it here surfaces the deleted rows.
+      where.deletedAt = { not: null };
+    } else if (status) {
       where.status = status as Prisma.EnumListingStatusFilter;
     }
 
@@ -69,6 +73,12 @@ export async function GET(request: NextRequest) {
               id: true,
               name: true,
               email: true,
+              // Admins get full contact on deleted listings so a lost broker is
+              // always reachable — the whole point of soft delete.
+              phone: true,
+              brokerageName: true,
+              brokeragePhone: true,
+              role: true,
             },
           },
           photos: {

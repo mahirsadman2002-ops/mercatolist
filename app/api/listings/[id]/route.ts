@@ -291,7 +291,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    await prisma.businessListing.delete({ where: { id } });
+    // Soft delete: stamp deletedAt instead of destroying the row. The global
+    // Prisma filter hides it from every normal query, but admins can still see
+    // it (with full seller/broker contact) and restore it if needed. Guard
+    // against re-deleting an already-deleted listing.
+    if (listing.deletedAt) {
+      return NextResponse.json(
+        { success: false, error: "Listing already deleted" },
+        { status: 404 }
+      );
+    }
+    await prisma.businessListing.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting listing:", error);

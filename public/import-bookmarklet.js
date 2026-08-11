@@ -177,19 +177,55 @@
     '<div style="border-top:1px solid #eee;margin:10px 0 4px;padding-top:4px;font-weight:700;color:#0d9488">Photos</div>' +
     '<div style="font-size:11px;color:#666;margin-bottom:6px">Click a photo to cycle: <b style="color:#3b82f6">Listing</b> → <b style="color:#0d9488">Profile pic</b> → <b style="color:#999">Skip</b>. Profile pic is optional.</div>' +
     '<div id="mlPhotoGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>' +
+    '<div id="mlPasteZone" tabindex="0" style="margin-top:8px;padding:10px;border:2px dashed #cbd5d1;border-radius:6px;font-size:11px;color:#666;text-align:center;cursor:pointer;outline:none">' +
+    '\ud83d\udccb If photos fail to auto-import (this site blocks it): right-click a photo \u2192 <b>Copy Image</b>, click here, press <b>\u2318V</b> \u2014 repeat per photo.' +
+    '</div>' +
     '<div id="mlStatus" style="margin:10px 0;font-size:12px;color:#666"></div>' +
     '<button id="mlGo" style="width:100%;padding:10px;background:#0d9488;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Create listing</button>';
   document.body.appendChild(panel);
   document.getElementById("mlClose").onclick = function () { panel.remove(); window.__mlImportOpen = false; };
 
+  // ---- Clipboard paste → listing photo. Copy Image hands us the decoded
+  //      bitmap, sidestepping both CORS and server-side bot walls. ----
+  var pasteZone = document.getElementById("mlPasteZone");
+  pasteZone.onclick = function () { pasteZone.focus(); pasteZone.style.borderColor = "#0d9488"; };
+  // Re-opening the panel re-evals this whole script — drop the previous
+  // document-level listener so pastes aren't handled twice with stale state.
+  if (window.__mlPasteHandler) document.removeEventListener("paste", window.__mlPasteHandler);
+  window.__mlPasteHandler = function (e) {
+    if (!document.getElementById("mlPhotoGrid")) return; // panel closed
+    var items = (e.clipboardData || {}).items || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf("image/") === 0) {
+        e.preventDefault();
+        var f = items[i].getAsFile();
+        var fr = new FileReader();
+        fr.onload = function () {
+          pastedImages.push(fr.result);
+          pastedRoles.push("listing");
+          renderPhotos();
+          pasteZone.innerHTML = '\u2705 ' + pastedImages.length + ' pasted \u2014 copy the next photo and \u2318V again.';
+        };
+        fr.readAsDataURL(f);
+        return;
+      }
+    }
+  };
+  document.addEventListener("paste", window.__mlPasteHandler);
+
   // ---- Photo picker: each detected image is a listing photo (default), the
   //      one profile pic (optional, exclusive), or skipped. ----
   var imgRoles = {};
   imageUrls.forEach(function (u) { imgRoles[u] = "listing"; });
+  // Photos pasted from the clipboard (for sites whose CDNs block both CORS
+  // reads and server-side fetches, e.g. BizBuySell). Each entry is a data URL;
+  // pastedRoles mirrors imgRoles ("listing" | "profile" | "skip").
+  var pastedImages = [];
+  var pastedRoles = [];
   function renderPhotos() {
     var grid = document.getElementById("mlPhotoGrid");
     if (!grid) return;
-    if (!imageUrls.length) { grid.innerHTML = '<div style="font-size:11px;color:#888">No photos detected — you can add them later in Admin.</div>'; return; }
+    if (!imageUrls.length && !pastedImages.length) { grid.innerHTML = '<div style="font-size:11px;color:#888">No photos detected — paste some below, or add them later in Admin.</div>'; return; }
     grid.innerHTML = imageUrls.map(function (u, i) {
       var role = imgRoles[u];
       var col = role === "profile" ? "#0d9488" : (role === "skip" ? "#bbb" : "#3b82f6");
@@ -199,8 +235,30 @@
         '<img src="' + u + '" style="width:100%;height:100%;object-fit:cover"/>' +
         '<div style="position:absolute;left:0;right:0;bottom:0;background:' + col + ';color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:13px">' + label + '</div>' +
         '</div>';
+    }).join("") + pastedImages.map(function (d, i) {
+      var role = pastedRoles[i];
+      var col = role === "profile" ? "#0d9488" : (role === "skip" ? "#bbb" : "#3b82f6");
+      var label = role === "profile" ? "PFP" : (role === "skip" ? "Skip" : "Pasted");
+      var op = role === "skip" ? "0.45" : "1";
+      return '<div class="mlThumb" data-p="' + i + '" title="Click to change" style="position:relative;width:58px;height:58px;border-radius:6px;overflow:hidden;border:2px solid ' + col + ';cursor:pointer;opacity:' + op + '">' +
+        '<img src="' + d + '" style="width:100%;height:100%;object-fit:cover"/>' +
+        '<div style="position:absolute;left:0;right:0;bottom:0;background:' + col + ';color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:13px">' + label + '</div>' +
+        '</div>';
     }).join("");
-    Array.prototype.forEach.call(grid.querySelectorAll(".mlThumb"), function (el) {
+    Array.prototype.forEach.call(grid.querySelectorAll(".mlThumb[data-p]"), function (el) {
+      el.onclick = function () {
+        var i = +el.getAttribute("data-p");
+        var cur = pastedRoles[i];
+        var next = cur === "listing" ? "profile" : (cur === "profile" ? "skip" : "listing");
+        if (next === "profile") {
+          Object.keys(imgRoles).forEach(function (k) { if (imgRoles[k] === "profile") imgRoles[k] = "listing"; });
+          pastedRoles = pastedRoles.map(function (r) { return r === "profile" ? "listing" : r; });
+        }
+        pastedRoles[i] = next;
+        renderPhotos();
+      };
+    });
+    Array.prototype.forEach.call(grid.querySelectorAll(".mlThumb:not([data-p])"), function (el) {
       el.onclick = function () {
         var u = imageUrls[+el.getAttribute("data-i")];
         var cur = imgRoles[u];
@@ -208,6 +266,7 @@
         if (next === "profile") {
           // Only one profile pic — demote any other back to a listing photo.
           Object.keys(imgRoles).forEach(function (k) { if (imgRoles[k] === "profile") imgRoles[k] = "listing"; });
+          pastedRoles = pastedRoles.map(function (r) { return r === "profile" ? "listing" : r; });
         }
         imgRoles[u] = next;
         renderPhotos();
@@ -433,10 +492,14 @@
       }).catch(function (e) { status.textContent = "❌ " + e.message; });
     }
 
+    var pastedListing = pastedImages.filter(function (d, i) { return pastedRoles[i] === "listing"; });
+    var pastedProfile = pastedImages.filter(function (d, i) { return pastedRoles[i] === "profile"; })[0] || null;
+
     status.textContent = "Reading photos…";
     toDataUrls(listingUrls, function (dataUrls, failed) {
-      payloadBase.photoData = dataUrls;   // listing images read in-browser
+      payloadBase.photoData = dataUrls.concat(pastedListing);   // in-browser reads + clipboard pastes
       payloadBase.photoUrls = failed;     // server best-efforts the rest
+      if (pastedProfile) payloadBase.avatarData = pastedProfile;
       if (profileUrl) {
         readOne(profileUrl, function (dataUrl) {
           if (dataUrl) payloadBase.avatarData = dataUrl; else payloadBase.avatarUrl = profileUrl;

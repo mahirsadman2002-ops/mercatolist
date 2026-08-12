@@ -503,6 +503,32 @@ model CollectionAccessRequest {
   @@index([status])
 }
 
+// One row per outbound email attempt (success or failure), written by
+// lib/email.ts sendEmail. Powers the admin "Emails" page. Resend remains the
+// source of truth for delivery/bounces — this is the app-side send record.
+model EmailLog {
+  id       String  @id @default(uuid())
+  to       String
+  subject  String
+  // React Email component name, e.g. "SavedSearchMatch" — which campaign/type.
+  template String?
+  status   EmailStatus
+  error    String?
+  // Resend's message id, for cross-referencing in their dashboard.
+  resendId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([template])
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+}
+
 model SavedSearch {
   id     String  @id @default(uuid())
   userId String

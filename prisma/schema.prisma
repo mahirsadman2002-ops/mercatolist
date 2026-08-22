@@ -75,6 +75,8 @@ enum EmailFrequency {
 
 enum BlogPostStatus {
   DRAFT
+  // Auto-publishes via the blog-publish cron once scheduledFor passes.
+  SCHEDULED
   PUBLISHED
 }
 
@@ -659,6 +661,11 @@ model BlogPost {
   status          BlogPostStatus @default(DRAFT)
   authorId        String
   publishedAt     DateTime?
+  // When status = SCHEDULED: the cron publishes at/after this time.
+  scheduledFor    DateTime?
+  // IG/TikTok carousel slides [{heading, text}] — rendered to images and
+  // emailed to the owner when the post goes live.
+  carouselPoints  Json?
   viewCount       Int            @default(0)
 
   author User @relation(fields: [authorId], references: [id])

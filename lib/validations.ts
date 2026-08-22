@@ -344,7 +344,13 @@ export const blogPostCreateSchema = z.object({
   metaDescription: z.string().max(160).optional().nullable(),
   category: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional().default([]),
-  status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
+  status: z.enum(["DRAFT", "SCHEDULED", "PUBLISHED"]).default("DRAFT"),
+  scheduledFor: z.string().datetime().optional().nullable(),
+  carouselPoints: z
+    .array(z.object({ heading: z.string().max(120), text: z.string().max(300) }))
+    .max(10)
+    .optional()
+    .nullable(),
 });
 
 export const blogPostUpdateSchema = z.object({
@@ -356,7 +362,13 @@ export const blogPostUpdateSchema = z.object({
   metaDescription: z.string().max(160).optional().nullable(),
   category: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional(),
-  status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
+  status: z.enum(["DRAFT", "SCHEDULED", "PUBLISHED"]).optional(),
+  scheduledFor: z.string().datetime().optional().nullable(),
+  carouselPoints: z
+    .array(z.object({ heading: z.string().max(120), text: z.string().max(300) }))
+    .max(10)
+    .optional()
+    .nullable(),
 });
 
 export const adminListingUpdateSchema = z.object({

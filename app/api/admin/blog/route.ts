@@ -86,6 +86,13 @@ export async function POST(request: NextRequest) {
       slug = `${slug}-${randomChars}`;
     }
 
+    if (data.status === "SCHEDULED" && !data.scheduledFor) {
+      return NextResponse.json(
+        { success: false, error: "Scheduled posts need a scheduledFor date" },
+        { status: 400 }
+      );
+    }
+
     const postData: Record<string, unknown> = {
       ...data,
       slug,

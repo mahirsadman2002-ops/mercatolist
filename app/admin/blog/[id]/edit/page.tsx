@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Globe } from "lucide-react";
+import { ArrowLeft, Save, Globe, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -29,6 +29,7 @@ export default function EditBlogPostPage({ params }: { params: Promise<{ id: str
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [currentStatus, setCurrentStatus] = useState("DRAFT");
+  const [scheduledFor, setScheduledFor] = useState("");
 
   useEffect(() => {
     fetch(`/api/admin/blog/${id}`)
@@ -45,13 +46,21 @@ export default function EditBlogPostPage({ params }: { params: Promise<{ id: str
           setMetaTitle(post.metaTitle || "");
           setMetaDescription(post.metaDescription || "");
           setCurrentStatus(post.status);
+          if (post.scheduledFor) {
+            // ISO → datetime-local value (local time, minutes precision)
+            const d = new Date(post.scheduledFor);
+            const pad = (x: number) => String(x).padStart(2, "0");
+            setScheduledFor(
+              `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+            );
+          }
         }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleSave = async (status?: "DRAFT" | "PUBLISHED") => {
+  const handleSave = async (status?: "DRAFT" | "SCHEDULED" | "PUBLISHED") => {
     if (!title.trim() || !content.trim()) {
       toast.error("Title and content are required");
       return;
@@ -70,6 +79,14 @@ export default function EditBlogPostPage({ params }: { params: Promise<{ id: str
         metaDescription: metaDescription || null,
       };
       if (status) body.status = status;
+      if (status === "SCHEDULED") {
+        if (!scheduledFor) {
+          toast.error("Pick a date and time to schedule");
+          setSaving(false);
+          return;
+        }
+        body.scheduledFor = new Date(scheduledFor).toISOString();
+      }
 
       const res = await fetch(`/api/admin/blog/${id}`, {
         method: "PUT",
@@ -108,13 +125,28 @@ export default function EditBlogPostPage({ params }: { params: Promise<{ id: str
           </Button>
           <h1 className="text-3xl font-bold">Edit Post</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => handleSave()} disabled={saving}>
             <Save className="h-4 w-4 mr-2" /> Save
           </Button>
-          {currentStatus === "DRAFT" ? (
+          {currentStatus !== "PUBLISHED" && (
+            <>
+              <Input
+                type="datetime-local"
+                value={scheduledFor}
+                onChange={(e) => setScheduledFor(e.target.value)}
+                className="w-52"
+                aria-label="Schedule date and time"
+              />
+              <Button variant="outline" onClick={() => handleSave("SCHEDULED")} disabled={saving}>
+                <CalendarClock className="h-4 w-4 mr-2" />
+                {currentStatus === "SCHEDULED" ? "Reschedule" : "Schedule"}
+              </Button>
+            </>
+          )}
+          {currentStatus !== "PUBLISHED" ? (
             <Button onClick={() => handleSave("PUBLISHED")} disabled={saving}>
-              <Globe className="h-4 w-4 mr-2" /> Publish
+              <Globe className="h-4 w-4 mr-2" /> Publish now
             </Button>
           ) : (
             <Button variant="outline" onClick={() => handleSave("DRAFT")} disabled={saving}>

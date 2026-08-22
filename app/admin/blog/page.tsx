@@ -145,6 +145,7 @@ export default function AdminBlogPage() {
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
                 <SelectItem value="PUBLISHED">Published</SelectItem>
               </SelectContent>
             </Select>
@@ -188,7 +189,7 @@ export default function AdminBlogPage() {
                     <TableCell className="font-medium max-w-[300px] truncate">{post.title}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{post.category || "—"}</TableCell>
                     <TableCell>
-                      <Badge className={post.status === "PUBLISHED" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
+                      <Badge className={post.status === "PUBLISHED" ? "bg-green-100 text-green-700" : post.status === "SCHEDULED" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}>
                         {post.status === "PUBLISHED" ? <Globe className="h-3 w-3 mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
                         {post.status}
                       </Badge>

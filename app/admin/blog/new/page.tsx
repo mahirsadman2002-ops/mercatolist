@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Globe } from "lucide-react";
+import { ArrowLeft, Save, Globe, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -26,10 +26,15 @@ export default function NewBlogPostPage() {
   const [tags, setTags] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
+  const [scheduledFor, setScheduledFor] = useState("");
 
-  const handleSave = async (status: "DRAFT" | "PUBLISHED") => {
+  const handleSave = async (status: "DRAFT" | "SCHEDULED" | "PUBLISHED") => {
     if (!title.trim() || !content.trim()) {
       toast.error("Title and content are required");
+      return;
+    }
+    if (status === "SCHEDULED" && !scheduledFor) {
+      toast.error("Pick a date and time to schedule");
       return;
     }
 
@@ -48,11 +53,20 @@ export default function NewBlogPostPage() {
           metaTitle: metaTitle || null,
           metaDescription: metaDescription || null,
           status,
+          scheduledFor: status === "SCHEDULED" && scheduledFor
+            ? new Date(scheduledFor).toISOString()
+            : null,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(status === "PUBLISHED" ? "Post published!" : "Draft saved!");
+        toast.success(
+          status === "PUBLISHED"
+            ? "Post published!"
+            : status === "SCHEDULED"
+              ? "Post scheduled — carousel email will arrive when it goes live"
+              : "Draft saved!"
+        );
         router.push("/admin/blog");
       } else {
         toast.error(data.error || "Failed to save post");
@@ -73,9 +87,19 @@ export default function NewBlogPostPage() {
           </Button>
           <h1 className="text-3xl font-bold">New Blog Post</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => handleSave("DRAFT")} disabled={saving}>
             <Save className="h-4 w-4 mr-2" /> Save Draft
+          </Button>
+          <Input
+            type="datetime-local"
+            value={scheduledFor}
+            onChange={(e) => setScheduledFor(e.target.value)}
+            className="w-52"
+            aria-label="Schedule date and time"
+          />
+          <Button variant="outline" onClick={() => handleSave("SCHEDULED")} disabled={saving}>
+            <CalendarClock className="h-4 w-4 mr-2" /> Schedule
           </Button>
           <Button onClick={() => handleSave("PUBLISHED")} disabled={saving}>
             <Globe className="h-4 w-4 mr-2" /> Publish

@@ -11,7 +11,7 @@ interface Slide {
 
 const SITE = "https://mercatolist.com";
 
-// Hourly: publish SCHEDULED blog posts whose time has come, then email the
+// Daily (13:00 UTC — Vercel Hobby only allows daily crons): publish SCHEDULED blog posts whose time has come, then email the
 // owner a ready-to-post social carousel (slide image links + caption).
 async function handler(request: Request) {
   const denied = requireCron(request);

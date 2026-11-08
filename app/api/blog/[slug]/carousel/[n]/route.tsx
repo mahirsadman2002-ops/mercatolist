@@ -63,7 +63,7 @@ export async function GET(
               color: isFirst ? "rgba(255,255,255,0.7)" : "#8a9a96",
             }}
           >
-            {idx + 1}/{slides.length}
+            {`${idx + 1}/${slides.length}`}
           </div>
         </div>
 

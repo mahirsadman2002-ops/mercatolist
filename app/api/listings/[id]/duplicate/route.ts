@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugify, generateShareToken } from "@/lib/utils";
+import { generateShareToken } from "@/lib/utils";
+import { uniqueListingSlug } from "@/lib/listing-slug";
 
 export async function POST(
   request: NextRequest,
@@ -38,14 +39,7 @@ export async function POST(
     }
 
     // Generate a unique slug
-    const baseSlug = slugify(`${listing.title} copy`);
-    let slug = baseSlug;
-    const existingSlug = await prisma.businessListing.findUnique({
-      where: { slug },
-    });
-    if (existingSlug) {
-      slug = `${baseSlug}-${Date.now().toString(36)}`;
-    }
+    const slug = await uniqueListingSlug(`${listing.title} copy`);
 
     // Reset per-listing identity/metrics on the copy. listingNumber is @unique
     // and auto-incremented, so it MUST be dropped (copying it would violate the

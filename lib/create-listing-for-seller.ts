@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { slugify } from "@/lib/utils";
+import { uniqueListingSlug } from "@/lib/listing-slug";
 import { sendInstantSearchAlerts } from "@/lib/instant-search-alerts";
 import { Prisma } from "@prisma/client";
 import { sendClaimEmail } from "@/lib/claim";
@@ -132,9 +132,7 @@ export async function createListingForSeller(
   const ownerCreated = ownerResult.created;
 
   const baseTitle = String(listing.title).trim();
-  let slug = slugify(baseTitle);
-  const existing = await prisma.businessListing.findUnique({ where: { slug } });
-  if (existing) slug = `${slug}-${Date.now().toString(36)}`;
+  const slug = await uniqueListingSlug(baseTitle);
 
   const askingPrice = num(listing.askingPrice)!;
   const annualRevenue = num(listing.annualRevenue);

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { sendInstantSearchAlerts } from "@/lib/instant-search-alerts";
 import { auth } from "@/lib/auth";
 import { listingCreateSchema, listingDraftSchema } from "@/lib/validations";
-import { slugify, generateShareToken } from "@/lib/utils";
+import { generateShareToken } from "@/lib/utils";
+import { uniqueListingSlug } from "@/lib/listing-slug";
 import { Prisma } from "@prisma/client";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
@@ -297,13 +298,7 @@ export async function POST(request: NextRequest) {
 
     // Generate slug — use title if present, otherwise a placeholder for drafts.
     const baseTitle = validated.title?.trim() || "untitled-listing";
-    let slug = slugify(baseTitle);
-    const existingSlug = await prisma.businessListing.findUnique({
-      where: { slug },
-    });
-    if (existingSlug) {
-      slug = `${slug}-${Date.now().toString(36)}`;
-    }
+    const slug = await uniqueListingSlug(baseTitle);
 
     const profitMargin =
       validated.annualRevenue && validated.netIncome

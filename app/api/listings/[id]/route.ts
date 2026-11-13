@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugify } from "@/lib/utils";
+import { uniqueListingSlug } from "@/lib/listing-slug";
 import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { listingDraftSchema } from "@/lib/validations";
 
@@ -209,11 +209,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // has been published the slug is permanent, so shared links, alert
     // emails and search results keep working after a title edit.
     if (listing.status === "DRAFT" && rest.title && rest.title !== listing.title) {
-      slug = slugify(rest.title);
-      const existingSlug = await prisma.businessListing.findFirst({
-        where: { slug, id: { not: id } },
-      });
-      if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
+      slug = await uniqueListingSlug(rest.title, id);
     }
 
     // Replace the photo set when the caller sends a photos array.

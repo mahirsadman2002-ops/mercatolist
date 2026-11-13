@@ -11,14 +11,29 @@ interface ReverseGeocodeResult {
   formattedAddress: string;
 }
 
-export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
-  const token = process.env.MAPBOX_ACCESS_TOKEN;
+// The Mapbox token is URL-restricted to this site, so Mapbox rejects requests
+// that arrive without a matching Referer. Browsers send one automatically;
+// these server-side calls have to say where they come from, or every lookup
+// comes back 403 (which is what made /api/geocode return nothing).
+const SITE_ORIGIN = "https://mercatolist.com";
+
+function mapboxToken(): string {
+  const token = process.env.MAPBOX_ACCESS_TOKEN ?? process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!token) throw new Error("MAPBOX_ACCESS_TOKEN is not set");
+  return token;
+}
+
+function mapboxFetch(url: string) {
+  return fetch(url, { headers: { Referer: `${SITE_ORIGIN}/` } });
+}
+
+export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+  const token = mapboxToken();
 
   const encodedAddress = encodeURIComponent(address);
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${token}&limit=1&country=US&bbox=-74.26,40.49,-73.70,40.92`;
 
-  const response = await fetch(url);
+  const response = await mapboxFetch(url);
   if (!response.ok) return null;
 
   const data = await response.json();
@@ -39,12 +54,11 @@ export async function reverseGeocode(
   latitude: number,
   longitude: number
 ): Promise<ReverseGeocodeResult | null> {
-  const token = process.env.MAPBOX_ACCESS_TOKEN;
-  if (!token) throw new Error("MAPBOX_ACCESS_TOKEN is not set");
+  const token = mapboxToken();
 
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${token}&types=neighborhood,postcode,district&limit=5`;
 
-  const response = await fetch(url);
+  const response = await mapboxFetch(url);
   if (!response.ok) return null;
 
   const data = await response.json();
@@ -79,13 +93,12 @@ export async function searchAddresses(
   query: string,
   limit = 5
 ): Promise<Array<{ address: string; latitude: number; longitude: number }>> {
-  const token = process.env.MAPBOX_ACCESS_TOKEN;
-  if (!token) throw new Error("MAPBOX_ACCESS_TOKEN is not set");
+  const token = mapboxToken();
 
   const encodedQuery = encodeURIComponent(query);
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${token}&limit=${limit}&country=US&bbox=-74.26,40.49,-73.70,40.92&types=address`;
 
-  const response = await fetch(url);
+  const response = await mapboxFetch(url);
   if (!response.ok) {
     // A rejected token (401/403) or quota error used to look like "no
     // matches". Fail loudly so the route returns 500 and it shows in logs.

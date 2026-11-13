@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
     return json({ success: true, data: [] });
   }
 
-  const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN;
+  const mapboxToken =
+    process.env.MAPBOX_ACCESS_TOKEN ?? process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!mapboxToken) {
     return json({ success: false, error: "Geocoding is not configured." }, 503);
   }
@@ -56,9 +57,12 @@ export async function GET(request: NextRequest) {
   const url =
     `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
     `?access_token=${mapboxToken}&limit=6&country=US&bbox=-74.26,40.49,-73.70,40.92&types=address&autocomplete=true`;
-  const res = await fetch(url);
+  // The token is URL-restricted to this site; server-side calls must send a
+  // matching Referer or Mapbox answers 403 (see lib/mapbox.ts).
+  const res = await fetch(url, { headers: { Referer: "https://mercatolist.com/" } });
   if (!res.ok) {
-    return json({ success: true, data: [] });
+    console.error("[import-geocode] mapbox failed:", res.status);
+    return json({ success: false, error: "Address lookup is unavailable." }, 502);
   }
   const data = await res.json();
 

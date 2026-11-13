@@ -22,7 +22,8 @@ export async function GET(
         buyBox: true,
         createdAt: true,
         listings: {
-          where: { isGhostListing: false },
+          // Nested reads bypass the soft-delete filter in lib/prisma.ts.
+          where: { isGhostListing: false, deletedAt: null },
           orderBy: { createdAt: "desc" },
           take: 12,
           include: {

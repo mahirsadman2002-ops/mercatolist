@@ -121,7 +121,7 @@ export async function generateMetadata({
     where: {
       category: categoryName,
       borough: borough.value as "MANHATTAN" | "BROOKLYN" | "QUEENS" | "BRONX" | "STATEN_ISLAND",
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
   });
 
@@ -156,7 +156,7 @@ export default async function BoroughCategoryPage({
     where: {
       category: categoryName,
       borough: boroughValue,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
     orderBy: { createdAt: "desc" },
     take: 24,
@@ -177,7 +177,7 @@ export default async function BoroughCategoryPage({
     where: {
       category: categoryName,
       borough: boroughValue,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
   });
 
@@ -187,7 +187,7 @@ export default async function BoroughCategoryPage({
     where: {
       category: categoryName,
       borough: boroughValue,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
     _count: { id: true },
   });
@@ -210,7 +210,7 @@ export default async function BoroughCategoryPage({
     by: ["borough"],
     where: {
       category: categoryName,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
       borough: { not: boroughValue },
     },
     _count: { id: true },

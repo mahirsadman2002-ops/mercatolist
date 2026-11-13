@@ -60,5 +60,15 @@ export function safeInternalPath(
   ) {
     return fallback;
   }
+  // Browsers drop tabs/newlines and treat "\" as "/" when parsing URLs, so
+  // "/\t/evil.com" would resolve to another site. Reject control characters
+  // and backslashes anywhere, then confirm it really resolves same-origin.
+  if (/[\u0000-\u001f\u007f\\]/.test(raw)) return fallback;
+  try {
+    const base = "https://internal.invalid";
+    if (new URL(raw, base).origin !== base) return fallback;
+  } catch {
+    return fallback;
+  }
   return raw;
 }

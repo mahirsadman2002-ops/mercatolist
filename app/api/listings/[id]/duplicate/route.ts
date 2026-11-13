@@ -79,6 +79,12 @@ export async function POST(
         // passes for a tokenless visitor, exposing an "unlisted" listing.
         shareToken: listing.isGhostListing ? generateShareToken() : null,
         title: `${listing.title} (Copy)`,
+        // A copy starts clean: no inherited featured placement, admin
+        // notes or reminder history.
+        isFeatured: false,
+        adminNotes: null,
+        confirmationRemindersSent: 0,
+        lastReminderSentAt: null,
         photos: {
           create: listing.photos.map((photo) => ({
             url: photo.url,

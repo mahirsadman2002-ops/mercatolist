@@ -32,7 +32,7 @@ async function getDefaultFirstPage() {
   try {
     const [listings, total] = await Promise.all([
       prisma.businessListing.findMany({
-        where: { status: "ACTIVE" },
+        where: { status: "ACTIVE", isGhostListing: false },
         orderBy: { createdAt: "desc" },
         take: DEFAULT_LIMIT,
         include: {
@@ -49,7 +49,7 @@ async function getDefaultFirstPage() {
           },
         },
       }),
-      prisma.businessListing.count({ where: { status: "ACTIVE" } }),
+      prisma.businessListing.count({ where: { status: "ACTIVE", isGhostListing: false } }),
     ]);
 
     const sanitized = applyAddressPrivacyToList(listings as any[]);

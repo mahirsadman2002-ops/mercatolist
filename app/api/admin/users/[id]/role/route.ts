@@ -23,6 +23,13 @@ export async function PUT(
       );
     }
 
+    if (id === adminCheck.userId && role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, error: "You can't remove your own admin role" },
+        { status: 400 }
+      );
+    }
+
     const existingUser = await prisma.user.findUnique({
       where: { id },
       select: { id: true },

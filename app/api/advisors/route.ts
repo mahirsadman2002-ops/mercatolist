@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20") || 20));
     const search = searchParams.get("search") || "";
     const borough = searchParams.get("borough") || "";
     const specialty = searchParams.get("specialty") || "";
@@ -37,10 +37,13 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    // The sort keys (review count, average rating, active listings) are
+    // computed, so every matching advisor is loaded and ranked first and the
+    // page is cut afterwards. Paginating in the query and sorting each page
+    // separately would shuffle the order across pages.
     const advisors = await prisma.user.findMany({
       where,
-      skip,
-      take: limit,
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,
@@ -53,7 +56,7 @@ export async function GET(request: NextRequest) {
         specialties: true,
         createdAt: true,
         listings: {
-          where: { isGhostListing: false, status: "ACTIVE" },
+          where: { isGhostListing: false, status: "ACTIVE", deletedAt: null },
           select: { id: true },
         },
         receivedReviews: {
@@ -62,7 +65,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const total = await prisma.user.count({ where });
+    const total = advisors.length;
 
     // Map and compute stats
     let results = advisors.map((advisor) => {
@@ -110,6 +113,8 @@ export async function GET(request: NextRequest) {
         );
         break;
     }
+
+    results = results.slice(skip, skip + limit);
 
     return NextResponse.json({
       success: true,

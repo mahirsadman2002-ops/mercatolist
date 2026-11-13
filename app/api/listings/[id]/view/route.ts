@@ -17,8 +17,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
-    await prisma.businessListing.update({
-      where: { id },
+    // updateMany: an unknown id is a no-op instead of a thrown 500, and
+    // only publicly visible listings accumulate views.
+    await prisma.businessListing.updateMany({
+      where: { id, status: { in: ["ACTIVE", "UNDER_CONTRACT", "SOLD"] } },
       data: { viewCount: { increment: 1 } },
     });
 

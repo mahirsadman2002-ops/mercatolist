@@ -93,6 +93,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!user || !user.hashedPassword) return null;
+        // Banned accounts can't sign in (checked after the lookup so the
+        // response is the same generic failure as a wrong password).
+        if (user.isBanned) return null;
 
         // TODO: Re-enable email verification check when Resend is fully configured with the domain
         // if (!user.emailVerified) {
@@ -120,37 +123,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         hasProfile: !!profile,
       };
       try {
-        // OAuth providers: always allow sign-in, auto-verify email
-        if (account?.provider === "google" || account?.provider === "apple") {
-          try {
-            if (user.email) {
-              const existingUser = await prisma.user.findUnique({
-                where: { email: user.email },
-              });
-              if (existingUser) {
-                const data: { emailVerified?: Date; claimedAt?: Date; isManaged?: boolean } = {};
-                if (!existingUser.emailVerified) data.emailVerified = new Date();
-                // A managed (imported) owner who signs in with Google has
-                // effectively claimed their account — stop the recurring
-                // "claim your account" emails.
-                if (existingUser.isManaged && !existingUser.claimedAt) {
-                  data.claimedAt = new Date();
-                  data.isManaged = false;
-                }
-                if (Object.keys(data).length > 0) {
-                  await prisma.user.update({ where: { email: user.email }, data });
-                }
-              }
-            }
-          } catch (innerError) {
-            console.error(
-              "[auth][signIn] inner DB error (non-blocking):",
-              ctx,
-              innerError,
-            );
-          }
-          return true;
-        }
+        // Nothing is written here. This callback runs BEFORE Auth.js decides
+        // whether the OAuth identity may use the account (account linking is
+        // off), so mutating the row by email here used to mark an account
+        // verified/claimed even when the sign-in was then rejected — locking
+        // managed owners out of their claim link and letting a squatter's
+        // row get auto-verified. The post-login work lives in events.signIn.
         return true;
       } catch (error) {
         console.error("[auth][signIn] FATAL:", ctx, error);
@@ -169,17 +147,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.id = user.id as string;
         }
 
-        if (trigger === "update" && session) {
-          token.name = session.name;
-          token.role = session.role;
-        }
+        // `session` on an update trigger is whatever the browser posted to
+        // /api/auth/session, so nothing from it is copied into the token —
+        // role and name are always re-read from the database below.
 
         if (token.email) {
           try {
             const dbUser = await prisma.user.findUnique({
               where: { email: token.email },
-              select: { id: true, role: true, name: true, avatarUrl: true, emailVerified: true },
+              select: {
+                id: true,
+                role: true,
+                name: true,
+                avatarUrl: true,
+                emailVerified: true,
+                isBanned: true,
+              },
             });
+            // Deleted or banned account: end the session. (A lookup that
+            // throws falls through to the catch and keeps the existing token,
+            // so a database blip doesn't sign everyone out.)
+            if (!dbUser || dbUser.isBanned) return null;
             if (dbUser) {
               token.id = dbUser.id;
               token.role = dbUser.role;
@@ -250,6 +238,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: user?.email,
         isNewUser,
       });
+      // A successful OAuth login proves the user controls the address: mark it
+      // verified, and treat a managed (imported) owner as having claimed
+      // their account so the "claim your account" emails stop.
+      if (
+        (account?.provider === "google" || account?.provider === "apple") &&
+        user?.id
+      ) {
+        try {
+          const existing = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { emailVerified: true, isManaged: true, claimedAt: true },
+          });
+          if (existing) {
+            const data: { emailVerified?: Date; claimedAt?: Date; isManaged?: boolean } = {};
+            if (!existing.emailVerified) data.emailVerified = new Date();
+            if (existing.isManaged && !existing.claimedAt) {
+              data.claimedAt = new Date();
+              data.isManaged = false;
+            }
+            if (Object.keys(data).length > 0) {
+              await prisma.user.update({ where: { id: user.id }, data });
+            }
+          }
+        } catch (error) {
+          console.error("[auth][event:signIn] post-login update failed:", error);
+        }
+      }
       // For OAuth signups, attach pending Client-based collaborator invites.
       if (isNewUser && user?.id && user?.email) {
         const { attachPendingInvites } = await import(

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { passwordChangeSchema } from "@/lib/validations";
 import bcrypt from "bcryptjs";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 
 export async function PUT(request: NextRequest) {
   try {
@@ -13,6 +14,9 @@ export async function PUT(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const limit = await rateLimit(request, "authEmail", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
 
     const body = await request.json();
     const validated = passwordChangeSchema.parse(body);

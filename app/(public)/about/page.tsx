@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default async function AboutPage() {
   const [activeListings, registeredUsers] = await Promise.all([
-    prisma.businessListing.count({ where: { status: "ACTIVE" } }),
+    prisma.businessListing.count({ where: { status: "ACTIVE", isGhostListing: false } }),
     prisma.user.count(),
   ]);
 

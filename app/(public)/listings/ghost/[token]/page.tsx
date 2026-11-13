@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Lock, Copy, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { applyAddressPrivacy } from "@/lib/address-privacy";
 import { formatCurrency, calculateDaysOnMarket } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +27,13 @@ export const metadata: Metadata = {
 export default async function GhostListingPage({ params }: GhostListingPageProps) {
   const { token } = await params;
 
-  const listing = await prisma.businessListing.findFirst({
-    where: { shareToken: token, isGhostListing: true },
+  const rawListing = await prisma.businessListing.findFirst({
+    // Drafts and off-market listings stay private even with the link.
+    where: {
+      shareToken: token,
+      isGhostListing: true,
+      status: { in: ["ACTIVE", "UNDER_CONTRACT", "SOLD"] },
+    },
     include: {
       photos: { orderBy: { order: "asc" } },
       listedBy: {
@@ -46,9 +52,14 @@ export default async function GhostListingPage({ params }: GhostListingPageProps
     },
   });
 
-  if (!listing) {
+  if (!rawListing || !token) {
     notFound();
   }
+
+  // Same scrubbing as the public listing page: a hidden address stays hidden
+  // (the row is handed to client components, so anything left on it reaches
+  // the browser) and admin-only columns are dropped.
+  const listing = applyAddressPrivacy(rawListing as any) as typeof rawListing;
 
   const daysOnMarket = calculateDaysOnMarket(listing.createdAt);
   const photos = listing.photos.map((p) => ({ id: p.id, url: p.url, order: p.order }));

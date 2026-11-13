@@ -44,19 +44,46 @@ async function handler(request: Request) {
     for (const search of searches) {
       // Check frequency: skip weekly searches that were checked less than 7 days ago
       if (search.lastCheckedAt) {
-        const daysSinceCheck = Math.floor(
-          (Date.now() - search.lastCheckedAt.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        if (search.checkFrequency === "WEEKLY" && daysSinceCheck < 7) continue;
-        if (search.checkFrequency === "DAILY" && daysSinceCheck < 1) continue;
+        // Compared in hours with some slack: the cron doesn't fire at the
+        // exact same second each day, and a whole-day floor made a DAILY
+        // search skip a day whenever today's run was slightly early.
+        const hoursSinceCheck =
+          (Date.now() - search.lastCheckedAt.getTime()) / (1000 * 60 * 60);
+        if (search.checkFrequency === "WEEKLY" && hoursSinceCheck < 6.5 * 24) continue;
+        if (search.checkFrequency === "DAILY" && hoursSinceCheck < 23) continue;
       }
 
-      const criteria = search.criteria as SearchCriteria;
+      // Criteria are user-supplied JSON. Coerce every value to the type the
+      // query expects so one malformed saved search can't throw inside Prisma
+      // and abort the run for everyone after it.
+      const raw = (search.criteria ?? {}) as Record<string, unknown>;
+      const str = (v: unknown) =>
+        typeof v === "string" && v.trim() ? v.trim().slice(0, 200) : undefined;
+      const num = (v: unknown) => {
+        const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      };
+      const BOROUGHS = ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN_ISLAND"];
+      const rawBorough = str(raw.borough);
+      // A borough that isn't a real one can never match a listing.
+      if (rawBorough && !BOROUGHS.includes(rawBorough)) continue;
+      const criteria = {
+        ...(raw as SearchCriteria),
+        category: str(raw.category),
+        borough: rawBorough,
+        neighborhood: str(raw.neighborhood),
+        keyword: str(raw.keyword),
+        priceMin: num(raw.priceMin),
+        priceMax: num(raw.priceMax),
+        revenueMin: num(raw.revenueMin),
+        revenueMax: num(raw.revenueMax),
+      } as SearchCriteria;
       const sinceDate = search.lastCheckedAt || search.createdAt;
 
       // Build Prisma where clause from criteria
       const where: Record<string, unknown> = {
         status: "ACTIVE",
+        isGhostListing: false,
         createdAt: { gt: sinceDate },
       };
 

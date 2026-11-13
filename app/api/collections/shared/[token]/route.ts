@@ -70,6 +70,13 @@ export async function GET(
       );
     }
 
+    // A public link only shows listings that are themselves public: not
+    // deleted, not private, and not a draft or off-market.
+    const isShareable = (cl: (typeof collection.collectionListings)[number]) =>
+      !cl.listing.deletedAt &&
+      !cl.listing.isGhostListing &&
+      ["ACTIVE", "UNDER_CONTRACT", "SOLD"].includes(cl.listing.status);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -77,8 +84,8 @@ export async function GET(
         name: collection.name,
         description: collection.description,
         owner: collection.user,
-        listingCount: collection.collectionListings.length,
-        collectionListings: collection.collectionListings.map((cl) => ({
+        listingCount: collection.collectionListings.filter(isShareable).length,
+        collectionListings: collection.collectionListings.filter(isShareable).map((cl) => ({
           id: cl.id,
           personalRating: cl.personalRating,
           clientInterested: cl.clientInterested ?? null,

@@ -33,8 +33,37 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
-    const clientEmail = body.clientEmail || null;
+    const me = await prisma.user.findUnique({
+      where: { id },
+      select: { role: true, emailVerified: true },
+    });
+    if (!me || (me.role !== "BROKER" && me.role !== "ADMIN")) {
+      return NextResponse.json(
+        { success: false, error: "Only advisors can request reviews" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const rawEmail = typeof body?.clientEmail === "string" ? body.clientEmail.trim() : "";
+    if (rawEmail && (rawEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail))) {
+      return NextResponse.json(
+        { success: false, error: "Invalid email address" },
+        { status: 400 }
+      );
+    }
+    // Emailing someone on the advisor's behalf requires a verified account.
+    if (rawEmail && !me.emailVerified) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "EMAIL_NOT_VERIFIED",
+          error: "Please verify your email before you can email a review request.",
+        },
+        { status: 403 }
+      );
+    }
+    const clientEmail = rawEmail ? rawEmail.toLowerCase() : null;
 
     // Create review token
     const token = uuidv4();

@@ -77,9 +77,16 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
     latitude: listing.latitude ? Number(listing.latitude) : null,
     longitude: listing.longitude ? Number(listing.longitude) : null,
     status: listing.status,
+    // Saving replaces the whole photo set and re-sends assetSale, so both
+    // must round-trip — leaving them out reset the flag and dropped every
+    // photo's resized variants on each edit.
+    assetSale: listing.assetSale,
     photos: listing.photos.map((p) => ({
       url: p.url,
       order: p.order,
+      thumbUrl: p.thumbUrl,
+      cardUrl: p.cardUrl,
+      fullUrl: p.fullUrl,
     })),
   };
 

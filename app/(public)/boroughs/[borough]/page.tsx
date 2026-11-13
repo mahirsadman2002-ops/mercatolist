@@ -93,7 +93,7 @@ export async function generateMetadata({
   const label = boroughValueToLabel(boroughValue);
 
   const count = await prisma.businessListing.count({
-    where: { borough: boroughValue as never, status: "ACTIVE" },
+    where: { borough: boroughValue as never, status: "ACTIVE", isGhostListing: false },
   });
 
   const title = `Businesses for Sale in ${label}`;
@@ -178,12 +178,12 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
 
   // Active listing count for this borough
   const activeCount = await prisma.businessListing.count({
-    where: { borough: boroughValue as never, status: "ACTIVE" },
+    where: { borough: boroughValue as never, status: "ACTIVE", isGhostListing: false },
   });
 
   // Featured listings: top 8 by viewCount
   const featuredListingsRaw = await prisma.businessListing.findMany({
-    where: { borough: boroughValue as never, status: "ACTIVE" },
+    where: { borough: boroughValue as never, status: "ACTIVE", isGhostListing: false },
     orderBy: { viewCount: "desc" },
     take: 8,
     select: {
@@ -223,7 +223,7 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
         where: {
           borough: boroughValue as never,
           neighborhood: name,
-          status: "ACTIVE",
+          status: "ACTIVE", isGhostListing: false,
         },
       });
       return { name, slug: slugify(name), count };
@@ -233,7 +233,7 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
   // Category counts for this borough
   const categoryCountsRaw = await prisma.businessListing.groupBy({
     by: ["category"],
-    where: { borough: boroughValue as never, status: "ACTIVE" },
+    where: { borough: boroughValue as never, status: "ACTIVE", isGhostListing: false },
     _count: { id: true },
     orderBy: { _count: { id: "desc" } },
   });
@@ -248,7 +248,7 @@ export default async function BoroughPage({ params }: BoroughPageProps) {
   const priceAgg = await prisma.businessListing.aggregate({
     where: {
       borough: boroughValue as never,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
       askingPrice: { gt: 0 },
     },
     _min: { askingPrice: true },

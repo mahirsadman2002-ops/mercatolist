@@ -16,8 +16,10 @@ export async function POST(
 
     const { slug } = await params;
 
-    await prisma.blogPost.update({
-      where: { slug },
+    // updateMany: unknown slugs are a no-op (not a 500) and only published
+    // posts count views.
+    await prisma.blogPost.updateMany({
+      where: { slug, status: "PUBLISHED" },
       data: { viewCount: { increment: 1 } },
     });
 

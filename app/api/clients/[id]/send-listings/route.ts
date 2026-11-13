@@ -85,7 +85,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { listingIds, personalMessage } = body;
+    const { listingIds } = body;
+    const personalMessage: string | undefined =
+      typeof body?.personalMessage === "string"
+        ? body.personalMessage.trim().slice(0, 1000)
+        : undefined;
 
     if (!Array.isArray(listingIds) || listingIds.length === 0) {
       return NextResponse.json(

@@ -205,7 +205,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         : listing.askingMultiple;
 
     let slug = listing.slug;
-    if (rest.title && rest.title !== listing.title) {
+    // The URL only follows the title while the listing is a draft. Once it
+    // has been published the slug is permanent, so shared links, alert
+    // emails and search results keep working after a title edit.
+    if (listing.status === "DRAFT" && rest.title && rest.title !== listing.title) {
       slug = slugify(rest.title);
       const existingSlug = await prisma.businessListing.findFirst({
         where: { slug, id: { not: id } },

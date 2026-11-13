@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Verify the listing exists
     const listingExists = await prisma.businessListing.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true, isGhostListing: true, listedById: true },
     });
 
     if (!listingExists) {
@@ -51,6 +51,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         data: { saved: false, saveCount: listing.saveCount },
       });
     } else {
+      // Only listings the viewer could open can be saved. (Unsaving above is
+      // always allowed, so a save made before a listing went private can
+      // still be removed.)
+      const isOwner = listingExists.listedById === session.user.id;
+      const isPublic =
+        !listingExists.isGhostListing &&
+        ["ACTIVE", "UNDER_CONTRACT", "SOLD"].includes(listingExists.status);
+      if (!isOwner && !isPublic) {
+        return NextResponse.json(
+          { success: false, error: "Listing not found" },
+          { status: 404 }
+        );
+      }
       // Save
       await prisma.savedListing.create({
         data: { userId: session.user.id, listingId: id },

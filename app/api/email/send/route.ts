@@ -67,6 +67,54 @@ export async function POST(request: NextRequest) {
 
       let emailReact;
       if (template === "listing-share" && listing) {
+        // The email is sent from MercatoList's address with MercatoList
+        // branding, so its button and image may only point at MercatoList —
+        // never at a link the sender supplies.
+        const SITE_HOSTS = ["mercatolist.com", "www.mercatolist.com"];
+        // Keep only the listing path from whatever URL the client sent and
+        // rebuild the link on the canonical domain.
+        const onSite = (value: unknown): string | null => {
+          if (typeof value !== "string") return null;
+          try {
+            const u = new URL(value);
+            if (!/^\/listings\/[A-Za-z0-9\-_/]+$/.test(u.pathname)) return null;
+            const token = u.searchParams.get("token");
+            return `https://mercatolist.com${u.pathname}${
+              token ? `?token=${encodeURIComponent(token)}` : ""
+            }`;
+          } catch {
+            return null;
+          }
+        };
+        const httpsImage = (value: unknown): string | undefined => {
+          if (typeof value !== "string") return undefined;
+          try {
+            const u = new URL(value);
+            const allowed =
+              SITE_HOSTS.includes(u.hostname) ||
+              u.hostname.endsWith(".cloudfront.net") ||
+              u.hostname.endsWith(".amazonaws.com");
+            return u.protocol === "https:" && allowed ? u.toString() : undefined;
+          } catch {
+            return undefined;
+          }
+        };
+        const text = (value: unknown, max: number) =>
+          typeof value === "string" ? value.slice(0, max) : "";
+        const safeUrl = onSite(listing.url);
+        if (!safeUrl) {
+          return NextResponse.json(
+            { success: false, error: "Invalid listing link" },
+            { status: 400 }
+          );
+        }
+        listing.url = safeUrl;
+        listing.photoUrl = httpsImage(listing.photoUrl);
+        listing.title = text(listing.title, 200);
+        listing.price = text(listing.price, 40);
+        listing.category = text(listing.category, 80);
+        listing.neighborhood = text(listing.neighborhood, 80);
+        listing.borough = text(listing.borough, 40);
         const ListingShareEmail = (await import("@/emails/listing-share")).default;
         emailReact = ListingShareEmail({
           senderName,

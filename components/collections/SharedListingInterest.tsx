@@ -43,7 +43,7 @@ export function SharedListingInterest({
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ interested: newValue ?? false }),
+          body: JSON.stringify({ interested: newValue }),
         }
       );
 

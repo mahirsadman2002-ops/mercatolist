@@ -55,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // and we split brokers vs everyone-else in JS to skip a round-trip.
   const [listings, blogPosts, allUsers] = await Promise.all([
     prisma.businessListing.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", isGhostListing: false },
       select: { slug: true, updatedAt: true, borough: true, category: true, neighborhood: true },
     }),
     prisma.blogPost.findMany({
@@ -70,7 +70,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         role: { not: "ADMIN" },
         OR: [
           { role: "BROKER" },
-          { listings: { some: { status: "ACTIVE" } } },
+          { listings: { some: { status: "ACTIVE", isGhostListing: false } } },
         ],
       },
       select: { id: true, role: true, updatedAt: true },

@@ -137,7 +137,9 @@ export async function POST(
         borough: cl.listing.borough,
         address: cl.listing.hideAddress ? null : cl.listing.address,
         photos: cl.listing.photos,
-        listedBy: cl.listing.listedBy,
+        listedBy: cl.listing.showPhoneNumber
+          ? cl.listing.listedBy
+          : { ...cl.listing.listedBy, phone: null },
         createdAt: cl.listing.createdAt,
       },
     }));

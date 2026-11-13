@@ -160,7 +160,7 @@ export async function generateMetadata({
   }
 
   const count = await prisma.businessListing.count({
-    where: { category: categoryName, status: "ACTIVE" },
+    where: { category: categoryName, status: "ACTIVE", isGhostListing: false },
   });
 
   return {
@@ -196,7 +196,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   // Fetch listings
   const listings = await prisma.businessListing.findMany({
-    where: { category: categoryName, status: "ACTIVE" },
+    where: { category: categoryName, status: "ACTIVE", isGhostListing: false },
     orderBy: { createdAt: "desc" },
     take: 24,
     include: {
@@ -215,7 +215,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   // Borough counts
   const boroughCounts = await prisma.businessListing.groupBy({
     by: ["borough"],
-    where: { category: categoryName, status: "ACTIVE" },
+    where: { category: categoryName, status: "ACTIVE", isGhostListing: false },
     _count: { id: true },
   });
 
@@ -227,13 +227,13 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   // Market stats
   const totalCount = listings.length > 0
     ? await prisma.businessListing.count({
-        where: { category: categoryName, status: "ACTIVE" },
+        where: { category: categoryName, status: "ACTIVE", isGhostListing: false },
       })
     : 0;
 
   const statsAgg = totalCount > 0
     ? await prisma.businessListing.aggregate({
-        where: { category: categoryName, status: "ACTIVE" },
+        where: { category: categoryName, status: "ACTIVE", isGhostListing: false },
         _avg: { askingPrice: true },
         _min: { askingPrice: true },
         _max: { askingPrice: true },

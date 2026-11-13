@@ -18,11 +18,13 @@ export async function PUT(
 
     const { id, listingId } = await params;
 
-    // Verify collection exists and has a client assigned
     const collection = await prisma.collection.findUnique({
       where: { id },
-      include: {
-        client: true,
+      select: {
+        userId: true,
+        client: { select: { email: true } },
+        clientAssignments: { select: { client: { select: { email: true } } } },
+        collaborators: { where: { userId: session.user.id }, select: { id: true } },
       },
     });
 
@@ -33,27 +35,48 @@ export async function PUT(
       );
     }
 
-    // Only the assigned client's linked user can mark interest
-    if (!collection.client || !collection.client.advisorId) {
+    // "Client interest" belongs to the people the collection was put together
+    // for: a client the advisor assigned it to (clients are matched to accounts
+    // by email) or someone the owner invited as a collaborator. The advisor who
+    // owns it can't set it on the client's behalf.
+    // Email matching only counts for a verified address (read fresh from the
+    // database — anyone can sign up with someone else's email).
+    const viewer = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, emailVerified: true },
+    });
+    const viewerEmail = viewer?.emailVerified
+      ? viewer.email.trim().toLowerCase()
+      : undefined;
+    const clientEmails = [
+      collection.client?.email,
+      ...collection.clientAssignments.map((a) => a.client.email),
+    ]
+      .filter((e): e is string => !!e)
+      .map((e) => e.trim().toLowerCase());
+    const isAssignedClient = !!viewerEmail && clientEmails.includes(viewerEmail);
+    const isCollaborator = collection.collaborators.length > 0;
+
+    if (!isAssignedClient && !isCollaborator) {
       return NextResponse.json(
-        { success: false, error: "No client assigned to this collection" },
+        {
+          success: false,
+          error:
+            collection.userId === session.user.id
+              ? "Only your client can mark interest on this collection"
+              : "Only the assigned client can mark interest",
+        },
         { status: 403 }
       );
     }
 
-    if (collection.client.advisorId !== session.user.id) {
-      return NextResponse.json(
-        { success: false, error: "Only the assigned client can mark interest" },
-        { status: 403 }
-      );
-    }
+    const body = await request.json().catch(() => null);
+    const interested = body?.interested;
 
-    const body = await request.json();
-    const { interested } = body;
-
-    if (typeof interested !== "boolean") {
+    // true = interested, false = not interested, null = clear the choice.
+    if (typeof interested !== "boolean" && interested !== null) {
       return NextResponse.json(
-        { success: false, error: "interested must be a boolean" },
+        { success: false, error: "interested must be true, false or null" },
         { status: 400 }
       );
     }

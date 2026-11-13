@@ -1,8 +1,12 @@
+import { requireAdminPage } from "@/lib/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminImportPage() {
+export default async function AdminImportPage() {
+  // This page renders the import token, so it checks for an admin itself
+  // before reading it (see requireAdminPage).
+  await requireAdminPage();
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://mercatolist.vercel.app").replace(/\/$/, "");
   const token = process.env.ADMIN_IMPORT_TOKEN || "";
   const bookmarklet = `javascript:(function(){var s=document.createElement('script');s.src='${base}/import-bookmarklet.js?'+Date.now();document.body.appendChild(s);})();`;

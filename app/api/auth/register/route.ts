@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "@/lib/prisma";
 import { userRegistrationSchema } from "@/lib/validations";
-import { attachPendingInvites } from "@/lib/attach-pending-invites";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 import { sendClaimEmail } from "@/lib/claim";
 
@@ -72,8 +71,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Attach any pending invites for this email (Client → Collection collaborator).
-    await attachPendingInvites(user.id, user.email);
+    // Pending invites for this email are attached once the address is
+    // verified (see /api/auth/verify-email) — not here. Anyone can type
+    // someone else's email into the sign-up form, and attaching now would
+    // hand them that person's shared collections.
 
     // Generate verification token
     const token = uuidv4();

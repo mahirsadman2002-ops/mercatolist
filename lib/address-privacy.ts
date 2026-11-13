@@ -1,18 +1,32 @@
+import { createHmac } from "crypto";
+
 /**
  * Address privacy utilities for listings with hideAddress=true.
- * Uses a seeded random offset based on listing ID so the circle
- * doesn't jump around on page refreshes.
+ *
+ * The public coordinates are the real ones snapped to a coarse grid and then
+ * nudged by an offset derived from a server secret, so the circle stays put
+ * across page loads but can't be undone: the listing id alone no longer
+ * reproduces the offset, and the snap discards the precise position anyway.
+ * Server-only (uses node crypto) — never import from a client component.
  */
 
-function seededRandom(seed: string): number {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  // Convert to 0-1 range
-  return Math.abs(Math.sin(hash)) % 1;
+// ~0.004° ≈ 440 m north–south, ~340 m east–west at NYC's latitude.
+const GRID = 0.004;
+
+function keyedUnit(id: string, axis: string): number {
+  const secret =
+    process.env.ADDRESS_PRIVACY_SECRET ??
+    process.env.AUTH_SECRET ??
+    process.env.NEXTAUTH_SECRET ??
+    "";
+  const digest = createHmac("sha256", secret).update(`${id}:${axis}`).digest();
+  return digest.readUInt32BE(0) / 0xffffffff; // 0..1
+}
+
+function obscure(value: number, id: string, axis: string): number {
+  const snapped = Math.round(value / GRID) * GRID;
+  // ±0.0015° keyed jitter so listings in one grid cell don't stack exactly.
+  return snapped + (keyedUnit(id, axis) - 0.5) * 0.003;
 }
 
 /**
@@ -23,6 +37,9 @@ function seededRandom(seed: string): number {
  */
 // Admin/ops-only columns that must never appear in a PUBLIC listing payload.
 const INTERNAL_LISTING_FIELDS = [
+  // The link-only access token for ghost listings; only the owner's own
+  // (privileged, un-scrubbed) views may carry it.
+  "shareToken",
   "adminNotes",
   "lastStatusConfirmation",
   "statusConfirmationDue",
@@ -56,18 +73,13 @@ export function applyAddressPrivacy<T extends {
   if (!listingClean.hideAddress) return listingClean;
   listing = listingClean;
 
-  const rand1 = seededRandom(listing.id + "lat");
-  const rand2 = seededRandom(listing.id + "lng");
-
-  // Offset by 0.002-0.005 degrees in a random direction
-  const latOffset = (rand1 * 0.003 + 0.002) * (rand1 > 0.5 ? 1 : -1);
-  const lngOffset = (rand2 * 0.003 + 0.002) * (rand2 > 0.5 ? 1 : -1);
-
   return {
     ...listing,
     address: null,
-    latitude: listing.latitude != null ? Number(listing.latitude) + latOffset : null,
-    longitude: listing.longitude != null ? Number(listing.longitude) + lngOffset : null,
+    latitude:
+      listing.latitude != null ? obscure(Number(listing.latitude), listing.id, "lat") : null,
+    longitude:
+      listing.longitude != null ? obscure(Number(listing.longitude), listing.id, "lng") : null,
   };
 }
 

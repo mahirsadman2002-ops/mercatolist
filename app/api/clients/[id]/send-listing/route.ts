@@ -57,7 +57,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { listingId, personalMessage } = body;
+    const { listingId } = body;
+    const personalMessage: string | undefined =
+      typeof body?.personalMessage === "string"
+        ? body.personalMessage.trim().slice(0, 1000)
+        : undefined;
 
     if (!listingId || typeof listingId !== "string") {
       return NextResponse.json(

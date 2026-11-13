@@ -69,7 +69,10 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const personalMessage = body?.personalMessage?.trim() || null;
+    const personalMessage =
+      typeof body?.personalMessage === "string"
+        ? body.personalMessage.trim().slice(0, 1000) || null
+        : null;
 
     const registerUrl = "https://mercatolist.com/register";
 

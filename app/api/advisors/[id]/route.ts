@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyAddressPrivacyToList } from "@/lib/address-privacy";
-
-// Public-facing review shape — drops moderation-only fields (isReported,
-// reportReason, transaction internals) that must never reach anonymous callers.
-function publicReview(r: any) {
-  return {
-    id: r.id,
-    rating: r.rating,
-    text: r.text,
-    createdAt: r.createdAt,
-    response: r.response ?? null,
-    responseAt: r.responseAt ?? null,
-    reviewer: r.reviewer,
-  };
-}
+import { publicReview } from "@/lib/public-review";
 
 export async function GET(
   request: NextRequest,
@@ -45,7 +32,8 @@ export async function GET(
         tiktokUrl: true,
         createdAt: true,
         listings: {
-          where: { isGhostListing: false },
+          // Nested reads bypass the soft-delete filter in lib/prisma.ts.
+          where: { isGhostListing: false, deletedAt: null },
           orderBy: { createdAt: "desc" },
           include: {
             photos: { orderBy: { order: "asc" }, take: 1 },

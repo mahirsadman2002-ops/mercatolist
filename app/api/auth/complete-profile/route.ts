@@ -41,11 +41,16 @@ export async function PUT(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: Record<string, any> = {};
 
-    if (role && (role === "USER" || role === "BROKER")) {
+    // Onboarding picks buyer/seller vs advisor; it never changes an admin.
+    if (
+      role &&
+      (role === "USER" || role === "BROKER") &&
+      session.user.role !== "ADMIN"
+    ) {
       updateData.role = role;
     }
-    if (phone !== undefined) updateData.phone = phone;
-    if (bio !== undefined) updateData.bio = stripHtml(bio);
+    if (phone !== undefined) updateData.phone = typeof phone === "string" ? phone.slice(0, 40) : null;
+    if (bio !== undefined) updateData.bio = typeof bio === "string" ? stripHtml(bio).slice(0, 5000) : null;
 
     // Broker / Advisor fields
     if (brokerageName !== undefined) updateData.brokerageName = brokerageName;

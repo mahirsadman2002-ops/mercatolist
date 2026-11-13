@@ -34,10 +34,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enforce a max size. fileSize is optional for backward-compat, but when
-    // present we both reject oversize here and bind it into the S3 signature.
-    if (fileSize != null) {
-      if (typeof fileSize !== "number" || fileSize <= 0) {
+    // fileSize is required: it is checked against the limit here and bound
+    // into the S3 signature, so the upload must be exactly that size. (When it
+    // was optional, omitting it allowed an upload of any size.)
+    {
+      if (typeof fileSize !== "number" || !Number.isFinite(fileSize) || fileSize <= 0) {
         return NextResponse.json(
           { success: false, error: "Invalid file size." },
           { status: 400 }

@@ -23,7 +23,16 @@ export async function GET(
     select: { title: true, carouselPoints: true, status: true },
   });
   const slides = (post?.carouselPoints as Slide[] | null) ?? [];
-  if (!post || !Array.isArray(slides) || idx < 0 || idx >= slides.length) {
+  // Slides are only served for published posts — drafts and scheduled posts
+  // shouldn't be readable by guessing a slug.
+  if (
+    !post ||
+    post.status !== "PUBLISHED" ||
+    !Array.isArray(slides) ||
+    !Number.isInteger(idx) ||
+    idx < 0 ||
+    idx >= slides.length
+  ) {
     return new Response("Not found", { status: 404 });
   }
 

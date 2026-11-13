@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20") || 20));
     const sort = searchParams.get("sort") || "newest";
     const keyword = searchParams.get("keyword") || "";
     const category = searchParams.get("category") || "";
@@ -65,7 +65,9 @@ export async function GET(request: NextRequest) {
           { title: { contains: keyword, mode: "insensitive" } },
           { description: { contains: keyword, mode: "insensitive" } },
           { neighborhood: { contains: keyword, mode: "insensitive" } },
-          { address: { contains: keyword, mode: "insensitive" } },
+          // Never match on the street address of a hidden-address listing —
+          // it would let a searcher confirm an address one character at a time.
+          { hideAddress: false, address: { contains: keyword, mode: "insensitive" } },
         ];
       }
     }
@@ -82,7 +84,11 @@ export async function GET(request: NextRequest) {
     if (borough) {
       const boroughs = borough.split(",").filter(Boolean);
       if (boroughs.length > 0) {
-        where.borough = { in: boroughs as any[] };
+        const valid = boroughs.filter((b) =>
+          ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN_ISLAND"].includes(b)
+        );
+        // An unknown borough matches nothing rather than erroring.
+        where.borough = { in: valid as any[] };
       }
     }
 
@@ -102,15 +108,15 @@ export async function GET(request: NextRequest) {
     // Price range
     if (priceMin || priceMax) {
       where.askingPrice = {};
-      if (priceMin) where.askingPrice.gte = parseFloat(priceMin);
-      if (priceMax) where.askingPrice.lte = parseFloat(priceMax);
+      if (priceMin && Number.isFinite(parseFloat(priceMin))) where.askingPrice.gte = parseFloat(priceMin);
+      if (priceMax && Number.isFinite(parseFloat(priceMax))) where.askingPrice.lte = parseFloat(priceMax);
     }
 
     // Revenue range
     if (revenueMin || revenueMax) {
       where.annualRevenue = {};
-      if (revenueMin) where.annualRevenue.gte = parseFloat(revenueMin);
-      if (revenueMax) where.annualRevenue.lte = parseFloat(revenueMax);
+      if (revenueMin && Number.isFinite(parseFloat(revenueMin))) where.annualRevenue.gte = parseFloat(revenueMin);
+      if (revenueMax && Number.isFinite(parseFloat(revenueMax))) where.annualRevenue.lte = parseFloat(revenueMax);
     }
 
     // Days on market

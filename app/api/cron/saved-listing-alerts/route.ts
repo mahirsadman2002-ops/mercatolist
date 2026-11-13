@@ -15,10 +15,9 @@ async function handler(request: Request) {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // Find status logs created in the last 24 hours
-    const recentStatusChanges = await prisma.listingStatusLog.findMany({
+    const recentStatusChangesAll = await prisma.listingStatusLog.findMany({
       where: {
         createdAt: { gte: twentyFourHoursAgo },
-        previousStatus: { not: undefined },
       },
       include: {
         listing: {
@@ -51,6 +50,11 @@ async function handler(request: Request) {
         },
       },
     });
+    // The log also records routine "still available" confirmations, where the
+    // status didn't change. Only real changes should notify anyone.
+    const recentStatusChanges = recentStatusChangesAll.filter(
+      (log) => log.previousStatus !== log.confirmedStatus
+    );
 
     let emailsSent = 0;
 

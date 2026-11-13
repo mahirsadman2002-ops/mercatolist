@@ -20,6 +20,8 @@ async function handler(request: Request) {
           some: {
             listing: {
               status: "ACTIVE",
+              deletedAt: null,
+              isGhostListing: false,
             },
           },
         },
@@ -36,6 +38,8 @@ async function handler(request: Request) {
           where: {
             listing: {
               status: "ACTIVE",
+              deletedAt: null,
+              isGhostListing: false,
             },
           },
           select: {

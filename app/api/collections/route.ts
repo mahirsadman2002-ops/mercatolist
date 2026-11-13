@@ -19,7 +19,7 @@ export async function GET() {
     // Get user email for client-assigned collection lookup
     const currentUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true },
+      select: { email: true, emailVerified: true },
     });
 
     const collections = await prisma.collection.findMany({
@@ -84,7 +84,8 @@ export async function GET() {
     }));
 
     // Also fetch collections assigned to this user via Client records
-    if (currentUser?.email) {
+    // Matching a client by email only counts once the address is verified.
+    if (currentUser?.email && currentUser.emailVerified) {
       const clientRecords = await prisma.client.findMany({
         where: { email: currentUser.email.toLowerCase() },
         select: { id: true, advisorId: true },

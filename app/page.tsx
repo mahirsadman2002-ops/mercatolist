@@ -117,7 +117,7 @@ async function getHomePageData() {
   // near-empty category page.
   const categoryGroups = await prisma.businessListing.groupBy({
     by: ["category"],
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", isGhostListing: false },
     _count: { id: true },
     having: { id: { _count: { gte: 2 } } },
     orderBy: { _count: { id: "desc" } },
@@ -125,7 +125,7 @@ async function getHomePageData() {
   const popularCategories = categoryGroups.map((g) => g.category);
 
   const featuredListings = await prisma.businessListing.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", isGhostListing: false },
     orderBy: { viewCount: "desc" },
     take: 12,
     select: {

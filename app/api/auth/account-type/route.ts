@@ -21,6 +21,16 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // This onboarding step picks between buyer/seller and advisor. It must
+    // never change an admin's role.
+    const current = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    if (current?.role === "ADMIN") {
+      return NextResponse.json({ success: true, data: { id: session.user.id, role: "ADMIN" } });
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: { role: accountType },

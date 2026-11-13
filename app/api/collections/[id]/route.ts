@@ -118,9 +118,10 @@ export async function GET(
     if (!isOwner && !isCollaborator && collection.clientId) {
       const currentUser = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { email: true },
+        select: { email: true, emailVerified: true },
       });
-      if (currentUser?.email) {
+      // Matching a client by email only counts once the address is verified.
+      if (currentUser?.email && currentUser.emailVerified) {
         const clientRecord = await prisma.client.findUnique({
           where: { id: collection.clientId },
           select: { email: true },
@@ -157,10 +158,23 @@ export async function GET(
         shareToken: collection.shareToken,
         isPubliclyShared: collection.isPubliclyShared,
         userId: collection.userId,
-        client: collection.client,
-        assignedClients: collection.clientAssignments.map((a) => a.client),
-        listingCount: collection.collectionListings.length,
-        collectionListings: collection.collectionListings.map((cl) => ({
+        // The advisor's client records (contact details, buy box, private
+        // notes) are for the owner only; collaborators and the clients
+        // themselves just get names.
+        client: isOwner
+          ? collection.client
+          : collection.client
+            ? { id: collection.client.id, name: collection.client.name }
+            : null,
+        assignedClients: collection.clientAssignments.map((a) =>
+          isOwner ? a.client : { id: a.client.id, name: a.client.name }
+        ),
+        listingCount: collection.collectionListings.filter((cl) => !cl.listing.deletedAt)
+          .length,
+        collectionListings: collection.collectionListings
+          // Listings the seller has since deleted drop out of collections.
+          .filter((cl) => !cl.listing.deletedAt)
+          .map((cl) => ({
           id: cl.id,
           personalRating: cl.personalRating,
           clientInterested: cl.clientInterested,
@@ -180,7 +194,10 @@ export async function GET(
             borough: cl.listing.borough,
             address: cl.listing.hideAddress ? null : cl.listing.address,
             photos: cl.listing.photos,
-            listedBy: cl.listing.listedBy,
+            // Honour the lister's "show phone number" choice.
+            listedBy: cl.listing.showPhoneNumber
+              ? cl.listing.listedBy
+              : { ...cl.listing.listedBy, phone: null },
             yearEstablished: cl.listing.yearEstablished,
             numberOfEmployees: cl.listing.numberOfEmployees,
             squareFootage: cl.listing.squareFootage,
@@ -190,7 +207,8 @@ export async function GET(
         collaborators: collection.collaborators.map((c) => ({
           id: c.id,
           role: c.role,
-          user: c.user,
+          // Other collaborators' email addresses are visible to the owner only.
+          user: isOwner || c.userId === session.user.id ? c.user : { ...c.user, email: "" },
           joinedAt: c.invitedAt,
         })),
         notes: collection.notes.map((n) => ({

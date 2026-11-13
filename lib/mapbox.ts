@@ -86,7 +86,12 @@ export async function searchAddresses(
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${token}&limit=${limit}&country=US&bbox=-74.26,40.49,-73.70,40.92&types=address`;
 
   const response = await fetch(url);
-  if (!response.ok) return [];
+  if (!response.ok) {
+    // A rejected token (401/403) or quota error used to look like "no
+    // matches". Fail loudly so the route returns 500 and it shows in logs.
+    console.error("[mapbox] address search failed:", response.status);
+    throw new Error(`Mapbox address search failed (${response.status})`);
+  }
 
   const data = await response.json();
 

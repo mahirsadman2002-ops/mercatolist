@@ -15,7 +15,7 @@ async function handler(request: Request) {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // Find status logs created in the last 24 hours for listings in collections
-    const recentChanges = await prisma.listingStatusLog.findMany({
+    const recentChangesAll = await prisma.listingStatusLog.findMany({
       where: {
         createdAt: { gte: twentyFourHoursAgo },
       },
@@ -56,6 +56,11 @@ async function handler(request: Request) {
         },
       },
     });
+    // The log also records routine "still available" confirmations, where the
+    // status didn't change. Only real changes should notify anyone.
+    const recentChanges = recentChangesAll.filter(
+      (log) => log.previousStatus !== log.confirmedStatus
+    );
 
     // Group changes by collection
     const collectionChanges = new Map<

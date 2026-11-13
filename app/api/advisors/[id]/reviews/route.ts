@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { reviewFormSchema } from "@/lib/validations";
+import { publicReview } from "@/lib/public-review";
+import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
+import { requireVerifiedEmail } from "@/lib/require-verified";
 
 export async function GET(
   request: NextRequest,
@@ -10,8 +13,8 @@ export async function GET(
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10") || 10));
     const skip = (page - 1) * limit;
 
     const [reviews, total] = await Promise.all([
@@ -36,7 +39,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: reviews,
+      data: reviews.map(publicReview),
       pagination: {
         page,
         limit,
@@ -75,6 +78,14 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const limit = await rateLimit(request, "write", session.user.id);
+    if (!limit.success) return rateLimitResponse(limit.retryAfterSec);
+
+    // Reviews are public and affect an advisor's rating, so the reviewer must
+    // have a verified email (same bar as sending an inquiry).
+    const gate = await requireVerifiedEmail(session.user.id, "leave a review");
+    if (!gate.verified) return gate.response;
 
     // Check advisor exists (still using role: "BROKER" internally)
     const advisor = await prisma.user.findUnique({

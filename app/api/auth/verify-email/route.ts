@@ -47,6 +47,11 @@ export async function GET(request: NextRequest) {
     // Delete used token
     await prisma.emailVerificationToken.delete({ where: { id: verificationToken.id } });
 
+    // Now that the address is proven, attach invites that were waiting on it
+    // (collections an advisor assigned to this email).
+    const { attachPendingInvites } = await import("@/lib/attach-pending-invites");
+    await attachPendingInvites(verificationToken.userId, verificationToken.user.email);
+
     // Send welcome email
     try {
       const { sendEmail } = await import("@/lib/email");

@@ -30,9 +30,33 @@ export async function PUT(
     const body = await request.json();
     const { name, issuingAuthority, licenseNumber, expirationDate, documentUrl } = body;
 
+    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+      return NextResponse.json(
+        { success: false, error: "License name is required" },
+        { status: 400 }
+      );
+    }
+    const parsedExpiry = expirationDate ? new Date(expirationDate) : null;
+    if (parsedExpiry && Number.isNaN(parsedExpiry.getTime())) {
+      return NextResponse.json(
+        { success: false, error: "Invalid expiration date" },
+        { status: 400 }
+      );
+    }
+
+    // An admin verified the license as it was. Changing what it says sends
+    // it back to unverified so the "verified" badge can't be carried over to
+    // details nobody checked.
+    const changesContent =
+      name !== undefined ||
+      issuingAuthority !== undefined ||
+      licenseNumber !== undefined ||
+      documentUrl !== undefined;
+
     const updated = await prisma.license.update({
       where: { id },
       data: {
+        ...(changesContent && { isVerified: false, verifiedAt: null }),
         ...(name !== undefined && { name: name.trim() }),
         ...(issuingAuthority !== undefined && {
           issuingAuthority: issuingAuthority?.trim() || null,
@@ -41,7 +65,7 @@ export async function PUT(
           licenseNumber: licenseNumber?.trim() || null,
         }),
         ...(expirationDate !== undefined && {
-          expirationDate: expirationDate ? new Date(expirationDate) : null,
+          expirationDate: parsedExpiry,
         }),
         ...(documentUrl !== undefined && {
           documentUrl: documentUrl?.trim() || null,

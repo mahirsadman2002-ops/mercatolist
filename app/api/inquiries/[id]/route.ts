@@ -98,7 +98,14 @@ export async function GET(
       data: { isRead: true },
     });
 
-    return NextResponse.json({ success: true, data: inquiry });
+    // The lister's email is never shown to the person inquiring — contact
+    // goes through the thread (same rule as the listing API).
+    const data =
+      inquiry.receiver && inquiry.receiverId !== session.user.id
+        ? { ...inquiry, receiver: { ...inquiry.receiver, email: "" } }
+        : inquiry;
+
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("Error fetching inquiry:", error);
     return NextResponse.json(

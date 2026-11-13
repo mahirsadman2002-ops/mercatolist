@@ -79,7 +79,7 @@ export async function generateMetadata({
     where: {
       neighborhood: neighborhoodName,
       borough: boroughValue as never,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
   });
 
@@ -171,7 +171,7 @@ export default async function NeighborhoodPage({
     where: {
       neighborhood: neighborhoodName,
       borough: boroughValue as never,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
   });
 
@@ -180,7 +180,7 @@ export default async function NeighborhoodPage({
     where: {
       neighborhood: neighborhoodName,
       borough: boroughValue as never,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
     orderBy: { createdAt: "desc" },
     take: 24,
@@ -219,7 +219,7 @@ export default async function NeighborhoodPage({
     where: {
       neighborhood: neighborhoodName,
       borough: boroughValue as never,
-      status: "ACTIVE",
+      status: "ACTIVE", isGhostListing: false,
     },
     _count: { id: true },
     orderBy: { _count: { id: "desc" } },

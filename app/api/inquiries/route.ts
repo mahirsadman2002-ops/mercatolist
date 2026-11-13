@@ -125,6 +125,12 @@ export async function GET(request: NextRequest) {
         }
         return {
           ...inq,
+          // The lister's email is never shown to the person inquiring —
+          // contact goes through the thread (same rule as the listing API).
+          receiver:
+            inq.receiver && inq.receiverId !== session.user.id
+              ? { ...inq.receiver, email: "" }
+              : inq.receiver,
           // Which side of the conversation the current user is on, so the
           // unified inbox can label + filter without a second request.
           direction:

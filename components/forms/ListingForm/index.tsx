@@ -1970,12 +1970,15 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false, isO
       formData.askingPrice ||
       formData.photos.length > 0;
     if (!hasAnyContent) return;
+    // Autosave is for drafts. A published listing only changes when the owner
+    // presses Save — otherwise half-typed edits went live every few seconds.
+    if (!isDraft) return;
 
     const handle = setTimeout(() => {
       saveDraftToServer({ silent: true });
     }, 2500);
     return () => clearTimeout(handle);
-  }, [formData, saveDraftToServer]);
+  }, [formData, saveDraftToServer, isDraft]);
 
   const onChange = useCallback(
     (field: keyof FormData, value: any) => {
@@ -2078,13 +2081,17 @@ export function ListingForm({ mode, initialData, listingId, isAdmin = false, isO
         if (!saveRes.ok) throw new Error(saveJson.error || "Couldn't save the listing");
         slug = saveJson.data?.slug;
 
-        const pubRes = await fetch(`/api/listings/${targetId}/status`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "ACTIVE" }),
-        });
-        const pubJson = await pubRes.json();
-        if (!pubRes.ok) throw new Error(pubJson.error || "Couldn't publish the listing");
+        // Only a draft gets published here. Saving an edit to a listing that
+        // is Under Contract, Sold or Off Market must leave its status alone.
+        if (isDraft) {
+          const pubRes = await fetch(`/api/listings/${targetId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "ACTIVE" }),
+          });
+          const pubJson = await pubRes.json();
+          if (!pubRes.ok) throw new Error(pubJson.error || "Couldn't publish the listing");
+        }
       } else {
         // No draft yet — POST creates it as ACTIVE directly (that route honors
         // status and runs the same publish gates).

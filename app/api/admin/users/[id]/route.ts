@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import { deleteUserAccount } from "@/lib/delete-account";
 
 // PATCH: admin edits limited user fields (currently the profile photo, e.g.
 // setting an avatar on a broker's behalf).
@@ -87,9 +88,14 @@ export async function DELETE(
       );
     }
 
-    await prisma.user.delete({
-      where: { id },
-    });
+    if (id === adminCheck.userId) {
+      return NextResponse.json(
+        { success: false, error: "You can't delete your own admin account here" },
+        { status: 400 }
+      );
+    }
+
+    await deleteUserAccount(id);
 
     return NextResponse.json({
       success: true,

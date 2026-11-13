@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { deleteUserAccount } from "@/lib/delete-account";
 import { auth } from "@/lib/auth";
 
 export async function DELETE() {
@@ -12,9 +12,7 @@ export async function DELETE() {
       );
     }
 
-    await prisma.user.delete({
-      where: { id: session.user.id },
-    });
+    await deleteUserAccount(session.user.id);
 
     return NextResponse.json({
       success: true,

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const isValid =
       !!user?.hashedPassword &&
       (await bcrypt.compare(parsed.data.password, user.hashedPassword));
-    if (!user || !isValid) {
+    if (!user || !isValid || user.isBanned) {
       return NextResponse.json(
         { success: false, error: "Invalid email or password." },
         { status: 401 }

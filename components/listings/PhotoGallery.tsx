@@ -49,6 +49,23 @@ interface PhotoGalleryProps {
 /** The virtual "map slide" index is always `photos.length` (last position). */
 const MAP_SLIDE_LABEL = "View on Map";
 
+/**
+ * With object-contain the <img> box covers the letterbox bars too. Returns
+ * true only if the click hit the drawn photo, not the empty bars around it.
+ */
+function isOnVisiblePixels(img: HTMLImageElement, e: React.MouseEvent) {
+  const r = img.getBoundingClientRect();
+  if (!img.naturalWidth || !img.naturalHeight) return true;
+  const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  const left = r.left + (r.width - w) / 2;
+  const top = r.top + (r.height - h) / 2;
+  return (
+    e.clientX >= left && e.clientX <= left + w && e.clientY >= top && e.clientY <= top + h
+  );
+}
+
 // ---------------------------------------------------------------------------
 // PhotoGallery
 // ---------------------------------------------------------------------------
@@ -128,6 +145,26 @@ export function PhotoGallery({
 
   const openLightbox = useCallback(() => setLightboxOpen(true), []);
   const closeLightbox = useCallback(() => setLightboxOpen(false), []);
+
+  // Horizontal swipe → prev/next (phones). Set `swiped` so the tap that ends
+  // a swipe doesn't also open/close the lightbox.
+  const touchStartX = useRef<number | null>(null);
+  const swiped = useRef(false);
+  const swipeHandlers = {
+    onTouchStart: (e: React.TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      swiped.current = false;
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (touchStartX.current === null || totalSlides < 2) return;
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      touchStartX.current = null;
+      if (Math.abs(dx) < 50) return;
+      swiped.current = true;
+      if (dx < 0) goNext();
+      else goPrev();
+    },
+  };
 
   // -----------------------------------------------------------------------
   // Keyboard navigation
@@ -274,14 +311,28 @@ export function PhotoGallery({
               <MapPlaceholder className="h-full w-full" />
             )
           ) : (
-            <Image
-              src={pickPhotoUrl(sortedPhotos[activeIndex], "full")}
-              alt={`${title} — photo ${activeIndex + 1}`}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 66vw, 50vw"
-              className="object-cover transition-opacity duration-300"
-              priority={activeIndex === 0}
-            />
+            <button
+              type="button"
+              onClick={() => {
+                if (swiped.current) {
+                  swiped.current = false;
+                  return;
+                }
+                openLightbox();
+              }}
+              {...swipeHandlers}
+              aria-label={`View photo ${activeIndex + 1} fullscreen`}
+              className="absolute inset-0 cursor-zoom-in"
+            >
+              <Image
+                src={pickPhotoUrl(sortedPhotos[activeIndex], "full")}
+                alt={`${title} — photo ${activeIndex + 1}`}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 66vw, 50vw"
+                className="object-cover transition-opacity duration-300"
+                priority={activeIndex === 0}
+              />
+            </button>
           )}
 
           {/* Gradient overlay for controls */}
@@ -297,7 +348,7 @@ export function PhotoGallery({
                   goPrev();
                 }}
                 aria-label="Previous photo"
-                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/70 hover:scale-105 active:scale-95 opacity-0 group-hover/main:opacity-100 focus-visible:opacity-100"
+                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/70 hover:scale-105 active:scale-95 opacity-0 group-hover/main:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
               >
                 <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
               </button>
@@ -308,7 +359,7 @@ export function PhotoGallery({
                   goNext();
                 }}
                 aria-label="Next photo"
-                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/70 hover:scale-105 active:scale-95 opacity-0 group-hover/main:opacity-100 focus-visible:opacity-100"
+                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/70 hover:scale-105 active:scale-95 opacity-0 group-hover/main:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
               >
                 <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
               </button>
@@ -320,7 +371,7 @@ export function PhotoGallery({
             type="button"
             onClick={openLightbox}
             aria-label="Open fullscreen gallery"
-            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-black/50 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/70 hover:scale-105 active:scale-95 opacity-0 group-hover/main:opacity-100 focus-visible:opacity-100"
+            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-black/50 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/70 hover:scale-105 active:scale-95 opacity-0 group-hover/main:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
           >
             <Expand className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -450,7 +501,18 @@ export function PhotoGallery({
           {/* Main lightbox content */}
           <div
             className="relative flex h-full w-full items-center justify-center px-4 py-16 sm:px-16"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Clicking the dark space around the photo closes; the photo itself doesn't.
+              const t = e.target as HTMLElement;
+              const onBackdrop =
+                t === e.currentTarget ||
+                t.dataset.lightboxBackdrop !== undefined ||
+                (t instanceof HTMLImageElement && !isOnVisiblePixels(t, e));
+              if (onBackdrop && !swiped.current) closeLightbox();
+              swiped.current = false;
+            }}
+            {...(isMapSlide(activeIndex) ? {} : swipeHandlers)}
           >
             {isMapSlide(activeIndex) ? (
               canRenderInteractiveMap ? (
@@ -470,7 +532,10 @@ export function PhotoGallery({
                 <MapPlaceholder className="h-full max-h-[80vh] w-full max-w-5xl rounded-xl" />
               )
             ) : (
-              <div className="relative h-full w-full max-h-[80vh] max-w-5xl">
+              <div
+                data-lightbox-backdrop
+                className="relative h-full w-full max-h-[80vh] max-w-5xl"
+              >
                 <Image
                   src={pickPhotoUrl(sortedPhotos[activeIndex], "full")}
                   alt={`${title} — photo ${activeIndex + 1}`}

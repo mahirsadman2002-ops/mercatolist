@@ -24,7 +24,7 @@ export async function POST(
       where: { id },
       include: {
         collaborators: {
-          select: { userId: true },
+          select: { userId: true, role: true },
         },
       },
     });
@@ -37,13 +37,21 @@ export async function POST(
     }
 
     const isOwner = collection.userId === session.user.id;
-    const isCollaborator = collection.collaborators.some(
+    const membership = collection.collaborators.find(
       (c) => c.userId === session.user.id
     );
 
-    if (!isOwner && !isCollaborator) {
+    if (!isOwner && !membership) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+    // "Viewer" means view-only: only the owner and editors change what's in
+    // a collection.
+    if (!isOwner && membership?.role !== "editor") {
+      return NextResponse.json(
+        { success: false, error: "You have view-only access to this collection." },
         { status: 403 }
       );
     }

@@ -5,6 +5,8 @@ import { sendEmail } from "@/lib/email";
 import NewMessage from "@/emails/new-message";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 import { requireVerifiedEmail } from "@/lib/require-verified";
+import { isBlockedEitherWay } from "@/lib/blocks";
+import { sendPush } from "@/lib/push";
 
 const MAX_MESSAGE_LEN = 5000;
 
@@ -150,6 +152,15 @@ export async function POST(
       );
     }
 
+    const otherPartyId =
+      inquiry.senderId === session.user.id ? inquiry.receiverId : inquiry.senderId;
+    if (otherPartyId && (await isBlockedEitherWay(session.user.id, otherPartyId))) {
+      return NextResponse.json(
+        { success: false, error: "You can't message this user." },
+        { status: 403 }
+      );
+    }
+
     const message = await prisma.message.create({
       data: {
         content: body.content.trim(),
@@ -173,6 +184,14 @@ export async function POST(
       where: { id },
       data: { isRead: false },
     });
+
+    if (otherPartyId) {
+      await sendPush([otherPartyId], {
+        title: session.user.name || "New message",
+        body: body.content.trim(),
+        data: { type: "inquiry", inquiryId: id },
+      });
+    }
 
     // Send email notification to the other party
     const recipientIsReceiver = inquiry.receiverId !== session.user.id;

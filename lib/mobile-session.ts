@@ -1,5 +1,6 @@
 import { encode } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
+import { passwordFingerprint } from "@/lib/session-version";
 
 // Shared by the native-app auth routes (/api/mobile/auth/*). NextAuth v5 only
 // speaks browser cookies, so these routes mint the same session JWT the web
@@ -35,6 +36,7 @@ interface MobileUser {
   role: string;
   avatarUrl: string | null;
   emailVerified: Date | null;
+  hashedPassword?: string | null;
 }
 
 export async function mintMobileSession(request: NextRequest, user: MobileUser) {
@@ -54,6 +56,7 @@ export async function mintMobileSession(request: NextRequest, user: MobileUser) 
       picture,
       role: user.role,
       isEmailVerified: !!user.emailVerified,
+      pwv: passwordFingerprint(user.hashedPassword),
     },
     secret: authSecret(),
     salt: cookieName,

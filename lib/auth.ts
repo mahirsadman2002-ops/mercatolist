@@ -6,6 +6,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { rateLimitByKey } from "@/lib/ratelimit";
+import { passwordFingerprint } from "@/lib/session-version";
 
 // Our User model stores the profile photo as `avatarUrl`, but the standard
 // PrismaAdapter writes/reads NextAuth's `image` field. Without translating,
@@ -162,12 +163,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 avatarUrl: true,
                 emailVerified: true,
                 isBanned: true,
+                hashedPassword: true,
               },
             });
             // Deleted or banned account: end the session. (A lookup that
             // throws falls through to the catch and keeps the existing token,
             // so a database blip doesn't sign everyone out.)
             if (!dbUser || dbUser.isBanned) return null;
+            // Sessions issued before the latest password change are rejected.
+            // (Tokens from before this check existed adopt the current value.)
+            const pwv = passwordFingerprint(dbUser.hashedPassword);
+            if (token.pwv === undefined) token.pwv = pwv;
+            else if (token.pwv !== pwv) return null;
             if (dbUser) {
               token.id = dbUser.id;
               token.role = dbUser.role;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { blockedIdsFor } from "@/lib/blocks";
 
 export async function GET() {
   try {
@@ -13,18 +14,24 @@ export async function GET() {
     // receiver. Message threads are counted via unreadMessages below — counting
     // them here too would double-count (a thread's inquiry row is also flagged
     // isRead:false on each new message).
+    // People the user has blocked don't count towards the badge.
+    const blocked = await blockedIdsFor(session.user.id);
+
     const unreadInquiries = await prisma.inquiry.count({
       where: {
         receiverId: session.user.id,
         isRead: false,
         type: { not: "MESSAGE_THREAD" },
+        ...(blocked.length > 0
+          ? { OR: [{ senderId: null }, { senderId: { notIn: blocked } }] }
+          : {}),
       },
     });
 
     // Count unread messages in threads where user is a participant
     const unreadMessages = await prisma.message.count({
       where: {
-        senderId: { not: session.user.id },
+        senderId: { not: session.user.id, notIn: blocked },
         isRead: false,
         inquiry: {
           OR: [

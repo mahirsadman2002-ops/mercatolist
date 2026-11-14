@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { revokeAppleToken } from "@/lib/apple";
 
 /**
  * Delete a user's account.
@@ -17,6 +18,15 @@ import { prisma } from "@/lib/prisma";
  * which frees the original address to register again.
  */
 export async function deleteUserAccount(userId: string): Promise<"deleted" | "anonymized"> {
+  // Apple asks apps to revoke "Sign in with Apple" when an account is deleted.
+  const appleLinks = await prisma.account.findMany({
+    where: { userId, provider: "apple", refresh_token: { not: null } },
+    select: { refresh_token: true },
+  });
+  for (const link of appleLinks) {
+    if (link.refresh_token) await revokeAppleToken(link.refresh_token);
+  }
+
   try {
     await prisma.user.delete({ where: { id: userId } });
     return "deleted";

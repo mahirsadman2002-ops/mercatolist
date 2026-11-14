@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import {
   User,
   Lock,
@@ -177,6 +177,7 @@ function serializeOwnedBusiness(
 }
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -592,6 +593,16 @@ export default function SettingsPage() {
       });
       const json = await res.json();
       if (res.ok) {
+        // Changing the password signs out every existing session, including
+        // this one — sign straight back in with the new password so the user
+        // stays where they are.
+        if (session?.user?.email) {
+          await signIn("credentials", {
+            email: session.user.email,
+            password: newPassword,
+            redirect: false,
+          });
+        }
         toast.success("Password updated");
         setCurrentPassword("");
         setNewPassword("");

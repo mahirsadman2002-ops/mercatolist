@@ -6,6 +6,8 @@ import NewMessage from "@/emails/new-message";
 import { rateLimit, rateLimitResponse } from "@/lib/ratelimit";
 import { requireVerifiedEmail } from "@/lib/require-verified";
 import { sendClaimEmail } from "@/lib/claim";
+import { blockedIdsFor, isBlockedEitherWay } from "@/lib/blocks";
+import { sendPush } from "@/lib/push";
 
 const MAX_MESSAGE_LEN = 5000;
 
@@ -73,6 +75,15 @@ export async function GET(request: NextRequest) {
 
     if (read === "unread") {
       where.isRead = false;
+    }
+
+    // Conversations with people the user has blocked stay out of their inbox.
+    const blocked = await blockedIdsFor(session.user.id);
+    if (blocked.length > 0) {
+      where.AND = [
+        { OR: [{ senderId: null }, { senderId: { notIn: blocked } }] },
+        { receiverId: { notIn: blocked } },
+      ];
     }
 
     const inquiries = await prisma.inquiry.findMany({
@@ -234,6 +245,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (await isBlockedEitherWay(session.user.id, listing.listedById)) {
+      return NextResponse.json(
+        { success: false, error: "You can't contact this user." },
+        { status: 403 }
+      );
+    }
+
     const baseUrl = process.env.NEXTAUTH_URL || "https://mercatolist.com";
 
     // Check if an existing thread exists between this user and this listing
@@ -279,6 +297,12 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.error("Failed to send new message email:", e);
       }
+
+      await sendPush([listing.listedById], {
+        title: session.user.name || "New message",
+        body: body.message,
+        data: { type: "inquiry", inquiryId: existing.id },
+      });
 
       // Nudge an unclaimed managed owner to claim their account.
       await sendClaimEmail(listing.listedBy, "inquiry", { listingTitle: listing.title });
@@ -334,6 +358,12 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error("Failed to send email:", emailError);
     }
+
+    await sendPush([listing.listedById], {
+      title: `New inquiry: ${listing.title}`,
+      body: `${session.user.name || "Someone"}: ${body.message}`,
+      data: { type: "inquiry", inquiryId: inquiry.id },
+    });
 
     // Nudge an unclaimed managed owner to claim their account.
     await sendClaimEmail(listing.listedBy, "inquiry", { listingTitle: listing.title });

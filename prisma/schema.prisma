@@ -204,6 +204,9 @@ model User {
   collectionNotes            CollectionNote[]
   collectionAccessRequests   CollectionAccessRequest[] @relation("CollectionAccessRequests")
   clients                    Client[]                  @relation("advisorClients")
+  deviceTokens               DeviceToken[]
+  blocksMade                 UserBlock[]               @relation("BlocksMade")
+  blocksReceived             UserBlock[]               @relation("BlocksReceived")
 
   // Admin: ban management
   isBanned     Boolean @default(false)
@@ -855,4 +858,35 @@ model DailyVisit {
 
   @@unique([visitorId, day])
   @@index([day])
+}
+
+// ─── Mobile app ──────────────────────────────────────────────────────
+
+/// A push-notification address for one install of the mobile app (an Expo
+/// push token). One user can have several devices; a token belongs to one user.
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   @default("ios")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// "blocker" no longer wants contact from "blocked": neither can start or
+/// continue a conversation with the other, and the blocker stops seeing the
+/// other's threads.
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
 }
